@@ -6,6 +6,8 @@ final class CityDriftScene: SaverScene {
     private var settings = SaverSettings()
     private let store: SettingsStore
     private let networkEnabled: Bool
+    private let fixedCity: Bool
+    private var hasStarted = false
     private(set) var city: MapCity
     private var loader: TileLoader?
     private var tiles: [TileID: CGImage] = [:]
@@ -30,7 +32,7 @@ final class CityDriftScene: SaverScene {
     private var layerRevision = -1
     private let provider: TileProvider
     init(store: SettingsStore, networkEnabled: Bool = true, city: MapCity? = nil, provider: TileProvider = .osm) {
-        self.store = store; self.networkEnabled = networkEnabled; self.provider = provider
+        self.store = store; self.networkEnabled = networkEnabled; self.provider = provider; self.fixedCity = city != nil
         self.city = city ?? MapCity.choose(recent: store.defaults.stringArray(forKey: "recentCities") ?? [])
         setOrigin()
     }
@@ -40,6 +42,12 @@ final class CityDriftScene: SaverScene {
     }
     func start() {
         guard !running else { return }
+        if hasStarted && !fixedCity {
+            city = MapCity.choose(recent: store.defaults.stringArray(forKey: "recentCities") ?? [])
+            setOrigin(); tiles.removeAll(); atlas = nil; previousAtlas = nil
+            dirty = true; overlayDirty = true
+        }
+        hasStarted = true
         running = true; motion.pause(); generation += 1
         var recent = store.defaults.stringArray(forKey: "recentCities") ?? []
         recent.append(city.name); store.defaults.set(Array(recent.suffix(8)), forKey: "recentCities")
@@ -126,7 +134,15 @@ final class CityDriftScene: SaverScene {
                 c.fill(CGRect(x: x, y: y, width: 1, height: 1))
             }
         }
-        previousAtlas = atlas; atlas = c.makeImage(); fadeStart = time; dirty = false; atlasRevision += 1
+        // Preserve the visible blend if another batch arrives before its fade completes.
+        // Otherwise the preceding batch would jump abruptly to full opacity.
+        if let old = previousAtlas, let current = atlas, time - fadeStart < 1.2,
+           let blend = bitmap(width: Int(atlasSize.width), height: Int(atlasSize.height)) {
+            let rect = CGRect(origin: .zero, size: atlasSize)
+            blend.draw(old, in: rect); blend.setAlpha(max(0, (time - fadeStart) / 1.2)); blend.draw(current, in: rect)
+            previousAtlas = blend.makeImage()
+        } else { previousAtlas = atlas }
+        atlas = c.makeImage(); fadeStart = time; dirty = false; atlasRevision += 1
     }
     private func prepare(size: CGSize, time: Double) -> (CGRect, CGSize, Double) {
         motion.step(now: time, speed: settings.speed)

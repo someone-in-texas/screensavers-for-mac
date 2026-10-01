@@ -114,6 +114,16 @@ expect(MapCity.all.allSatisfy { abs($0.latitude) <= 85 && abs($0.longitude) <= 1
 let recent = Array(MapCity.all.prefix(8).map(\.name))
 expect(!recent.contains(MapCity.choose(recent: recent, randomIndex: { _ in 0 }).name), "recent cities avoided")
 
+// Session restart selects a new public city even when macOS reuses a view instance.
+let restarted = CityDriftScene(store: b, networkEnabled: false)
+restarted.start(); let initialCity = restarted.city; restarted.stop(); restarted.start()
+expect(restarted.city != initialCity, "reused view avoids previous session city")
+restarted.stop()
+let fixedScene = CityDriftScene(store: b, networkEnabled: false, city: MapCity.all[0])
+fixedScene.start(); fixedScene.stop(); fixedScene.start()
+expect(fixedScene.city == MapCity.all[0], "explicit preview city stays fixed")
+fixedScene.stop()
+
 // HTTP cache semantics and invalid data.
 let now = Date(timeIntervalSince1970: 1700000000), png = tilePNG()
 let fallback = CachePolicy.entry(data: png, response: response(), now: now)!

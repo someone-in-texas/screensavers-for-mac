@@ -26,6 +26,7 @@ every intervening OS release.
   → Screen Saver → Other → Show All. System Settings selection/full-screen activation
   on this OS preview could not be confirmed through automation; the standalone preview
   and actual-bundle loading checks pass. No system security setting was relaxed.
+- A clean local git checkout also passed the complete build/test/package verification.
 - Package verification checks SHA-256 hashes, mounts the DMG read-only, extracts the ZIP,
   and validates both bundles' metadata, architecture, Mach-O type and code signatures.
 

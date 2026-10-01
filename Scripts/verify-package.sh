@@ -26,7 +26,7 @@ for location in "$work/zip" "$work/mount"; do
         exe=$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$bundle/Contents/Info.plist")
         [[ "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$bundle/Contents/Info.plist")" == "$VERSION" ]]
         file "$bundle/Contents/MacOS/$exe"
-        lipo -verify_arch "$ARCH" "$bundle/Contents/MacOS/$exe"
+        lipo "$bundle/Contents/MacOS/$exe" -verify_arch "$ARCH"
         codesign --verify --strict "$bundle"
         otool -hv "$bundle/Contents/MacOS/$exe" | grep -q BUNDLE
     done
