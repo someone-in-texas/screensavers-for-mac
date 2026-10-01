@@ -1,0 +1,147 @@
+import AppKit
+import ScreenSaver
+
+func fixtureTile() -> CGImage {
+    let c = bitmap(width: 256, height: 256)!
+    c.setFillColor(NSColor(srgbRed: 0.92, green: 0.90, blue: 0.85, alpha: 1).cgColor); c.fill(CGRect(x: 0, y: 0, width: 256, height: 256))
+    for i in stride(from: 0, through: 256, by: 32) {
+        line(c, from: CGPoint(x: i, y: 0), to: CGPoint(x: i, y: 256), width: 5, color: NSColor.white.cgColor)
+        line(c, from: CGPoint(x: 0, y: i), to: CGPoint(x: 256, y: i), width: 4, color: NSColor.white.cgColor)
+    }
+    line(c, from: CGPoint(x: 0, y: 10), to: CGPoint(x: 256, y: 240), width: 9, color: NSColor.gray.cgColor)
+    return c.makeImage()!
+}
+func savePNG(_ image: CGImage, _ path: String) throws {
+    let rep = NSBitmapImageRep(cgImage: image)
+    try rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: path))
+}
+
+final class PreviewDelegate: NSObject, NSApplicationDelegate {
+    var window: NSWindow!
+    var view: SceneSaverView?
+    let picker = NSPopUpButton()
+    private let smokeSuite = "screensavers.launch-smoke.\(UUID().uuidString)"
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1200, height: 790), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+        window.title = "Screensavers for Mac — Preview"
+        window.minSize = NSSize(width: 640, height: 240)
+        window.center()
+        picker.addItems(withTitles: SaverKind.allCases.map(\.title)); picker.target = self; picker.action = #selector(switchScene)
+        picker.frame = NSRect(x: 18, y: 752, width: 190, height: 28); picker.autoresizingMask = [.minYMargin]
+        let configure = NSButton(title: "Configure…", target: self, action: #selector(configure))
+        configure.bezelStyle = .rounded; configure.frame = NSRect(x: 220, y: 752, width: 120, height: 28); configure.autoresizingMask = [.minYMargin]
+        let full = NSButton(title: "Full Screen", target: self, action: #selector(fullScreen))
+        full.bezelStyle = .rounded; full.frame = NSRect(x: 348, y: 752, width: 120, height: 28); full.autoresizingMask = [.minYMargin]
+        let save = NSButton(title: "Save Frame…", target: self, action: #selector(saveFrame))
+        save.bezelStyle = .rounded; save.frame = NSRect(x: 476, y: 752, width: 130, height: 28); save.autoresizingMask = [.minYMargin]
+        window.contentView?.addSubview(save)
+        window.contentView?.addSubview(picker); window.contentView?.addSubview(configure); window.contentView?.addSubview(full)
+        let menu = NSMenu(); let appItem = NSMenuItem(); menu.addItem(appItem)
+        let appMenu = NSMenu(); appMenu.addItem(withTitle: "Quit PreviewHost", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"); appItem.submenu = appMenu
+        NSApp.mainMenu = menu
+        if CommandLine.arguments.contains("--map") { picker.selectItem(at: 1) }
+        switchScene(); window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
+        if CommandLine.arguments.contains("--launch-smoke") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                self.picker.selectItem(at: 1); self.switchScene()
+                if let sheet = self.view?.configureSheet { self.window.beginSheet(sheet); self.window.endSheet(sheet) }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.view?.stopAnimation(); NSApp.terminate(nil) }
+            }
+        }
+    }
+    @objc func switchScene() {
+        view?.stopAnimation(); view?.removeFromSuperview()
+        let kind = SaverKind.allCases[picker.indexOfSelectedItem]
+        let store = SettingsStore(kind, defaults: CommandLine.arguments.contains("--launch-smoke") ? UserDefaults(suiteName: smokeSuite + kind.rawValue) : nil)
+        let noNetwork = CommandLine.arguments.contains("--offline") || CommandLine.arguments.contains("--launch-smoke")
+        let fixed = CommandLine.arguments.firstIndex(of: "--city").flatMap { i in i + 1 < CommandLine.arguments.count ? CommandLine.arguments[i + 1] : nil }
+        let scene: SaverScene = kind == .worldClockRoom ? WorldClockScene() : CityDriftScene(store: store, networkEnabled: !noNetwork, city: MapCity.all.first { $0.name == fixed })
+        let frame = NSRect(x: 0, y: 0, width: window.contentView!.bounds.width, height: window.contentView!.bounds.height - 48)
+        view = SceneSaverView(frame: frame, isPreview: false, kind: kind, scene: scene, settingsStore: store)
+        window.contentView?.addSubview(view!, positioned: .below, relativeTo: picker)
+        view?.startAnimation()
+    }
+    @objc func configure() { if let sheet = view?.configureSheet { window.beginSheet(sheet) } }
+    @objc func saveFrame() {
+        guard let view, let layer = view.layer else { return }
+        let size = Mercator.renderSize(view.bounds.size)
+        guard let c = bitmap(width: Int(size.width), height: Int(size.height)) else { return }
+        c.scaleBy(x: size.width / view.bounds.width, y: size.height / view.bounds.height)
+        layer.render(in: c)
+        guard let image = c.makeImage() else { return }
+        let filename = picker.indexOfSelectedItem == 0 ? "world-clock-room.png" : "city-drift.png"
+        if let i = CommandLine.arguments.firstIndex(of: "--capture-dir"), i + 1 < CommandLine.arguments.count {
+            let directory = CommandLine.arguments[i + 1]
+            try? FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
+            try? savePNG(image, "\(directory)/\(filename)")
+        } else {
+            let panel = NSSavePanel(); panel.nameFieldStringValue = filename; panel.allowedContentTypes = [.png]
+            panel.beginSheetModal(for: window) { result in
+                if result == .OK, let url = panel.url { try? savePNG(image, url.path) }
+            }
+        }
+    }
+    @objc func fullScreen() { window.toggleFullScreen(nil) }
+    func applicationWillTerminate(_ notification: Notification) {
+        view?.stopAnimation()
+        if CommandLine.arguments.contains("--launch-smoke") {
+            for kind in SaverKind.allCases { UserDefaults.standard.removePersistentDomain(forName: smokeSuite + kind.rawValue) }
+        }
+    }
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+}
+
+let app = NSApplication.shared
+app.setActivationPolicy(.regular)
+if CommandLine.arguments.contains("--smoke") {
+    let folder = CommandLine.arguments.firstIndex(of: "--output").flatMap { i in i + 1 < CommandLine.arguments.count ? CommandLine.arguments[i + 1] : nil } ?? "build/smoke"
+    try FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: true)
+    let suiteName = "screensavers.smoke.\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suiteName)!
+    defer { defaults.removePersistentDomain(forName: suiteName) }
+    let store = SettingsStore(.cityDrift, defaults: defaults)
+    let map = CityDriftScene(store: store, networkEnabled: false, city: MapCity.all[0]); map.useFixture(fixtureTile())
+    let clock = WorldClockScene()
+    let sizes = [CGSize(width: 1600, height: 1000), CGSize(width: 1920, height: 1080), CGSize(width: 2560, height: 1080), CGSize(width: 280, height: 180)]
+    for (name, scene) in [("world-clock-room", clock as SaverScene), ("city-drift-fixture", map as SaverScene)] {
+        scene.start()
+        for size in sizes {
+            let c = bitmap(width: Int(size.width), height: Int(size.height))!
+            scene.apply(SaverSettings())
+            scene.draw(in: c, size: size, time: 100, date: Date(timeIntervalSince1970: 1780315800))
+            scene.draw(in: c, size: size, time: 102, date: Date(timeIntervalSince1970: 1780315802))
+            try savePNG(c.makeImage()!, "\(folder)/\(name)-\(Int(size.width))x\(Int(size.height)).png")
+            let root = CALayer(); root.bounds = CGRect(origin: .zero, size: size)
+            CATransaction.begin(); CATransaction.setDisableActions(true)
+            precondition(scene.updateLayer(root, size: size, time: 103, date: Date(timeIntervalSince1970: 1780315802)))
+            CATransaction.commit()
+            c.clear(CGRect(origin: .zero, size: size)); root.render(in: c)
+            try savePNG(c.makeImage()!, "\(folder)/\(name)-layers-\(Int(size.width))x\(Int(size.height)).png")
+        }
+        var paletteTime = 200.0
+        for palette in MapPalette.allCases {
+            paletteTime += 5
+            var settings = SaverSettings(); settings.palette = palette; settings.grain = true; settings.intensity = 1
+            scene.apply(settings)
+            let c = bitmap(width: 800, height: 500)!
+            scene.draw(in: c, size: CGSize(width: 800, height: 500), time: paletteTime, date: Date())
+            scene.draw(in: c, size: CGSize(width: 800, height: 500), time: paletteTime + 2, date: Date())
+            if name == "city-drift-fixture" { try savePNG(c.makeImage()!, "\(folder)/palette-\(palette.rawValue).png") }
+        }
+        scene.stop()
+    }
+    // Load the actual bundles and invoke their principal classes, not just the shared scenes.
+    let products = Bundle.main.bundleURL.deletingLastPathComponent()
+    for name in ["World Clock Room", "City Drift"] {
+        guard let bundle = Bundle(url: products.appendingPathComponent("\(name).saver")),
+              let type = bundle.principalClass as? ScreenSaverView.Type,
+              let view = type.init(frame: NSRect(x: 0, y: 0, width: 300, height: 200), isPreview: true),
+              view.hasConfigureSheet, view.configureSheet != nil else { fatalError("Bundle load failed: \(name)") }
+        // Start/stop the clock; map scene smoke is offline above to keep CI off OSM.
+        if name == "World Clock Room" { view.startAnimation(); view.animateOneFrame(); view.stopAnimation() }
+        print("Loaded \(name).saver and its configuration sheet")
+    }
+    print("Rendered 8 aspect-ratio frames and all 6 map palettes offline.")
+} else {
+    let delegate = PreviewDelegate(); app.delegate = delegate; app.run()
+}
