@@ -131,6 +131,12 @@ near(fallback.expires.timeIntervalSince(now), 7 * 86400, "seven-day fallback")
 let fresh = CachePolicy.entry(data: png, response: response(200, ["Cache-Control": "public, max-age=3600", "Age": "100", "ETag": "abc"]), now: now)!
 near(fresh.expires.timeIntervalSince(now), 3500, "honor max-age and Age")
 expect(fresh.etag == "abc", "ETag retained")
+let inherited = CachePolicy.entry(data: png, response: response(304), now: now, previous: fresh)!
+near(inherited.expires.timeIntervalSince(now), 3600, "304 inherits stored Cache-Control")
+expect(inherited.etag == "abc", "304 inherits validator")
+expect(CachePolicy.entry(data: png, response: response(), now: now, previous: fresh)!.etag == nil, "new 200 discards old validator")
+let revalidate = CachePolicy.entry(data: png, response: response(200, ["Cache-Control": "no-cache"]), now: now)!
+expect(CachePolicy.entry(data: png, response: response(304), now: now, previous: revalidate)!.expires == now, "304 preserves no-cache policy")
 expect(CachePolicy.entry(data: png, response: response(200, ["Cache-Control": "no-store"]), now: now) == nil, "honor no-store")
 expect(CachePolicy.entry(data: png, response: response(200, ["Cache-Control": "no-cache"]), now: now)!.expires == now, "no-cache revalidates")
 let dated = CachePolicy.entry(data: png, response: response(200, ["Date": "Tue, 14 Nov 2023 22:13:20 GMT", "Expires": "Tue, 14 Nov 2023 23:13:20 GMT"]), now: now)!

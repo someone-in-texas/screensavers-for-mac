@@ -4,8 +4,8 @@
 
 Validated on an Apple M5 Mac running macOS 27.0, using Apple's Swift 6.4 Command
 Line Tools and macOS SDK. The deployment target is macOS 14.6. Full Xcode is not
-installed locally; GitHub Actions also builds with full Xcode on its macOS 15
-Apple Silicon runner. A deployment target is not a claim of hands-on testing on
+installed locally; GitHub Actions passed the full build, tests and package checks
+with Xcode 16.4 on its macOS 15 Apple Silicon runner. A deployment target is not a claim of hands-on testing on
 every intervening OS release.
 
 - Both optimized arm64 executables are Mach-O bundles with valid, distinct Info.plist
@@ -22,7 +22,8 @@ every intervening OS release.
 - Manual PreviewHost review includes the clock floor, live Paris tiles, Paper and
   Blueprint, permanent attribution, native color panel changes and Reset to Defaults.
   README screenshots were saved from the live preview, not fabricated mockups.
-- Both bundles install for the current user and appear under System Settings → Wallpaper
+- Install, uninstall and reinstall scripts were exercised for the current user.
+  Both bundles install for the current user and appear under System Settings → Wallpaper
   → Screen Saver → Other → Show All. System Settings selection/full-screen activation
   on this OS preview could not be confirmed through automation; the standalone preview
   and actual-bundle loading checks pass. No system security setting was relaxed.

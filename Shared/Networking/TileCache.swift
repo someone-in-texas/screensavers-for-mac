@@ -8,11 +8,17 @@ struct CachedTile: Codable {
     var etag: String?
     var modified: String?
     var mustRevalidate: Bool
+    var cacheControl: String?
+    var expiresHeader: String?
 }
 
 enum CachePolicy {
     static func entry(data: Data, response: HTTPURLResponse, now: Date, previous: CachedTile? = nil) -> CachedTile? {
-        let cc = (response.value(forHTTPHeaderField: "Cache-Control") ?? "").lowercased()
+        // A 304 updates a stored response; a new 200 must not inherit old validators.
+        let inherited = response.statusCode == 304 ? previous : nil
+        let cacheControl = response.value(forHTTPHeaderField: "Cache-Control") ?? inherited?.cacheControl
+        let expiresHeader = response.value(forHTTPHeaderField: "Expires") ?? inherited?.expiresHeader
+        let cc = (cacheControl ?? "").lowercased()
         let directives = cc.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
         if directives.contains("no-store") { return nil }
         let formatter = DateFormatter()
@@ -25,14 +31,15 @@ enum CachePolicy {
         if let maxAge = directives.first(where: { $0.hasPrefix("max-age=") }),
            let seconds = Double(maxAge.dropFirst(8).replacingOccurrences(of: "\"", with: "")), seconds.isFinite {
             lifetime = max(0, seconds - age)
-        } else if let expires = response.value(forHTTPHeaderField: "Expires").flatMap(formatter.date(from:)) {
+        } else if let expires = expiresHeader.flatMap(formatter.date(from:)) {
             lifetime = max(0, expires.timeIntervalSince(serverDate) - age)
         }
-        if directives.contains("no-cache") { lifetime = 0 }
+        if directives.contains("no-cache") || (cacheControl == nil && inherited?.mustRevalidate == true) { lifetime = 0 }
         return CachedTile(data: data, stored: now, expires: now.addingTimeInterval(lifetime),
-                          etag: response.value(forHTTPHeaderField: "ETag") ?? previous?.etag,
-                          modified: response.value(forHTTPHeaderField: "Last-Modified") ?? previous?.modified,
-                          mustRevalidate: directives.contains("must-revalidate") || directives.contains("no-cache"))
+                          etag: response.value(forHTTPHeaderField: "ETag") ?? inherited?.etag,
+                          modified: response.value(forHTTPHeaderField: "Last-Modified") ?? inherited?.modified,
+                          mustRevalidate: directives.contains("must-revalidate") || directives.contains("no-cache"),
+                          cacheControl: cacheControl, expiresHeader: expiresHeader)
     }
 }
 
