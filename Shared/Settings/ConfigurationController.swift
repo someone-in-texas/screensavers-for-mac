@@ -2,7 +2,9 @@ import AppKit
 
 /// Explicit panel presentation also works when hosted inside System Settings' sheet.
 final class PickerColorWell: NSColorWell {
-    override func mouseDown(with event: NSEvent) {
+    override func mouseDown(with event: NSEvent) { showPanel() }
+    override func accessibilityPerformPress() -> Bool { showPanel(); return true }
+    private func showPanel() {
         activate(true)
         let panel = NSColorPanel.shared
         panel.showsAlpha = false
@@ -31,6 +33,7 @@ final class ConfigurationController: NSWindowController {
         func row(_ label: String, _ key: String, _ control: NSControl) {
             let field = NSTextField(labelWithString: label); field.frame = NSRect(x: 28, y: y + 4, width: 150, height: 22)
             control.frame = NSRect(x: 190, y: y, width: 216, height: 28)
+            control.setAccessibilityLabel(label)
             control.target = self; control.action = #selector(update)
             content.addSubview(field); content.addSubview(control); controls[key] = control; y -= 39
         }

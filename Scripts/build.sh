@@ -17,6 +17,7 @@ plist() {
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
+<key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
 <key>CFBundleDevelopmentRegion</key><string>en</string>
 <key>CFBundleName</key><string>$name</string>
 <key>CFBundleDisplayName</key><string>$name</string>
@@ -40,6 +41,11 @@ for kind in WorldClockRoom CityDrift; do
     xcrun swiftc "${FLAGS[@]}" -module-name "$kind" -parse-as-library -emit-object "${SOURCES[@]}" "Savers/$kind/${kind}View.swift" -o "build/$kind.o"
     xcrun swiftc "${FLAGS[@]}" -Xlinker -bundle "build/$kind.o" -o "$bundle/Contents/MacOS/$kind"
     plist "$bundle/Contents/Info.plist" "$name" "com.someoneintexas.screensavers.$id" "$kind" "${kind}View" BNDL
+    if [[ "$kind" == WorldClockRoom ]]; then image=world-clock-room; else image=city-drift; fi
+    if [[ -f "docs/images/$image.png" ]]; then
+        sips -s format png --resampleWidth 600 "docs/images/$image.png" --out "$bundle/Contents/Resources/thumbnail.png" >/dev/null
+        sips -s format png --resampleWidth 1200 "docs/images/$image.png" --out "$bundle/Contents/Resources/thumbnail@2x.png" >/dev/null
+    fi
     codesign --force --sign - "$bundle"
 done
 app=build/products/PreviewHost.app

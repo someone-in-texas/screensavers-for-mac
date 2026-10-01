@@ -169,5 +169,27 @@ limited.calls[1].completion(nil, response(500), nil)
 RunLoop.main.run(until: Date().addingTimeInterval(0.05))
 expect(limited.calls.count == 2, "429 clears pending queue and backs off")
 limitedLoader.stop()
+let budgetTransport = MockTransport()
+let budgetLoader = TileLoader(cache: TileCache(directory: temp.appendingPathComponent("budget")), transport: budgetTransport) { _, _ in }
+let many = (0..<110).map { TileID(z: 8, x: $0, y: 0)! }
+budgetLoader.request(many)
+var finished = 0
+waitUntil({
+    let current = budgetTransport.calls
+    while finished < current.count {
+        current[finished].completion(nil, response(404), nil)
+        finished += 1
+    }
+    return finished == 96
+})
+RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+expect(budgetTransport.calls.count == 96, "hard session budget under repeated failures")
+budgetLoader.stop()
+let cachedTransport = MockTransport(); var cachedDelivered = false
+cache.write(CachePolicy.entry(data: png, response: response(200, ["Cache-Control": "max-age=3600"]), now: Date()), id: third)
+let cachedLoader = TileLoader(cache: cache, transport: cachedTransport) { _, _ in cachedDelivered = true }
+cachedLoader.request([third]); waitUntil { cachedDelivered }
+expect(cachedDelivered && cachedTransport.calls.isEmpty, "fresh cache requires no network")
+cachedLoader.stop()
 print("\(checks) checks, \(failures) failures (no live network requests).")
 exit(failures == 0 ? 0 : 1)
