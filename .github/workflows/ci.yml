@@ -1,0 +1,32 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: |
+          uname -m
+          test "$(uname -m)" = arm64
+          xcodebuild -version
+          swift --version
+      - name: Build, test and verify packages
+        run: make release-check
+      - name: Smoke renders
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-smoke-renders
+          path: build/smoke/*.png
+          if-no-files-found: ignore
+          retention-days: 7

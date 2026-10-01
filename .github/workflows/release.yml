@@ -1,0 +1,75 @@
+name: Release
+on:
+  push:
+    tags: ['v[0-9]*.[0-9]*.[0-9]*']
+permissions:
+  contents: write
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate tag and toolchain
+        run: |
+          test "$GITHUB_REF_NAME" = "v$(cat VERSION)"
+          test "$(uname -m)" = arm64
+          xcodebuild -version
+          swift --version
+      - name: Build and test
+        run: |
+          make build
+          ./Scripts/test.sh
+      - name: Import optional Developer ID identity
+        env:
+          DEVELOPER_ID_CERT_BASE64: ${{ secrets.DEVELOPER_ID_CERT_BASE64 }}
+          DEVELOPER_ID_CERT_PASSWORD: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
+          SIGNING_IDENTITY: ${{ secrets.SIGNING_IDENTITY }}
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+          NOTARY_KEY_P8: ${{ secrets.NOTARY_KEY_P8 }}
+        run: ./Scripts/import-signing.sh
+      - name: Sign and package
+        env:
+          SKIP_BUILD: '1'
+          SIGNING_IDENTITY: ${{ secrets.SIGNING_IDENTITY }}
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+          NOTARY_KEY_P8: ${{ secrets.NOTARY_KEY_P8 }}
+        run: |
+          ./Scripts/package.sh
+          ./Scripts/verify-package.sh
+      - name: Publish verified assets
+        run: |
+          cat > build/release-notes.md <<'NOTES'
+          Two quiet native screen savers for Apple Silicon Macs running macOS 14.6 or later.
+
+          - **World Clock Room** — an isometric clock installation with real local times, smooth hands and configurable colors.
+          - **City Drift** — slow journeys through 64 world cities, with six cartographic palettes and conservative cached OpenStreetMap tiles.
+
+          Download the DMG, open it, and double-click each `.saver` to install for the current user. Select the saver in System Settings → Wallpaper → Screen Saver (or Screen Saver on older macOS), then open its options. The ZIP contains the same bundles. Verify downloads with `shasum -a 256 -c SHA256SUMS` from the directory containing both downloads.
+
+          City Drift requests tiles for the displayed public city. No location access, analytics or telemetry. Map data © OpenStreetMap contributors.
+
+          NOTES
+          cat dist/SIGNING.txt >> build/release-notes.md
+          printf '\nSee the README for Gatekeeper approval and troubleshooting.\n' >> build/release-notes.md
+          tag="$GITHUB_REF_NAME"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release edit "$tag" --title "Screensavers for Mac $tag" --notes-file build/release-notes.md
+          else
+            gh release create "$tag" --verify-tag --draft --title "Screensavers for Mac $tag" --notes-file build/release-notes.md
+          fi
+          gh release upload "$tag" dist/*.dmg dist/*.zip dist/SHA256SUMS --clobber
+          gh release edit "$tag" --draft=false
+      - name: Remove signing materials
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/screensavers-signing.keychain-db" 2>/dev/null || true
+          rm -f "$RUNNER_TEMP/screensavers-certificate.p12"
