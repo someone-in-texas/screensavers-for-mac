@@ -11,4 +11,3 @@ Options now retains one configuration window per saver instance, explicitly deta
 and hides it on Done, and refreshes controls when reopened. If macOS is still running
 a previously loaded bundle after an update, quit System Settings with ⌘Q and reopen
 it. Logging out and back in reloads the legacy saver host too.
-

@@ -63,4 +63,3 @@ Cosmos reuses voxel sprites and a pixel buffer capped at 800 × 600;
 nearest-neighbor enlargement keeps the pixel edges crisp. Only selected-view tiles are downloaded, following the
 [vector tile policy](https://operations.osmfoundation.org/policies/vector/).
 Vector and raster caches are separate; downloaded vectors are never packaged or redistributed.
-
