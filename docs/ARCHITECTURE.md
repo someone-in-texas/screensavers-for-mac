@@ -10,7 +10,8 @@ or dynamic package is required. No private entitlements, web content or runtime 
 
 `ScreenSaverView` requests 60 Hz animation for City Drift and 30 Hz for the other savers. `startAnimation` applies settings
 and starts the scene; `stopAnimation` cancels work. The development app uses the same
-wrapper and macOS timer. Scenes present a cached Core Animation layer tree, updating
+wrapper, with a standalone timer fallback on macOS releases that only supply
+animation callbacks inside the actual saver host. Scenes present a cached Core Animation layer tree, updating
 transforms at 30 Hz; reference Core Graphics rendering also supports offline snapshots.
 The map viewport follows the window backing scale, preserves aspect ratio and caps
 at 3840 × 2560 pixels in either orientation. Individual 256-pixel tile layers retain

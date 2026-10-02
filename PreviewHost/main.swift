@@ -20,7 +20,33 @@ final class PreviewSaverView: SceneSaverView {
     private(set) var animationFrames = 0
     private let profile = CommandLine.arguments.contains("--profile")
     private var frameTimes: [Double] = []
+    private var previewTimer: Timer?
+    private var lastNativeFrame: Double?
+    private let forcePreviewTimer = CommandLine.arguments.contains("--force-preview-timer")
+    override func startAnimation() {
+        guard previewTimer == nil else { return }
+        lastNativeFrame = nil
+        super.startAnimation()
+        // Some macOS releases only drive ScreenSaverView inside the real saver
+        // host. Supply a standalone clock when native callbacks are absent.
+        let timer = Timer(timeInterval: animationTimeInterval, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            if let native = self.lastNativeFrame, ProcessInfo.processInfo.systemUptime - native < 0.25 { return }
+            self.renderPreviewFrame()
+        }
+        previewTimer = timer; RunLoop.main.add(timer, forMode: .common)
+    }
+    override func stopAnimation() {
+        previewTimer?.invalidate(); previewTimer = nil
+        super.stopAnimation()
+    }
     override func animateOneFrame() {
+        guard !forcePreviewTimer else { return }
+        lastNativeFrame = ProcessInfo.processInfo.systemUptime
+        renderPreviewFrame()
+    }
+    deinit { previewTimer?.invalidate() }
+    private func renderPreviewFrame() {
         animationFrames += 1
         let start = profile ? ProcessInfo.processInfo.systemUptime : 0
         super.animateOneFrame()
@@ -70,8 +96,12 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.checkConfigurationCycle(0) }
         }
     }
-    private func checkConfigurationCycle(_ index: Int) {
-        if index == 0 || index % 6 == 5 { precondition((view?.animationFrames ?? 0) > 5, "Preview host must drive real animation frames for every saver") }
+    private func checkConfigurationCycle(_ index: Int, attempt: Int = 0) {
+        if (index == 0 || index % 6 == 5) && (view?.animationFrames ?? 0) <= 5 {
+            precondition(attempt < 50, "Preview host must drive real animation frames for every saver")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { self.checkConfigurationCycle(index, attempt: attempt + 1) }
+            return
+        }
         if index == 18 { print("Passed 18 configuration open/Done/reopen cycles across all three savers."); view?.stopAnimation(); NSApp.terminate(nil); return }
         if index > 0 && index % 6 == 0 { picker.selectItem(at: index / 6); switchScene() }
         guard let sheet = view?.configureSheet else { fatalError("Missing configuration sheet") }

@@ -8,3 +8,4 @@ xcrun swiftc -sdk "$(xcrun --sdk macosx --show-sdk-path)" -target "$(uname -m)-a
 build/tests
 build/products/PreviewHost.app/Contents/MacOS/PreviewHost --smoke
 build/products/PreviewHost.app/Contents/MacOS/PreviewHost --launch-smoke
+build/products/PreviewHost.app/Contents/MacOS/PreviewHost --launch-smoke --force-preview-timer

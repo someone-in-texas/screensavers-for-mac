@@ -12,7 +12,8 @@
 - Offline smoke frames cover all three savers at five aspect ratios, every Cosmos
   subject, all four camera/background options and pixel/glow extremes. Native bundles
   load independently. Eighteen real options open/Done/reopen cycles pass, including
-  a check that each saver actually receives animation callbacks.
+  a bounded wait for animation frames. Both native callbacks and a forced
+  standalone preview timer are exercised to cover older macOS preview hosts.
 - Visually inspected full system, individual planets, portrait backgrounds, camera
   angles and small previews. The native Cosmos options sheet was also inspected.
   Small previews reserve space for captions; high-angle system views fit their
