@@ -18,7 +18,7 @@ final class ConfigurationController: NSWindowController {
     private var controls: [String: NSControl] = [:]
     init(store: SettingsStore, changed: @escaping (SaverSettings) -> Void) {
         self.store = store; self.changed = changed
-        super.init(window: NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: store.kind == .worldClockRoom ? 400 : (store.kind == .dapple || store.kind == .flourish || store.kind == .lattice) ? 700 : store.kind == .voxelCosmos ? 650 : 610), styleMask: [.titled], backing: .buffered, defer: false))
+        super.init(window: NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: store.kind == .worldClockRoom ? 400 : (store.kind == .dapple || store.kind == .flourish || store.kind == .lattice || store.kind == .strawberryFieldsForever || store.kind == .goodResearchTakesTime) ? 700 : store.kind == .voxelCosmos ? 650 : 610), styleMask: [.titled], backing: .buffered, defer: false))
         window?.title = store.kind.title
         window?.isReleasedWhenClosed = false
         build()
@@ -77,6 +77,40 @@ final class ConfigurationController: NSWindowController {
             let note = NSTextField(wrappingLabelWithString: "A miniature imagined cosmos. Distances and sizes are artistic. Entirely offline. Zero motion holds drift; timed view changes continue.")
             note.font = .systemFont(ofSize: 11); note.textColor = .secondaryLabelColor
             note.frame = NSRect(x: 28, y: 61, width: 424, height: 38); content.addSubview(note)
+        } else if store.kind == .strawberryFieldsForever {
+            func popup(_ titles:[String],_ index:Int)->NSPopUpButton {let p=NSPopUpButton();p.addItems(withTitles:titles);p.selectItem(at:index);return p}
+            let v=s.strawberry
+            row("Lore density","strawberryLore",popup(StrawberryLore.allCases.map {$0.title},StrawberryLore.allCases.firstIndex(of:v.lore)!))
+            row("Environment balance","strawberryBalance",popup(StrawberryBalance.allCases.map {$0.title},StrawberryBalance.allCases.firstIndex(of:v.balance)!))
+            row("Camera speed","strawberryPace",popup(StrawberryPace.allCases.map {$0.rawValue.capitalized},StrawberryPace.allCases.firstIndex(of:v.pace)!))
+            row("Hype weather","strawberryWeather",popup(StrawberryWeather.allCases.map {$0.rawValue.capitalized},StrawberryWeather.allCases.firstIndex(of:v.weather)!))
+            row("Network visibility","strawberryNetwork",popup(StrawberryNetwork.allCases.map {$0.rawValue.capitalized},StrawberryNetwork.allCases.firstIndex(of:v.network)!))
+            row("Palette","strawberryPalette",popup(StrawberryPalette.allCases.map {$0.title},StrawberryPalette.allCases.firstIndex(of:v.palette)!))
+            row("Wind","strawberryWind",popup(StrawberryWind.allCases.map {$0.rawValue.capitalized},StrawberryWind.allCases.firstIndex(of:v.wind)!))
+            row("Strawberry density","strawberryDensity",popup(StrawberryDensity.allCases.map {$0.title},StrawberryDensity.allCases.firstIndex(of:v.density)!))
+            row("Text fragments","strawberryText",popup(StrawberryText.allCases.map {$0.rawValue.capitalized},StrawberryText.allCases.firstIndex(of:v.text)!))
+            row("Scene seed","strawberrySeedBehavior",popup(ArtSeed.allCases.map {$0.title},ArtSeed.allCases.firstIndex(of:v.seedBehavior)!))
+            row("Fixed seed","strawberrySeed",NSTextField(string:String(v.seed)))
+            let note=NSTextField(wrappingLabelWithString:"An impossible field above a fictional laboratory. Pure Art hides explicit lore and staged Easter eggs. Offline; daily seeds use UTC.")
+            note.font = .systemFont(ofSize:11);note.textColor = .secondaryLabelColor
+            note.frame=NSRect(x:28,y:72,width:424,height:65);content.addSubview(note)
+            updateAvailability(s)
+        } else if store.kind == .goodResearchTakesTime {
+            func popup(_ titles:[String],_ index:Int)->NSPopUpButton {let p=NSPopUpButton();p.addItems(withTitles:titles);p.selectItem(at:index);return p}
+            let v=s.research
+            row("Lore density","researchLore",popup(ResearchLore.allCases.map {$0.title},ResearchLore.allCases.firstIndex(of:v.lore)!))
+            row("Camera speed","researchPace",popup(ResearchPace.allCases.map {$0.title},ResearchPace.allCases.firstIndex(of:v.pace)!))
+            row("Environment","researchEnvironment",popup(ResearchEnvironment.allCases.map {$0.title},ResearchEnvironment.allCases.firstIndex(of:v.environment)!))
+            row("Palette","researchPalette",popup(ResearchPalette.allCases.map {$0.title},ResearchPalette.allCases.firstIndex(of:v.palette)!))
+            row("Research activity","researchActivity",popup(ResearchActivity.allCases.map {$0.rawValue.capitalized},ResearchActivity.allCases.firstIndex(of:v.activity)!))
+            row("Maze presence","researchMazes",popup(ResearchMazePresence.allCases.map {$0.rawValue.capitalized},ResearchMazePresence.allCases.firstIndex(of:v.mazes)!))
+            row("Text","researchText",popup(ResearchText.allCases.map {$0.rawValue.capitalized},ResearchText.allCases.firstIndex(of:v.text)!))
+            row("Scene seed","researchSeedBehavior",popup(ArtSeed.allCases.map {$0.title},ArtSeed.allCases.firstIndex(of:v.seedBehavior)!))
+            row("Fixed seed","researchSeed",NSTextField(string:String(v.seed)))
+            let note=NSTextField(wrappingLabelWithString:"A fictional research cave, original mazes, and patient experiments. Pure Art removes explicit lore. Entirely offline; daily seeds use UTC.")
+            note.font = .systemFont(ofSize:11);note.textColor = .secondaryLabelColor
+            note.frame=NSRect(x:28,y:72,width:424,height:65);content.addSubview(note)
+            updateAvailability(s)
         } else if store.kind == .flourish {
             func popup(_ titles:[String],_ index:Int)->NSPopUpButton {let p=NSPopUpButton();p.addItems(withTitles:titles);p.selectItem(at:index);return p}
             let v=s.flourish
@@ -245,6 +279,26 @@ final class ConfigurationController: NSWindowController {
             if let seed = UInt64(c.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)) { value.dapple.seed = seed }
             else { c.stringValue = String(value.dapple.seed) }
         }
+        if let c=controls["strawberryLore"] as? NSPopUpButton {value.strawberry.lore=StrawberryLore.allCases[c.indexOfSelectedItem]}
+        if let c=controls["strawberryBalance"] as? NSPopUpButton {value.strawberry.balance=StrawberryBalance.allCases[c.indexOfSelectedItem]}
+        if let c=controls["strawberryPace"] as? NSPopUpButton {value.strawberry.pace=StrawberryPace.allCases[c.indexOfSelectedItem]}
+        if let c=controls["strawberryWeather"] as? NSPopUpButton {value.strawberry.weather=StrawberryWeather.allCases[c.indexOfSelectedItem]}
+        if let c=controls["strawberryNetwork"] as? NSPopUpButton {value.strawberry.network=StrawberryNetwork.allCases[c.indexOfSelectedItem]}
+        if let c=controls["strawberryPalette"] as? NSPopUpButton {value.strawberry.palette=StrawberryPalette.allCases[c.indexOfSelectedItem]}
+        if let c=controls["strawberryWind"] as? NSPopUpButton {value.strawberry.wind=StrawberryWind.allCases[c.indexOfSelectedItem]}
+        if let c=controls["strawberryDensity"] as? NSPopUpButton {value.strawberry.density=StrawberryDensity.allCases[c.indexOfSelectedItem]}
+        if let c=controls["strawberryText"] as? NSPopUpButton {value.strawberry.text=StrawberryText.allCases[c.indexOfSelectedItem]}
+        if let c=controls["strawberrySeedBehavior"] as? NSPopUpButton {value.strawberry.seedBehavior=ArtSeed.allCases[c.indexOfSelectedItem]}
+        if let c=controls["strawberrySeed"] {if let seed=UInt64(c.stringValue.trimmingCharacters(in:.whitespacesAndNewlines)){value.strawberry.seed=seed}else{c.stringValue=String(value.strawberry.seed)}}
+        if let c=controls["researchLore"] as? NSPopUpButton {value.research.lore=ResearchLore.allCases[c.indexOfSelectedItem]}
+        if let c=controls["researchPace"] as? NSPopUpButton {value.research.pace=ResearchPace.allCases[c.indexOfSelectedItem]}
+        if let c=controls["researchEnvironment"] as? NSPopUpButton {value.research.environment=ResearchEnvironment.allCases[c.indexOfSelectedItem]}
+        if let c=controls["researchPalette"] as? NSPopUpButton {value.research.palette=ResearchPalette.allCases[c.indexOfSelectedItem]}
+        if let c=controls["researchActivity"] as? NSPopUpButton {value.research.activity=ResearchActivity.allCases[c.indexOfSelectedItem]}
+        if let c=controls["researchMazes"] as? NSPopUpButton {value.research.mazes=ResearchMazePresence.allCases[c.indexOfSelectedItem]}
+        if let c=controls["researchText"] as? NSPopUpButton {value.research.text=ResearchText.allCases[c.indexOfSelectedItem]}
+        if let c=controls["researchSeedBehavior"] as? NSPopUpButton {value.research.seedBehavior=ArtSeed.allCases[c.indexOfSelectedItem]}
+        if let c=controls["researchSeed"] {if let seed=UInt64(c.stringValue.trimmingCharacters(in:.whitespacesAndNewlines)){value.research.seed=seed}else{c.stringValue=String(value.research.seed)}}
         if let c=controls["flourishPalette"] as? NSPopUpButton {value.flourish.palette=FlourishPalette.allCases[c.indexOfSelectedItem]}
         if let c=controls["flourishStyle"] as? NSPopUpButton {value.flourish.style=FlourishStyle.allCases[c.indexOfSelectedItem]}
         if let c=controls["flourishBackground"] as? NSPopUpButton {value.flourish.background=FlourishBackground.allCases[c.indexOfSelectedItem]}
@@ -271,6 +325,10 @@ final class ConfigurationController: NSWindowController {
         store.value = value; changed(value); updateAvailability(value)
     }
     private func updateAvailability(_ value: SaverSettings) {
+        controls["strawberrySeed"]?.isEnabled = value.strawberry.seedBehavior == .fixed
+        controls["researchSeed"]?.isEnabled = value.research.seedBehavior == .fixed
+        controls["strawberryText"]?.isEnabled = value.strawberry.lore != .pureArt
+        controls["researchText"]?.isEnabled = value.research.lore != .pureArt
         controls["flourishSeed"]?.isEnabled = value.flourish.seedBehavior == .fixed
         controls["latticeSeed"]?.isEnabled = value.lattice.seedBehavior == .fixed
         controls["dappleSeed"]?.isEnabled = value.dapple.seedBehavior == .fixed

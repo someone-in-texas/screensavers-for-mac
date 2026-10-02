@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.7.1
+
+- Add **Strawberry Fields Forever**, an offline moonlit field above a fictional
+  laboratory, with organic roots becoming cables, soft wind and hype weather,
+  slow continuous descents, seven palettes, and seeded procedural worlds.
+- Add **Good Research Takes Time**, an offline research cave with connected
+  chambers, lamplit desks, dignified chairs, original mazes and a deliberately
+  patient, backtracking agent. Six palettes and repeatable seeds.
+- Provide Pure Art and optional deeper lore modes for both, with rare local
+  fictional messages and no live social-media or AI dependency.
+- Integrate both into native Options, PreviewHost, install/uninstall, screenshots,
+  and nine-bundle DMG/ZIP packaging. Preserve existing saver preferences.
+
 ## 0.7.0
 
 - Add **Flourish**, progressive procedural botanical ink with tapered stems,

@@ -2,9 +2,9 @@ import AppKit
 import ScreenSaver
 
 enum SaverKind: String, CaseIterable {
-    case worldClockRoom, cityDrift, voxelCosmos, paperSky, dapple, flourish, lattice
+    case worldClockRoom, cityDrift, voxelCosmos, paperSky, dapple, flourish, lattice, strawberryFieldsForever, goodResearchTakesTime
     var title: String {
-        switch self { case .worldClockRoom: return "World Clock Room"; case .cityDrift: return "City Drift"; case .voxelCosmos: return "Voxel Cosmos"; case .paperSky: return "Paper Sky"; case .dapple: return "Dapple"; case .flourish: return "Flourish"; case .lattice: return "Lattice" }
+        switch self { case .worldClockRoom: return "World Clock Room"; case .cityDrift: return "City Drift"; case .voxelCosmos: return "Voxel Cosmos"; case .paperSky: return "Paper Sky"; case .dapple: return "Dapple"; case .flourish: return "Flourish"; case .lattice: return "Lattice"; case .strawberryFieldsForever: return "Strawberry Fields Forever"; case .goodResearchTakesTime: return "Good Research Takes Time" }
     }
     var identifier: String { "com.someoneintexas.screensavers.\(rawValue.lowercased())" }
 }
@@ -24,6 +24,8 @@ enum MapPalette: String, CaseIterable, Codable { case original, ink, blueprint, 
 enum MapStyle: String, CaseIterable, Codable { case online, lines, traditional }
 
 struct SaverSettings: Codable, Equatable {
+    var strawberry = StrawberrySettings()
+    var research = ResearchSettings()
     var flourish = FlourishSettings()
     var lattice = LatticeSettings()
     var dapple = DappleSettings()
@@ -48,13 +50,15 @@ struct SaverSettings: Codable, Equatable {
     var pointsOfInterest = false
     init() {}
     private enum CodingKeys: String, CodingKey {
-        case cosmos, paperSky, dapple, flourish, lattice
+        case cosmos, paperSky, dapple, flourish, lattice, strawberry, research
         case floor, face, speed, density, smoothSeconds, labels, palette, intensity, grain, vignette
         case mapSourceVersion, mapStyle, streetLabels, water, parks, pointsOfInterest
     }
     init(from decoder: Decoder) throws {
         self.init()
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        strawberry = try c.decodeIfPresent(StrawberrySettings.self, forKey: .strawberry) ?? strawberry
+        research = try c.decodeIfPresent(ResearchSettings.self, forKey: .research) ?? research
         flourish = try c.decodeIfPresent(FlourishSettings.self, forKey: .flourish) ?? flourish
         lattice = try c.decodeIfPresent(LatticeSettings.self, forKey: .lattice) ?? lattice
         dapple = try c.decodeIfPresent(DappleSettings.self, forKey: .dapple) ?? dapple
@@ -79,6 +83,8 @@ struct SaverSettings: Codable, Equatable {
     }
     func sanitized() -> Self {
         var copy = self
+        copy.strawberry = strawberry.sanitized()
+        copy.research = research.sanitized()
         copy.flourish = flourish.sanitized()
         copy.lattice = lattice.sanitized()
         copy.dapple = dapple.sanitized()

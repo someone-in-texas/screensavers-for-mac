@@ -96,6 +96,36 @@ and fixed seeds make each world spontaneous or repeatable. Entirely offline.
 
 [Amber Terminal](docs/images/lattice-amber.png)
 
+## Strawberry Fields Forever
+
+A moonlit strawberry dreamscape whose roots descend into a hidden computational
+world. Drift over layered fields, follow faint signals beneath the soil, and find
+warm machinery tending an ordinary basket of fruit. Gentle wind carries occasional
+waves of energy, then settles again.
+
+Seven palettes, field/basement balance, camera pace, wind, network visibility, fruit
+density, repeatable seeds, and optional lore. **Pure Art** keeps the landscape and
+removes explicit references; deeper modes reward a closer look. Entirely offline.
+
+![Strawberry Fields Forever: moonlit fruit and layered fields](docs/images/strawberry-fields-forever.png)
+
+[Underground](docs/images/strawberry-basement.png) · [Strawberry Night](docs/images/strawberry-night.png) · [Descent](docs/images/strawberry-transition.png) · [Art and lore](docs/ART_AND_LORE.md)
+
+## Good Research Takes Time
+
+An underground monument to difficult problems and taking one's time. A slow camera
+visits a lamplit work desk, an original maze model, a dignified chair alcove, and an
+archive observatory. A tiny maze agent explores, pauses, and backtracks while the
+experiments continue.
+
+Six palettes, cave/archive/lab environments, camera pace, research activity, maze
+presence, repeatable seeds, and restrained optional lore. **Pure Art** retains the
+research atmosphere without explicit references. Entirely offline and silent.
+
+![Good Research Takes Time: a research desk, chair, and luminous maze in a deep cave](docs/images/good-research-takes-time.png)
+
+[Chair alcove](docs/images/research-chair.png) · [Archive](docs/images/research-archive.png) · [Art and lore](docs/ART_AND_LORE.md)
+
 ## Install
 
 1. Download the **DMG** from [Releases](https://github.com/someone-in-texas/screensavers-for-mac/releases).
@@ -103,7 +133,7 @@ and fixed seeds make each world spontaneous or repeatable. Entirely offline.
 3. Open **System Settings → Wallpaper → Screen Saver** (or **Screen Saver** on older
    macOS). Under **Other → Show All**, select a saver and open **Options / Screen Saver Options**.
 
-The ZIP contains the same seven bundles. To verify downloads, place the DMG, ZIP,
+The ZIP contains the same nine bundles. To verify downloads, place the DMG, ZIP,
 and `SHA256SUMS` in one directory and run `shasum -a 256 -c SHA256SUMS` there.
 
 Releases without Apple signing credentials are **ad-hoc signed, not notarized**.
@@ -121,7 +151,7 @@ Use current Xcode or Apple’s Command Line Tools on an Apple Silicon Mac.
 ```sh
 git clone https://github.com/someone-in-texas/screensavers-for-mac.git
 cd screensavers-for-mac
-make build       # seven .saver bundles and PreviewHost.app in build/products
+make build       # nine .saver bundles and PreviewHost.app in build/products
 make test        # deterministic offline tests, bundle loading, and renderer checks
 make preview     # switch savers, configure, resize, or save a frame
 open build/products/PreviewHost.app --args --dapple
@@ -134,12 +164,14 @@ Settings so it can load the updated bundles.
 
 ## Privacy and power
 
-Flourish, Lattice, Dapple, Paper Sky, Voxel Cosmos, and World Clock Room are entirely offline.
+Strawberry Fields Forever, Good Research Takes Time, Flourish, Lattice, Dapple, Paper Sky,
+Voxel Cosmos, and World Clock Room are entirely offline.
 City Drift’s online modes request OpenStreetMap tiles for the selected public city,
 never your location; offline mode makes no requests. No analytics, telemetry,
 location permission, updater, or configuration upload.
 
-Flourish, Lattice, Dapple, World Clock Room, and Voxel Cosmos target 30 FPS; City Drift and Paper Sky
+Strawberry Fields Forever, Good Research Takes Time, Flourish, Lattice, Dapple, World Clock Room,
+and Voxel Cosmos target 30 FPS; City Drift and Paper Sky
 target 60 FPS. Geometry, textures, and map tiles are cached. See
 [map policies and rendering details](docs/MAPS_AND_PERFORMANCE.md).
 

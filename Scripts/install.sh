@@ -4,7 +4,7 @@ cd "$(dirname "$0")/.."
 Scripts/build.sh
 location="$HOME/Library/Screen Savers"
 mkdir -p "$location"
-for name in 'World Clock Room' 'City Drift' 'Voxel Cosmos' 'Paper Sky' 'Dapple' 'Flourish' 'Lattice'; do
+for name in 'World Clock Room' 'City Drift' 'Voxel Cosmos' 'Paper Sky' 'Dapple' 'Flourish' 'Lattice' 'Strawberry Fields Forever' 'Good Research Takes Time'; do
     target="$location/$name.saver"
     if [[ -e "$target" ]]; then
         old_id=$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$target/Contents/Info.plist")

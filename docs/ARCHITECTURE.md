@@ -8,7 +8,7 @@ compose a `SaverScene` through `SceneSaverView`. Shared Swift types are compiled
 into each module with distinct Swift module names; no separately installed framework
 or dynamic package is required. No private entitlements, web content or runtime shell commands.
 
-`ScreenSaverView` requests 60 Hz animation for City Drift and 30 Hz for the other savers. `startAnimation` applies settings
+`ScreenSaverView` requests 60 Hz animation for City Drift and Paper Sky, and 30 Hz for the other savers. `startAnimation` applies settings
 and starts the scene; `stopAnimation` cancels work. The development app uses the same
 wrapper, with a standalone timer fallback on macOS releases that only supply
 animation callbacks inside the actual saver host. Scenes present a cached Core Animation layer tree, updating
@@ -22,7 +22,7 @@ bandwidth without continuously repainting the surface. There is no fixed screen 
 
 `SaverScene` defines start, stop, apply settings, reference drawing and optional layer presentation. The wrapper has
 one level of subclassing, with scene behavior implemented through composition.
-`PreviewHost` links these sources directly, and smoke mode additionally loads all three
+`PreviewHost` links these sources directly, and smoke mode additionally loads all nine
 built bundles to validate their metadata and Objective-C entry points.
 
 ## Time and World Clock Room
@@ -43,6 +43,12 @@ Only vector hand transforms and the gently moving camera change per frame. Floor
 - `com.someoneintexas.screensavers.worldclockroom`
 - `com.someoneintexas.screensavers.citydrift`
 - `com.someoneintexas.screensavers.voxelcosmos`
+- `com.someoneintexas.screensavers.papersky`
+- `com.someoneintexas.screensavers.dapple`
+- `com.someoneintexas.screensavers.flourish`
+- `com.someoneintexas.screensavers.lattice`
+- `com.someoneintexas.screensavers.strawberryfieldsforever`
+- `com.someoneintexas.screensavers.goodresearchtakestime`
 
 The v2 settings record expands camera speed from 0–2 to 0–16, defaulting to 6.
 Legacy speeds are multiplied by six once, preserving zero and other appearance
@@ -144,7 +150,7 @@ universal release using the same source and bundle metadata.
 The build makes optimized binaries, then ad-hoc signs them. Packaging stages copies,
 optionally re-signs with Developer ID, creates a DMG, optionally notarizes/staples it,
 creates a ZIP and hashes the deliverables. Verification mounts the DMG, expands the
-ZIP and checks all seven bundles. Release Actions build the exact version tag and publish
+ZIP and checks all nine bundles. Release Actions build the exact version tag and publish
 only after tests and package verification pass. Ordinary CI needs no signing secrets.
 
 ## Configuration lifecycle
@@ -154,13 +160,13 @@ property queries, including while a sheet is open, return the same window. Contr
 refresh from persistence only when hidden and detached. Done deactivates color wells,
 ends the parent sheet (or standalone modal session), and orders the window out.
 New optional settings decode with defaults so older records keep color/speed choices.
-PreviewHost’s launch smoke test performs 18 real open/Done/reopen cycles across all three
+PreviewHost’s launch smoke test performs 54 real open/Done/reopen cycles across all nine
 savers and asserts window identity and dismissal. Actual System Settings behavior
 still requires a manual check on each supported macOS version.
 
 Legacy picker artwork is generated in 90×58 / 180×116 PNGs plus multi-resolution
 TIFF. These are best-effort resources: current System Settings has no supported
-custom thumbnail API, as documented in the README.
+custom thumbnail API, as documented in TROUBLESHOOTING.md.
 
 ## Online vector maps (default)
 
@@ -293,3 +299,37 @@ The renderer publishes one complete bitmap at each simulation step, with a reuse
 low-resolution glow field and nearest-neighbor integer physical pixel scaling.
 Its presentation targets 30 FPS; cellular updates are independently configurable.
 Both scenes use typed persisted settings and fresh/daily/fixed SplitMix64 seeds.
+
+
+## Strawberry Fields Forever and Good Research Takes Time (0.7.1)
+
+Both scenes separate seeded world construction, typed settings, artwork, and layer
+presentation. `ContemplativeWorld.swift` supplies a capped monotonic clock, easing,
+an original depth-first perfect-maze generator/traversal, and a small Core Graphics
+vocabulary. No randomness is consumed by per-frame presentation.
+
+Artwork is an original 2.5D illustration, not a 3D game renderer. A bounded cached
+world surface and reusable plant sprites retain shape/material detail. Core Animation
+moves the camera, sways plant groups, carries small cable signals, moves the maze
+cursor and timer hand, and reveals text. Complete disabled-animation transactions
+keep those updates synchronized. Scene clocks exclude paused time and cap delayed
+host frames. Resizing reframes the same world without regenerating its seed.
+
+The field's terrain and basement share one coordinate system, joined by roots and
+structural cable routes. Quintic-eased descents take minutes; an independent smooth
+weather envelope gently changes wind and signal brightness. The cave follows a
+continuous eased route among three authored chamber compositions within seeded
+geology, with side chambers swapped by seed. Maze agents traverse actual open
+passages with pauses and backtracking, rather than teleporting between arbitrary cells.
+
+Lore is selected from bounded local phrase sets. Pure Art gates it before rendering;
+staged triads/shrine compositions are separately gated in the artwork. The research
+instrument's neutral elapsed metadata updates only when its hour changes. Deep cave
+messages wait for a main-instrument visit. These are fictional environmental details,
+not live research data. New Codable groups default when absent in older settings.
+
+`PreviewHost --lore-gallery --output <folder>` renders both savers across seeds,
+lore modes, palettes, transitions, small/portrait framing and actual message windows.
+`--strawberry-review --profile` and `--research-review --profile` use temporary fixed
+preferences for native motion inspection. Source grounding and artistic constraints
+are documented in [Art and lore](ART_AND_LORE.md).

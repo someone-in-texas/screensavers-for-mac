@@ -17,7 +17,7 @@ hdiutil attach -quiet -readonly -nobrowse -mountpoint "$work/mount" "dist/$base.
 mounted=1
 for location in "$work/zip" "$work/mount"; do
     ids=()
-    for name in 'World Clock Room' 'City Drift' 'Voxel Cosmos' 'Paper Sky' 'Dapple' 'Flourish' 'Lattice'; do
+    for name in 'World Clock Room' 'City Drift' 'Voxel Cosmos' 'Paper Sky' 'Dapple' 'Flourish' 'Lattice' 'Strawberry Fields Forever' 'Good Research Takes Time'; do
         bundle="$location/$name.saver"
         [[ -d "$bundle" ]]
         for image in thumbnail.png thumbnail@2x.png thumbnail.tiff; do
@@ -38,6 +38,6 @@ for location in "$work/zip" "$work/mount"; do
         codesign --verify --strict "$bundle"
         otool -hv "$bundle/Contents/MacOS/$exe" | grep -q BUNDLE
     done
-    [[ "$(printf '%s\n' "${ids[@]}" | sort -u | wc -l | tr -d ' ')" == 7 ]]
+    [[ "$(printf '%s\n' "${ids[@]}" | sort -u | wc -l | tr -d ' ')" == 9 ]]
 done
 echo 'Verified checksums, mounted DMG, expanded ZIP, bundle metadata, architecture and signatures.'

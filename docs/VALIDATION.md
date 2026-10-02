@@ -1,5 +1,45 @@
 # Validation
 
+## v0.7.1 change validation
+
+- `make release-check` passed: 192,830 offline checks, zero failures, all nine
+  actual bundles loaded, 54 Options open/Done/reopen cycles with native callbacks
+  and another 54 with the fallback timer. Expanded ZIP and mounted DMG passed
+  checksum, architecture, metadata, thumbnail, unique-identifier and signature
+  verification. Local packages are ad-hoc signed, not notarized.
+- Five sequential art-critic review/response rounds and five lore-review rounds
+  were completed for **each** new saver before release. Strawberry revisions
+  refined field depth, organic leaf and fruit shapes, grounded foliage, restrained
+  cable routes, instrument scale, and solid baskets beneath a warm pendant. Research
+  revisions refined connected floors, chamber reveals, chair upholstery and contact
+  shadows, archive depth, board mounting, and solitary-chair framing.
+- Lore reviews kept references subordinate to the art: one seed-selected fruit
+  triad, no deliberate triad or chair shrine in Pure Art, neutral experiment
+  metadata, sparse original notices, and rare deep messages during visible panel
+  visits. The longest field fragment exposed a four-pixel clipping issue; a
+  measured font adjustment and exhaustive phrase-width checks cover it.
+- Final renderer galleries cover seeds 42, 91 and 807, field and basement, all
+  three research compositions, Pure Art and deep lore, alternative palettes,
+  280×180 previews, 800×1400 portrait and 3440×1440 ultrawide frames. Thirty-second
+  samples cover the eased transitions; deep-message samples extend to 2,590 seconds.
+  README images are actual renderer output, not mockups.
+- Procedural tests cover seeded worlds, connected cable and chamber graphs,
+  perfect-maze generation and actual backtracking traversal, two-hour camera
+  continuity at every pace, four-hour Pure Art filtering, text rarity/fit,
+  contradictory notices, wind/weather bounds, paused time, settings migration,
+  and bounded long-session layer trees.
+- Both native Options sheets were visually inspected. Strawberry ran for 5,974
+  native preview frames: CPU update p50 0.213 ms, p95 0.301 ms, maximum 3.720 ms.
+  Research ran for 5,752 frames, including travel from the chair alcove toward the
+  archive: p50 0.032 ms, p95 0.179 ms, maximum 0.326 ms. These are local CPU
+  simulation/layer-publication measurements, not GPU, energy or physical scanout
+  benchmarks. Hour-long physical playback and every supported Mac remain untested.
+- The worlds intentionally use cached 2.5D illustration and continuous pan/zoom,
+  with seeded variation inside authored compositions. They are not unbounded 3D
+  environments. Source grounding and fiction boundaries are documented in
+  [Art and lore](ART_AND_LORE.md).
+
+
 ## v0.7.0 change validation
 
 - `make release-check` passed: 30,609 offline checks, zero failures, all seven

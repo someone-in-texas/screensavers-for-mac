@@ -70,13 +70,13 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
         window.minSize = NSSize(width: 640, height: 240)
         window.center()
         picker.addItems(withTitles: SaverKind.allCases.map(\.title)); picker.target = self; picker.action = #selector(switchScene)
-        picker.frame = NSRect(x: 18, y: 752, width: 190, height: 28); picker.autoresizingMask = [.minYMargin]
+        picker.frame = NSRect(x: 18, y: 752, width: 250, height: 28); picker.autoresizingMask = [.minYMargin]
         let configure = NSButton(title: "Configure…", target: self, action: #selector(configure))
-        configure.bezelStyle = .rounded; configure.frame = NSRect(x: 220, y: 752, width: 120, height: 28); configure.autoresizingMask = [.minYMargin]
+        configure.bezelStyle = .rounded; configure.frame = NSRect(x: 280, y: 752, width: 120, height: 28); configure.autoresizingMask = [.minYMargin]
         let full = NSButton(title: "Full Screen", target: self, action: #selector(fullScreen))
-        full.bezelStyle = .rounded; full.frame = NSRect(x: 348, y: 752, width: 120, height: 28); full.autoresizingMask = [.minYMargin]
+        full.bezelStyle = .rounded; full.frame = NSRect(x: 408, y: 752, width: 120, height: 28); full.autoresizingMask = [.minYMargin]
         let save = NSButton(title: "Save Frame…", target: self, action: #selector(saveFrame))
-        save.bezelStyle = .rounded; save.frame = NSRect(x: 476, y: 752, width: 130, height: 28); save.autoresizingMask = [.minYMargin]
+        save.bezelStyle = .rounded; save.frame = NSRect(x: 536, y: 752, width: 130, height: 28); save.autoresizingMask = [.minYMargin]
         window.contentView?.addSubview(save)
         window.contentView?.addSubview(picker); window.contentView?.addSubview(configure); window.contentView?.addSubview(full)
         let menu = NSMenu(); let appItem = NSMenuItem(); menu.addItem(appItem)
@@ -88,6 +88,8 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
         if CommandLine.arguments.contains("--dapple") || CommandLine.arguments.contains("--dapple-review") { picker.selectItem(at: 4) }
         if CommandLine.arguments.contains("--flourish") || CommandLine.arguments.contains("--flourish-review") { picker.selectItem(at: 5) }
         if CommandLine.arguments.contains("--lattice") || CommandLine.arguments.contains("--lattice-review") { picker.selectItem(at: 6) }
+        if CommandLine.arguments.contains("--strawberry") || CommandLine.arguments.contains("--strawberry-review") {picker.selectItem(at:7)}
+        if CommandLine.arguments.contains("--research") || CommandLine.arguments.contains("--research-review") {picker.selectItem(at:8)}
         switchScene(); window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
         if let i = CommandLine.arguments.firstIndex(of: "--capture-after"), i + 1 < CommandLine.arguments.count,
            let seconds = Double(CommandLine.arguments[i + 1]), seconds.isFinite {
@@ -126,7 +128,7 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
     @objc func switchScene() {
         view?.reportPerformance(); view?.stopAnimation(); view?.removeFromSuperview()
         let kind = SaverKind.allCases[picker.indexOfSelectedItem]
-        let review = CommandLine.arguments.contains("--online-vector") || CommandLine.arguments.contains("--cosmos-review") || CommandLine.arguments.contains("--paper-review") || CommandLine.arguments.contains("--dapple-review") || CommandLine.arguments.contains("--flourish-review") || CommandLine.arguments.contains("--lattice-review")
+        let review = CommandLine.arguments.contains("--online-vector") || CommandLine.arguments.contains("--cosmos-review") || CommandLine.arguments.contains("--paper-review") || CommandLine.arguments.contains("--dapple-review") || CommandLine.arguments.contains("--flourish-review") || CommandLine.arguments.contains("--lattice-review") || CommandLine.arguments.contains("--strawberry-review") || CommandLine.arguments.contains("--research-review")
         let store = SettingsStore(kind, defaults: (CommandLine.arguments.contains("--launch-smoke") || review) ? UserDefaults(suiteName: smokeSuite + kind.rawValue) : nil)
         if review {
             var settings = SaverSettings(); settings.cosmos.secondsPerView = 15; settings.paperSky.secondsPerView = 20; settings.mapStyle = .online; settings.palette = .blueprint
@@ -135,16 +137,24 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
             if CommandLine.arguments.contains("--dapple-review") { settings.dapple.seedBehavior = .fixed }
             if CommandLine.arguments.contains("--flourish-review") { settings.flourish.seedBehavior = .fixed }
             if CommandLine.arguments.contains("--lattice-review") { settings.lattice.seedBehavior = .fixed }
+            if CommandLine.arguments.contains("--strawberry-review") {settings.strawberry.seedBehavior = .fixed}
+            if CommandLine.arguments.contains("--research-review") {settings.research.seedBehavior = .fixed}
             store.value = settings
         }
         let noNetwork = CommandLine.arguments.contains("--offline") || CommandLine.arguments.contains("--launch-smoke")
         let fixed = CommandLine.arguments.firstIndex(of: "--city").flatMap { i in i + 1 < CommandLine.arguments.count ? CommandLine.arguments[i + 1] : nil }
-        let scene: SaverScene = kind == .worldClockRoom ? WorldClockScene() : kind == .voxelCosmos ? VoxelCosmosScene() as SaverScene : kind == .paperSky ? PaperSkyScene() as SaverScene : kind == .dapple ? DappleScene() as SaverScene : kind == .flourish ? FlourishScene() as SaverScene : kind == .lattice ? LatticeScene() as SaverScene : CityDriftScene(store: store, networkEnabled: !noNetwork, city: MapCity.all.first { $0.name == fixed }, visitCache: noNetwork && !CommandLine.arguments.contains("--launch-smoke") ? CityVisitCache() : nil)
+        let scene: SaverScene = kind == .worldClockRoom ? WorldClockScene() : kind == .voxelCosmos ? VoxelCosmosScene() as SaverScene : kind == .paperSky ? PaperSkyScene() as SaverScene : kind == .dapple ? DappleScene() as SaverScene : kind == .flourish ? FlourishScene() as SaverScene : kind == .lattice ? LatticeScene() as SaverScene : kind == .strawberryFieldsForever ? StrawberryFieldsScene() as SaverScene : kind == .goodResearchTakesTime ? GoodResearchScene() as SaverScene : CityDriftScene(store: store, networkEnabled: !noNetwork, city: MapCity.all.first { $0.name == fixed }, visitCache: noNetwork && !CommandLine.arguments.contains("--launch-smoke") ? CityVisitCache() : nil)
         let frame = NSRect(x: 0, y: 0, width: window.contentView!.bounds.width, height: window.contentView!.bounds.height - 48)
         view = PreviewSaverView(frame: frame, isPreview: false, kind: kind, scene: scene, settingsStore: store)
         window.contentView?.addSubview(view!, positioned: .below, relativeTo: picker)
         view?.startAnimation()
+        if review, (kind == .strawberryFieldsForever || kind == .goodResearchTakesTime),
+           let i=CommandLine.arguments.firstIndex(of:"--review-age"),i+1<CommandLine.arguments.count,
+           let age=Double(CommandLine.arguments[i+1]),age.isFinite,age>0,let root=view?.layer {
+            for frame in 0...Int(min(7200,age)*4) {_ = scene.updateLayer(root,size:frameSize(),time:Double(frame)/4,date:Date())}
+        }
     }
+    private func frameSize()->CGSize {view?.bounds.size ?? .zero}
     @objc func configure() { if window.attachedSheet == nil, let sheet = view?.configureSheet { window.beginSheet(sheet) } }
     @objc func saveFrame() {
         guard let view, let layer = view.layer else { return }
@@ -153,7 +163,7 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
         c.scaleBy(x: size.width / view.bounds.width, y: size.height / view.bounds.height)
         layer.render(in: c)
         guard let image = c.makeImage() else { return }
-        let filename = ["world-clock-room.png", "city-drift.png", "voxel-cosmos.png", "paper-sky.png", "dapple.png", "flourish.png", "lattice.png"][picker.indexOfSelectedItem]
+        let filename = ["world-clock-room.png", "city-drift.png", "voxel-cosmos.png", "paper-sky.png", "dapple.png", "flourish.png", "lattice.png", "strawberry-fields-forever.png", "good-research-takes-time.png"][picker.indexOfSelectedItem]
         if let i = CommandLine.arguments.firstIndex(of: "--capture-dir"), i + 1 < CommandLine.arguments.count {
             let directory = CommandLine.arguments[i + 1]
             try? FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
@@ -168,7 +178,7 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
     @objc func fullScreen() { window.toggleFullScreen(nil) }
     func applicationWillTerminate(_ notification: Notification) {
         view?.reportPerformance(); view?.stopAnimation()
-        if CommandLine.arguments.contains("--launch-smoke") || CommandLine.arguments.contains("--online-vector") || CommandLine.arguments.contains("--cosmos-review") || CommandLine.arguments.contains("--paper-review") || CommandLine.arguments.contains("--dapple-review") || CommandLine.arguments.contains("--flourish-review") || CommandLine.arguments.contains("--lattice-review") {
+        if CommandLine.arguments.contains("--launch-smoke") || CommandLine.arguments.contains("--online-vector") || CommandLine.arguments.contains("--cosmos-review") || CommandLine.arguments.contains("--paper-review") || CommandLine.arguments.contains("--dapple-review") || CommandLine.arguments.contains("--flourish-review") || CommandLine.arguments.contains("--lattice-review") || CommandLine.arguments.contains("--strawberry-review") || CommandLine.arguments.contains("--research-review") {
             for kind in SaverKind.allCases { UserDefaults.standard.removePersistentDomain(forName: smokeSuite + kind.rawValue) }
         }
     }
@@ -177,7 +187,35 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
 
 let app = NSApplication.shared
 app.setActivationPolicy(.regular)
-if CommandLine.arguments.contains("--art-gallery") {
+if CommandLine.arguments.contains("--lore-gallery") {
+let out=CommandLine.arguments.firstIndex(of:"--output").flatMap {i in i+1<CommandLine.arguments.count ? CommandLine.arguments[i+1]:nil} ?? "build/lore-gallery"
+try FileManager.default.createDirectory(atPath:out,withIntermediateDirectories:true)
+for name in ["strawberry","research"] {
+ for variant in 0..<9 {
+  let seed:UInt64=variant==1 || variant==3 ? 91:variant==6 ? 807:42
+  var settings=SaverSettings()
+  if variant==1 {settings.strawberry.palette = .moonlit;settings.research.palette = .archive;settings.research.environment = .archive}
+  if variant==2 {settings.strawberry.balance = .moreBasement;settings.strawberry.network = .visible;settings.research.palette = .deepResearch;settings.research.environment = .deepLab}
+  if variant==3 {settings.strawberry.lore = .pureArt;settings.research.lore = .pureArt}
+  if variant==6 {settings.strawberry.palette = .monochromeRed;settings.strawberry.density = .fieldsForever;settings.research.palette = .monochrome;settings.research.mazes = .frequent}
+  if variant==7 {settings.strawberry.lore = .terminallyOnline;settings.strawberry.text = .normal;settings.strawberry.balance = .moreBasement;settings.research.lore = .deepLore;settings.research.text = .lore;settings.research.environment = .cave}
+  let scene:SaverScene=name=="strawberry" ? StrawberryFieldsScene(seed:seed):GoodResearchScene(seed:seed)
+  let size=variant==4 ? CGSize(width:280,height:180):variant==5 ? CGSize(width:800,height:1400):variant==8 ? CGSize(width:3440,height:1440):CGSize(width:1600,height:1000)
+  let root=CALayer();root.bounds=CGRect(origin:.zero,size:size);scene.apply(settings);scene.start()
+  var times:[Double]=[]
+  for frame in 0...(variant==7 ? 10400:3600) {
+   let t=Double(frame)/4,begin=ProcessInfo.processInfo.systemUptime
+   _=scene.updateLayer(root,size:size,time:t,date:Date(timeIntervalSince1970:0));times.append((ProcessInfo.processInfo.systemUptime-begin)*1000)
+   if [0,244,280,720,1244,1680,2400,2880,3360,3400,3600,8728,9224,10360].contains(frame) || ((variant==0 || variant==2) && frame%120==0 && (840...3360).contains(frame)) {
+    let c=bitmap(width:Int(size.width),height:Int(size.height))!;root.render(in:c)
+    let rep=NSBitmapImageRep(cgImage:c.makeImage()!);try rep.representation(using:.png,properties:[:])!.write(to:URL(fileURLWithPath:"\(out)/\(name)-\(variant)-\(Int(t)).png"))
+   }
+  }
+  times.sort();print("\(name) \(variant): p50 \(times[1800]) p95 \(times[3420]) max \(times.last!)");scene.stop()
+ }
+}
+
+} else if CommandLine.arguments.contains("--art-gallery") {
     let folder=CommandLine.arguments.firstIndex(of:"--output").flatMap {i in i+1<CommandLine.arguments.count ? CommandLine.arguments[i+1]:nil} ?? "build/art-gallery"
     try FileManager.default.createDirectory(atPath:folder,withIntermediateDirectories:true)
     let seed=CommandLine.arguments.firstIndex(of:"--seed").flatMap {i in i+1<CommandLine.arguments.count ? UInt64(CommandLine.arguments[i+1]):nil} ?? 42
@@ -282,7 +320,7 @@ if CommandLine.arguments.contains("--art-gallery") {
     let map = CityDriftScene(store: store, networkEnabled: false, city: MapCity.all[0]); map.useFixture(fixtureTile())
     let clock = WorldClockScene()
     let sizes = [CGSize(width: 1600, height: 1000), CGSize(width: 1920, height: 1080), CGSize(width: 2560, height: 1080), CGSize(width: 280, height: 180), CGSize(width: 800, height: 1200)]
-    for (name, scene) in [("world-clock-room", clock as SaverScene), ("city-drift-fixture", map as SaverScene), ("voxel-cosmos", VoxelCosmosScene() as SaverScene), ("paper-sky", PaperSkyScene(seed: 42) as SaverScene), ("dapple", DappleScene(seed: 42) as SaverScene), ("flourish", FlourishScene(seed: 42) as SaverScene), ("lattice", LatticeScene(seed: 42) as SaverScene)] {
+    for (name, scene) in [("world-clock-room", clock as SaverScene), ("city-drift-fixture", map as SaverScene), ("voxel-cosmos", VoxelCosmosScene() as SaverScene), ("paper-sky", PaperSkyScene(seed: 42) as SaverScene), ("dapple", DappleScene(seed: 42) as SaverScene), ("flourish", FlourishScene(seed: 42) as SaverScene), ("lattice", LatticeScene(seed: 42) as SaverScene), ("strawberry-fields-forever", StrawberryFieldsScene(seed:42) as SaverScene), ("good-research-takes-time", GoodResearchScene(seed:42) as SaverScene)] {
         scene.start()
         for size in sizes {
             let c = bitmap(width: Int(size.width), height: Int(size.height))!
@@ -409,7 +447,7 @@ if CommandLine.arguments.contains("--art-gallery") {
         if name != "City Drift" { view.startAnimation(); view.animateOneFrame(); view.stopAnimation() }
         print("Loaded \(name).saver and its configuration sheet")
     }
-    print("Rendered all seven savers, five aspect ratios, six map palettes and every cosmos view offline.")
+    print("Rendered all nine savers, five aspect ratios, six map palettes and every cosmos view offline.")
 } else {
     let delegate = PreviewDelegate(); app.delegate = delegate; app.run()
 }

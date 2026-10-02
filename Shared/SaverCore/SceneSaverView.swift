@@ -19,6 +19,8 @@ class SceneSaverView: ScreenSaverView {
             case .dapple: self.scene = DappleScene()
             case .flourish: self.scene = FlourishScene()
             case .lattice: self.scene = LatticeScene()
+            case .strawberryFieldsForever: self.scene = StrawberryFieldsScene()
+            case .goodResearchTakesTime: self.scene = GoodResearchScene()
             }
         }
         super.init(frame: frame, isPreview: isPreview)

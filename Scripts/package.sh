@@ -7,7 +7,7 @@ ARCH="${ARCH:-arm64}"
 mkdir -p dist
 stage=$(mktemp -d "${TMPDIR:-/tmp}/screensavers-package.XXXXXX")
 trap 'rm -rf "$stage"' EXIT
-for name in 'World Clock Room' 'City Drift' 'Voxel Cosmos' 'Paper Sky' 'Dapple' 'Flourish' 'Lattice'; do
+for name in 'World Clock Room' 'City Drift' 'Voxel Cosmos' 'Paper Sky' 'Dapple' 'Flourish' 'Lattice' 'Strawberry Fields Forever' 'Good Research Takes Time'; do
     ditto "build/products/$name.saver" "$stage/$name.saver"
     if [[ -n "${SIGNING_IDENTITY:-}" ]]; then
         codesign --force --options runtime --timestamp --sign "$SIGNING_IDENTITY" "$stage/$name.saver"
@@ -57,6 +57,6 @@ else
     echo 'Ad-hoc signed; not notarized. Gatekeeper approval may be required.' > dist/SIGNING.txt
 fi
 # Explicit paths keep ZIP contents at the root and omit staging-only files.
-(cd "$stage" && /usr/bin/zip -q -r "$OLDPWD/dist/$base.zip" 'World Clock Room.saver' 'City Drift.saver' 'Voxel Cosmos.saver' 'Paper Sky.saver' 'Dapple.saver' 'Flourish.saver' 'Lattice.saver' Install.txt)
+(cd "$stage" && /usr/bin/zip -q -r "$OLDPWD/dist/$base.zip" 'World Clock Room.saver' 'City Drift.saver' 'Voxel Cosmos.saver' 'Paper Sky.saver' 'Dapple.saver' 'Flourish.saver' 'Lattice.saver' 'Strawberry Fields Forever.saver' 'Good Research Takes Time.saver' Install.txt)
 (cd dist && shasum -a 256 "$base.dmg" "$base.zip" > SHA256SUMS)
 echo "Packaged dist/$base.{dmg,zip} and dist/SHA256SUMS"
