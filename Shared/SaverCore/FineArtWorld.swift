@@ -251,49 +251,67 @@ enum FineArtArtwork {
         p.closeSubpath();return p
     }
     static func fruit(_ form:PrintForm,index:Int,colors:PrintColors,settings:StrawberryFineSettings,seed:UInt64,resolution:Double=2)->CGImage {
-        WorldInk.image(fruitSize,resolution){c in
-            c.translateBy(x:fruitSize.width/2,y:fruitSize.height/2);c.rotate(by:form.tilt);c.scaleBy(x:form.width,y:form.height)
-            let path=fruitPath(index,seed:seed)
-            let pigment=WorldInk.blend(colors.pigment,RGB(0.88,0.18,0.13),settings.literalness == .abstract ? 0:0.40-Double(index)*0.06)
-            c.addPath(path);c.setFillColor(WorldInk.color(pigment));c.fillPath()
-            c.saveGState();c.addPath(path);c.clip()
-            var r=ArtRandom(state:seed &+ UInt64(index)*79)
-            for _ in 0..<1300 {
-                let x=r.next()-0.5,y=r.next()-0.55,rad=0.002+r.next()*0.012
-                WorldInk.oval(c,CGRect(x:x,y:y,width:rad,height:rad*0.58),r.next()>0.5 ? colors.ground : colors.ink,0.02+r.next()*0.04)
-            }
-            if settings.literalness != .abstract {
-                let seedColor=WorldInk.blend(RGB(0.12,0.19,0.10),colors.ink,0.25)
-                // Jittered rows read as hand-cut seeds, with clear spacing and varied tilt.
-                for row in 0..<5 {for col in 0..<5 {
-                    guard r.next()>0.18 else {continue}
-                    let x=(Double(col)-2)*0.16+(r.next()-0.5)*0.11
-                    let y = -0.35+Double(row)*0.135+(r.next()-0.5)*0.055
-                    guard path.contains(CGPoint(x:x*1.18,y:y)) else {continue}
-                    c.saveGState();c.translateBy(x:x,y:y);c.rotate(by:(r.next()-0.5)*1.7)
-                    let seedScale=0.75+r.next()*0.55;c.scaleBy(x:seedScale,y:seedScale)
-                    let seed=CGMutablePath();seed.move(to:CGPoint(x:0,y:0.017))
-                    seed.addCurve(to:CGPoint(x:0,y:-0.019),control1:CGPoint(x:-0.026,y:-0.013),control2:CGPoint(x:-0.005,y:-0.024))
-                    seed.addCurve(to:CGPoint(x:0,y:0.017),control1:CGPoint(x:0.016,y:-0.019),control2:CGPoint(x:0.011,y:0.005))
-                    c.addPath(seed);c.setFillColor(WorldInk.color(seedColor,0.88));c.fillPath();c.restoreGState()
-                }}
-            }
-            c.restoreGState()
-            if settings.literalness != .abstract {
-                let leaf=WorldInk.blend(RGB(0.23,0.36,0.19),colors.ink,0.16)
-                let center=fruitCrown(index,seed:seed)
-                for i in 0..<5 {
-                    let angle=Double(i)*1.22+0.22+(r.next()-0.5)*0.30
-                    let length=0.21+r.next()*0.13
-                    let tip=CGPoint(x:center.x+cos(angle)*length,y:center.y+sin(angle)*length*0.70)
-                    let leafPath=CGMutablePath();leafPath.move(to:center)
-                    leafPath.addQuadCurve(to:tip,control:CGPoint(x:(center.x+tip.x)/2-sin(angle)*0.05,y:(center.y+tip.y)/2+cos(angle)*0.055))
-                    leafPath.addQuadCurve(to:center,control:CGPoint(x:(center.x+tip.x)/2+sin(angle)*0.035,y:(center.y+tip.y)/2-cos(angle)*0.045))
-                    c.addPath(leafPath);c.setFillColor(WorldInk.color(leaf));c.fillPath()
-                }
-                let lean=(r.next()-0.5)*0.26,stemHeight=0.12+r.next()*0.06
-                WorldInk.path(c,[center,CGPoint(x:center.x+lean*0.4,y:center.y+stemHeight*0.65),CGPoint(x:center.x+lean,y:center.y+stemHeight)],leaf,0.022+r.next()*0.009)
-            }
+        WorldInk.image(fruitSize,resolution){context in
+            drawFruit(context,form:form,index:index,colors:colors,settings:settings,seed:seed)
         }
+    }
+    // Keep drawing stages outside the image closure so Swift 6.1 can type-check
+    // them independently. Passing one generator preserves the exact seeded art.
+    private static func drawFruit(_ c:CGContext,form:PrintForm,index:Int,colors:PrintColors,settings:StrawberryFineSettings,seed:UInt64) {
+        c.translateBy(x:fruitSize.width/2,y:fruitSize.height/2);c.rotate(by:form.tilt);c.scaleBy(x:form.width,y:form.height)
+        let path=fruitPath(index,seed:seed)
+        let tint:Double=settings.literalness == .abstract ? 0:0.40-Double(index)*0.06
+        let pigment=WorldInk.blend(colors.pigment,RGB(0.88,0.18,0.13),tint)
+        c.addPath(path);c.setFillColor(WorldInk.color(pigment));c.fillPath()
+        c.saveGState();c.addPath(path);c.clip()
+        var r=ArtRandom(state:seed &+ UInt64(index)*79)
+        drawFruitGrain(c,colors:colors,random:&r)
+        if settings.literalness != .abstract {drawFruitSeeds(c,path:path,colors:colors,random:&r)}
+        c.restoreGState()
+        if settings.literalness != .abstract {drawFruitCrown(c,index:index,colors:colors,seed:seed,random:&r)}
+    }
+    private static func drawFruitGrain(_ c:CGContext,colors:PrintColors,random r:inout ArtRandom) {
+        for _ in 0..<1300 {
+            let x=r.next()-0.5,y=r.next()-0.55,rad=0.002+r.next()*0.012
+            WorldInk.oval(c,CGRect(x:x,y:y,width:rad,height:rad*0.58),r.next()>0.5 ? colors.ground : colors.ink,0.02+r.next()*0.04)
+        }
+    }
+    private static func drawFruitSeeds(_ c:CGContext,path:CGPath,colors:PrintColors,random r:inout ArtRandom) {
+        let seedColor=WorldInk.blend(RGB(0.12,0.19,0.10),colors.ink,0.25)
+        // Jittered rows read as hand-cut seeds, with clear spacing and varied tilt.
+        for row in 0..<5 {for col in 0..<5 {
+            guard r.next()>0.18 else {continue}
+            let x=(Double(col)-2)*0.16+(r.next()-0.5)*0.11
+            let y = -0.35+Double(row)*0.135+(r.next()-0.5)*0.055
+            guard path.contains(CGPoint(x:x*1.18,y:y)) else {continue}
+            c.saveGState();c.translateBy(x:x,y:y);c.rotate(by:(r.next()-0.5)*1.7)
+            let seedScale=0.75+r.next()*0.55;c.scaleBy(x:seedScale,y:seedScale)
+            let seed=CGMutablePath();seed.move(to:CGPoint(x:0,y:0.017))
+            seed.addCurve(to:CGPoint(x:0,y:-0.019),control1:CGPoint(x:-0.026,y:-0.013),control2:CGPoint(x:-0.005,y:-0.024))
+            seed.addCurve(to:CGPoint(x:0,y:0.017),control1:CGPoint(x:0.016,y:-0.019),control2:CGPoint(x:0.011,y:0.005))
+            c.addPath(seed);c.setFillColor(WorldInk.color(seedColor,0.88));c.fillPath();c.restoreGState()
+        }}
+    }
+    private static func drawFruitCrown(_ c:CGContext,index:Int,colors:PrintColors,seed:UInt64,random r:inout ArtRandom) {
+        let leaf=WorldInk.blend(RGB(0.23,0.36,0.19),colors.ink,0.16)
+        let center=fruitCrown(index,seed:seed)
+        let centerX=Double(center.x),centerY=Double(center.y)
+        for i in 0..<5 {
+            let angle=Double(i)*1.22+0.22+(r.next()-0.5)*0.30
+            let length=0.21+r.next()*0.13
+            let tipX=centerX+cos(angle)*length,tipY=centerY+sin(angle)*length*0.70
+            let tip=CGPoint(x:tipX,y:tipY)
+            let midX=(centerX+tipX)/2,midY=(centerY+tipY)/2
+            let outer=CGPoint(x:midX-sin(angle)*0.05,y:midY+cos(angle)*0.055)
+            let inner=CGPoint(x:midX+sin(angle)*0.035,y:midY-cos(angle)*0.045)
+            let leafPath=CGMutablePath();leafPath.move(to:center)
+            leafPath.addQuadCurve(to:tip,control:outer)
+            leafPath.addQuadCurve(to:center,control:inner)
+            c.addPath(leafPath);c.setFillColor(WorldInk.color(leaf));c.fillPath()
+        }
+        let lean=(r.next()-0.5)*0.26,stemHeight=0.12+r.next()*0.06
+        let bend=CGPoint(x:centerX+lean*0.4,y:centerY+stemHeight*0.65)
+        let tip=CGPoint(x:centerX+lean,y:centerY+stemHeight)
+        WorldInk.path(c,[center,bend,tip],leaf,0.022+r.next()*0.009)
     }
 }

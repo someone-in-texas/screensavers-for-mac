@@ -10,6 +10,9 @@
   bundles loaded and rendered. Fruit-border checks cover 75 cached subjects
   across five seeds and every composition; they caught and verified the fix for
   clipping of wider procedural fruit.
+- The first GitHub build exposed a Swift 6.1 type-checking limit in the fruit
+  image closure. Splitting its drawing stages into helpers preserved all 112
+  local gallery PNGs byte for byte before restarting the unpublished release.
 
 - Sequential `art_critic` rounds covered botanical silhouettes, connected growth,
   centering, vector chair edges, light/dark palettes, portrait framing and renewal.
