@@ -57,10 +57,10 @@ jobs:
           - **Dapple** — tactile circles rolling over invisible hills, with gentle contacts, curated palettes, and procedural materials.
           - **Flourish** — growing botanical ink, tapered branching stems, delicate leaves and blossoms, and slowly renewing compositions.
           - **Lattice** — a luminous cellular ecosystem with four rule families, crisp pixels, subtle glow, and localized events.
-          - **Strawberry Fields Forever** — three crimson pigment forms and a fine root drawing that gradually becomes circuitry.
+          - **Strawberry Fields Forever** — procedural botanical strawberries and growing roots that become circuit traces.
           - **Good Research Takes Time** — a solitary blue metal folding chair anchoring an unfinished architectural drawing.
 
-          Version 0.7.2 refines Strawberry Fields Forever and Good Research Takes Time into restrained moving artworks, with quiet palettes, print surfaces, generous negative space and focused native options. Each was refined through five art-critic review rounds. The original interpretations remain preserved as a hidden optional Lore Mode. Existing preferences are retained; the new fine-art presentation is the default. All nine bundles are included.
+          Version 0.7.2.1 improves startup centering and display-resolution rendering for Strawberry Fields Forever and Good Research Takes Time, including a native vector chair. Distinct procedural strawberries begin with bare roots and keep growing new circuit branches; the chair’s maze renews connected chambers and returning paths. Independent renewal and gentle drift sustain motion through long sessions while retaining quiet compositions. The original interpretations remain preserved as a hidden optional Lore Mode. Existing preferences are retained; the new fine-art presentation is the default. All nine bundles are included.
 
           Download the DMG, open it, and double-click each `.saver` to install for the current user. Select the saver in System Settings → Wallpaper → Screen Saver (or Screen Saver on older macOS), then open its options. The ZIP contains the same bundles. Verify downloads with `shasum -a 256 -c SHA256SUMS` from the directory containing both downloads.
 

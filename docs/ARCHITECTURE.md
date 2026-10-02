@@ -335,7 +335,7 @@ preferences for native motion inspection. Source grounding and artistic constrai
 are documented in [Art and lore](ART_AND_LORE.md).
 
 
-## Fine-art prints (0.7.2)
+## Fine-art prints (0.7.2, refined in 0.7.2.1)
 
 `ContemplativeScene` selects the new cached `FineArtScene` or the preserved
 `ResearchLoreScene` / `StrawberryLoreScene`. A live mode change stops the old scene,
@@ -343,11 +343,29 @@ removes its canvas, and starts the selected scene. The production wrappers retai
 their existing class names and bundle identifiers.
 
 `ResearchPrint` and `StrawberryPrint` generate bounded seeded paths on a 1600×1000
-sheet. Background grain, three pigment bodies, and the folding chair are cached
-Core Graphics images; Core Animation reveals existing strokes and moves a few faint
-signals. The chair image changes only after a small angle threshold. Portrait
-layouts enlarge the motif while preserving the full artwork; small previews apply
-a bounded minimum stroke width. No camera tours or scenic geometry run in fine art.
+sheet. Seeded fruit silhouettes, calyxes, seeds and paper are cached Core Graphics
+artwork. Shape layers draw the ink and every component of the chair, avoiding
+resampling a small chair image. Research routes renew in 78–96 second cycles;
+18 connected strawberry branch groups renew independently every 49–65 seconds.
+All start without pre-roll. A seven-second fade hides each group's geometry
+replacement while neighboring paths continue to develop. The seed and generation
+determine the next path without changing fruit identity or growing the layer tree.
+Child branches wait for their parent junctions; roots transition into rectilinear
+traces with small terminal pads. The chair changes angle during deliberate turns.
+
+The canvas resets its local bounds origin and centers itself within the host's
+bounds on every layout. `SceneSaverView` supplies a separate local viewport layer
+fitted to `visibleRect.intersection(bounds)`: macOS can size its legacy saver view
+at 3420×2214 inside a 1710×1107 parent. Fitting to that oversized view instead
+would put the composition's center at the visible area's upper-right corner.
+AppKit retains control of its own backing layer. Research centers the union of its complete initial paths
+and chair envelope, retaining that framing during subsequent path renewals. The
+stage has a centered anchor and a fixed fit scale with extra margins; slow
+translation moves the foreground by up to 94×62 design units without zooming it.
+Paper fills the stationary canvas. Shape layers use the effective display scale;
+fruit caches regenerate when the required pixel resolution changes.
+Small previews retain a bounded minimum stroke width. Still strawberry mode
+freezes its foreground; the chair's Still option freezes its orientation.
 
 Fine-art preferences live under each saver's `fineArt` record. Existing preference
 keys retain their values; absent `loreMode` defaults to false for both new and

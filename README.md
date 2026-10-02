@@ -98,15 +98,17 @@ and fixed seeds make each world spontaneous or repeatable. Entirely offline.
 
 ## Strawberry Fields Forever
 
-Three crimson forms hang in a quiet field of paper. Fine roots descend from the
-pigment, gradually finding the angles and junctions of a circuit. The drawing
-changes almost imperceptibly, leaving room for stillness and close looking.
+Three procedurally shaped strawberries hang in a quiet field of paper, with
+uneven leafy crowns and dark, scattered seeds. Fine roots grow downward into
+angular circuit traces and tiny terminals. All three begin with bare roots.
+Connected branches extend, fade and grow new paths in independent cycles while
+the print gently drifts across the field, continuing through long sessions.
 
 Choose six restrained palettes, five compositions, root-to-circuit balance,
 paper/vellum/canvas surfaces, and gentle growth, breathing or signal motion.
 Fresh, daily and fixed seeds make each print repeatable. Entirely offline.
 
-![Strawberry Fields Forever: three crimson pigment forms with descending roots on ivory](docs/images/strawberry-fields-forever.png)
+![Strawberry Fields Forever: three botanical strawberries with growing roots on ivory](docs/images/strawberry-fields-forever.png)
 
 [Museum Night](docs/images/strawberry-night.png) · [Root study](docs/images/strawberry-transition.png)
 
@@ -114,7 +116,8 @@ Fresh, daily and fixed seeds make each print repeatable. Entirely offline.
 
 A solitary blue metal folding chair anchors an unfinished architectural drawing.
 Graphite routes open into chambers, turn back, and gradually find new edges across a warm
-ivory field. The chair rests for minutes between small changes of orientation.
+ivory field. Connected branches grow, fade and renew their architecture independently; the chair
+changes orientation between quiet rests as the whole drawing gently drifts.
 
 Five quiet palettes, five drawing styles, four line characters, and open or denser
 compositions. Choose a still chair, occasional turns, or a very slow change of angle;

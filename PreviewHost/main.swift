@@ -214,9 +214,9 @@ if CommandLine.arguments.contains("--fine-gallery") {
                 let begin=ProcessInfo.processInfo.systemUptime
                 _=scene.updateLayer(root,size:size,time:Double(frame)/4,date:Date(timeIntervalSince1970:0))
                 if frame>0 {timings.append((ProcessInfo.processInfo.systemUptime-begin)*1000)}
-                if [0,240,1200,3600].contains(frame) || (args.contains("--motion-samples") && variant==0 && (228...248).contains(frame)) {
+                if [0,32,100,220,240,1200,3600].contains(frame) || (args.contains("--motion-samples") && variant==0 && (228...248).contains(frame)) {
                     let c=bitmap(width:Int(size.width),height:Int(size.height))!;root.render(in:c)
-                    try savePNG(c.makeImage()!,"\(out)/\(research ? "research":"strawberry")-\(variant)-\(frame/4)\(args.contains("--motion-samples") && ![0,240,1200,3600].contains(frame) ? "-frame\(frame)":"").png")
+                    try savePNG(c.makeImage()!,"\(out)/\(research ? "research":"strawberry")-\(variant)-\(frame/4)\(args.contains("--motion-samples") && ![0,32,100,220,240,1200,3600].contains(frame) ? "-frame\(frame)":"").png")
                 }
             }
             timings.sort();print("\(research ? "research":"strawberry") \(variant) seed \(scene.seed), strokes \(scene.segmentCount), angle \(scene.chairAngle): CPU update p50 \(timings[1800]) ms p95 \(timings[3420]) ms max \(timings.last!) ms")
@@ -482,6 +482,26 @@ for name in ["strawberry","research"] {
               view.hasConfigureSheet, view.configureSheet != nil else { fatalError("Bundle load failed: \(name)") }
         // Start/stop the clock; map scene smoke is offline above to keep CI off OSM.
         if name != "City Drift" { view.startAnimation(); view.animateOneFrame(); view.stopAnimation() }
+        if name == "Good Research Takes Time" || name == "Strawberry Fields Forever" {
+            // Reproduce legacyScreenSaver's oversized Retina view, clipped by
+            // its point-sized parent. Direct scene snapshots cannot catch this.
+            let host=NSView(frame:NSRect(x:0,y:0,width:1710,height:1107))
+            let hostWindow=NSWindow(contentRect:host.bounds,styleMask:.borderless,backing:.buffered,defer:false)
+            hostWindow.contentView=host
+            host.addSubview(view)
+            for bounds in [NSRect(x:0,y:0,width:1710,height:1107),NSRect(x:80,y:40,width:800,height:1200)] {
+                host.bounds=bounds
+                view.frame=NSRect(x:0,y:0,width:3420,height:2214)
+                view.layout();view.animateOneFrame()
+                let visible=view.visibleRect.intersection(view.bounds)
+                precondition(visible.width>0 && visible.width<view.bounds.width,"Host fixture must clip the oversized saver")
+                guard let viewport=view.layer?.sublayers?.first(where:{$0.name=="scene-viewport"}) else {fatalError("Missing viewport layer")}
+                let frame=viewport.frame
+                precondition(abs(frame.minX-visible.minX)<0.001 && abs(frame.minY-visible.minY)<0.001 && abs(frame.width-visible.width)<0.001 && abs(frame.height-visible.height)<0.001 && viewport.bounds.origin == .zero,"Artwork must fit the visible host viewport: \(name)")
+            }
+            view.removeFromSuperview()
+            hostWindow.contentView=nil
+        }
         print("Loaded \(name).saver and its configuration sheet")
     }
     print("Rendered all nine savers, five aspect ratios, six map palettes and every cosmos view offline.")

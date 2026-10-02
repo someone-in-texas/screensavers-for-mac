@@ -58,17 +58,116 @@ func runFineArtTests() {
         }
         expect(motion.angle(.nan).isFinite && motion.angle(.infinity).isFinite,"invalid time cannot poison chair projection")
     }
-    expect(ChairMotion.occasional.angle(0)==ChairMotion.occasional.angle(200),"occasional turn holds chair still for several minutes")
+    expect(ChairMotion.occasional.angle(0)==ChairMotion.occasional.angle(35),"occasional turn holds chair between deliberate turns")
+    // A new seed must change the outline itself, not only texture or placement.
+    for i in 0..<3 {
+        expect(FineArtArtwork.fruitPath(i,seed:42) == FineArtArtwork.fruitPath(i,seed:42),"fruit silhouette repeats for a fixed seed")
+        expect(FineArtArtwork.fruitPath(i,seed:42) != FineArtArtwork.fruitPath(i,seed:91),"new editions change the strawberry silhouette")
+    }
+    for seed:UInt64 in [0,42,91,807,UInt64.max] {
+        for composition in StrawberryComposition.allCases {
+            var settings=StrawberryFineSettings();settings.composition=composition
+            let printWorld=StrawberryPrint(seed:seed,settings:settings)
+            for (i,form) in printWorld.forms.enumerated() {
+                let image=FineArtArtwork.fruit(form,index:i,colors:settings.palette.colors,settings:settings,seed:seed)
+                let data=image.dataProvider!.data!
+                let intact=withExtendedLifetime(data) {
+                    let bytes=CFDataGetBytePtr(data)!,stride=image.bytesPerRow
+                    let topBottom=(0..<image.width).allSatisfy{bytes[$0*4+3]==0 && bytes[(image.height-1)*stride+$0*4+3]==0}
+                    let sides=(0..<image.height).allSatisfy{bytes[$0*stride+3]==0 && bytes[$0*stride+(image.width-1)*4+3]==0}
+                    return topBottom && sides
+                }
+                expect(intact,"fruit crown and tilted silhouette never clip their cached image (seed \(seed), \(composition), fruit \(i))")
+            }
+        }
+    }
+    let organic=StrawberryPrint(seed:42,settings:{var s=StrawberryFineSettings();s.blend = .organic;return s}())
+    expect(organic.strokes.allSatisfy{!$0.digital},"organic option contains no circuit terminals")
+    let evolving=ResearchPrint(seed:42,settings:ResearchFineSettings()).strokes
+    expect(evolving.contains{abs($0.evolution(8,research:true).end-$0.evolution(0,research:true).end)>0.2},"research drawing grows visibly within eight seconds")
+    let roots=StrawberryPrint(seed:42,settings:StrawberryFineSettings()).strokes
+    expect(roots.contains{abs($0.evolution(8,research:false).end-$0.evolution(0,research:false).end)>0.2},"roots grow visibly within eight seconds")
+    expect(roots.allSatisfy{$0.evolution(0,research:false).end==0},"all three strawberries start with ungenerated roots")
+    for fruit in 0..<3 {
+        expect(roots.filter{$0.family/6==fruit}.contains{$0.evolution(8,research:false).end>0.06},"each strawberry visibly grows from startup")
+    }
+    for research in [true,false] {
+        let paths=research ? evolving:roots
+        // Measure growing tips, not camera drift or pulses: no five-second idle
+        // window is acceptable during an hour-long default session.
+        for t in stride(from:10.0,through:3600,by:5) {
+            let active=paths.filter { stroke in
+                (0..<5).contains { offset in
+                    let a=stroke.evolution(t+Double(offset),research:research),b=stroke.evolution(t+Double(offset)+1,research:research)
+                    return a.opacity>0.15 && a.end>0.01 && b.end-a.end>0.004
+                }
+            }.count
+            expect(active >= (research ? 1:6),"meaningful tips keep growing across five seconds at \(t)s (research \(research), active \(active))")
+            if research {
+                // A deliberate handoff can have one growing trunk while older
+                // chambers fade. Require another visible change during it.
+                let changing=paths.filter { stroke in
+                    (0..<5).contains { offset in
+                        let a=stroke.evolution(t+Double(offset),research:true),b=stroke.evolution(t+Double(offset)+1,research:true)
+                        return (a.opacity>0.15 && a.end>0.01 && b.end-a.end>0.004) || (a.end>0.2 && abs(b.opacity-a.opacity)>0.015)
+                    }
+                }.count
+                expect(changing>=2,"research handoff keeps growing ink and retiring chambers active at \(t)s")
+            }
+        }
+    }
+    let regrown=StrawberryPrint(seed:42,settings:StrawberryFineSettings(),generations:[0:1])
+    expect(regrown.forms==StrawberryPrint(seed:42,settings:StrawberryFineSettings()).forms,"branch renewal retains fruit identity and attachment")
+    expect(regrown.strokes[0].points != roots[0].points && regrown.strokes[3].points == roots[3].points,"renewal changes one connected root without disturbing its neighbors")
+    let redrawn=ResearchPrint(seed:42,settings:ResearchFineSettings(),generations:[0:1])
+    expect(redrawn.strokes.map(\.points) != evolving.map(\.points),"research renews its architecture across generations")
+    for research in [true,false] {
+        for stroke in research ? evolving:roots {
+            for t in stride(from:0.0,through:420,by:0.05) {
+                let a=stroke.evolution(t,research:research),b=stroke.evolution(t+0.001,research:research)
+                expect(a.end.isFinite && a.end>=0 && a.end<=1 && a.opacity>=0 && a.opacity<=1,"growth and fade remain bounded")
+                expect(abs(a.end*a.opacity-b.end*b.opacity)<0.002,"family renewal never pops visible ink at a wrap")
+            }
+        }
+    }
     for research in [true,false] {
         let scene=FineArtScene(research:research,seed:42),root=CALayer(),size=CGSize(width:800,height:600)
         root.bounds=CGRect(origin:.zero,size:size);scene.start()
         _=scene.updateLayer(root,size:size,time:0,date:Date())
-        let canvas=root.sublayers![0],stage=canvas.sublayers![0],count=stage.sublayers!.count
+        let canvas=root.sublayers![0],stage=canvas.sublayers!.last!,count=stage.sublayers!.count
+        if research {
+            let mapped=stage.convert(scene.artworkCenter,to:canvas)
+            expect(abs(mapped.x-size.width/2)<0.01 && abs(mapped.y-size.height/2)<0.01,"actual chair-and-maze bounds are centered at startup")
+            let chair=stage.sublayers!.last!
+            expect(chair.contents==nil && (chair.sublayers?.compactMap{$0 as? CAShapeLayer}.count ?? 0)>30,"chair is native vector ink rather than a resized bitmap")
+        }
+        let initialCenter=scene.artworkCenter
         for frame in 1...14400 {_=scene.updateLayer(root,size:size,time:Double(frame)/4,date:Date())}
+        expect(scene.artworkCenter==initialCenter && scene.renewalCount>50,"long sessions renew drawings without chasing their changing bounds")
         expect(stage.sublayers?.count==count && root.sublayers?.count==1,"one-hour animation retains bounded layer count")
         for l in stage.sublayers!.compactMap({$0 as? CAShapeLayer}) {expect(l.strokeEnd.isFinite && l.strokeEnd>=0 && l.strokeEnd<=1,"long-running line evolution stays finite")}
         scene.stop();let angle=scene.chairAngle;_=scene.updateLayer(root,size:size,time:90000,date:Date());expect(scene.chairAngle==angle,"stopped artwork does not advance")
         for dims in [CGSize(width:280,height:180),CGSize(width:800,height:1400),CGSize(width:3440,height:1440)] {_=scene.updateLayer(root,size:dims,time:90000,date:Date());expect(stage.position.x.isFinite && stage.position.y.isFinite && stage.frame.height<=dims.height,"resizing fits the whole composition")}
+        // Reproduce the host lifecycle: offset screen origin, tiny preview,
+        // Retina/full screen, settings rebuild while scaled, and reparenting.
+        for origin in [CGPoint.zero,CGPoint(x:1920,y:1080),CGPoint(x:-1440,y:300)] {
+            for dims in [CGSize(width:280,height:180),CGSize(width:2560,height:1440),CGSize(width:800,height:1400)] {
+                root.bounds=CGRect(origin:origin,size:dims);root.contentsScale=2
+                var v=SaverSettings();v.strawberry.seed=91;v.research.seed=91;scene.apply(v)
+                _=scene.updateLayer(root,size:dims,time:90000,date:Date())
+                expect(canvas.bounds.origin == .zero && canvas.position == CGPoint(x:origin.x+dims.width/2,y:origin.y+dims.height/2),"host bounds origin never leaks into local artwork coordinates")
+                expect(abs(stage.position.x-dims.width/2)<dims.width*0.05 && abs(stage.position.y-dims.height/2)<dims.height*0.05,"reused and rebuilt prints remain centered after preview-to-display resize")
+                let needed=max(1,root.contentsScale*stage.transform.m11)
+                expect(stage.sublayers!.compactMap{$0 as? CAShapeLayer}.allSatisfy{$0.contentsScale>=needed},"ink resolves enough pixels for Retina after a display resize")
+                for subject in stage.sublayers!.filter({$0.contents != nil}) {
+                    let image=subject.contents as! CGImage
+                    expect(Double(image.width)>=subject.bounds.width*needed,"cached subject supplies enough pixels at the effective display scale")
+                }
+            }
+        }
+        let other=CALayer();other.bounds=CGRect(x:300,y:200,width:1920,height:1080)
+        _=scene.updateLayer(other,size:other.bounds.size,time:90000,date:Date())
+        expect(other.sublayers?.count==1 && canvas.superlayer === other,"existing print reparents without losing its centered canvas")
         let wrapper:SaverScene=research ? GoodResearchScene(seed:42):StrawberryFieldsScene(seed:42)
         wrapper.start()
         for enabled in [false,true,false,true,false] {

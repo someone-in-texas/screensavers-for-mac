@@ -1,5 +1,52 @@
 # Validation
 
+## v0.7.2.1 preparation
+
+- `Scripts/release-check.sh` passed end to end. Both 54-cycle native Options
+  passes succeeded (native callbacks and fallback timer). The local arm64 DMG
+  and ZIP passed checksums, metadata, thumbnails, architecture and signatures.
+  Packages are ad-hoc signed and not notarized.
+- Final offline tests passed: 2,549,250 checks, zero failures. All nine rebuilt
+  bundles loaded and rendered. Fruit-border checks cover 75 cached subjects
+  across five seeds and every composition; they caught and verified the fix for
+  clipping of wider procedural fruit.
+
+- Sequential `art_critic` rounds covered botanical silhouettes, connected growth,
+  centering, vector chair edges, light/dark palettes, portrait framing and renewal.
+  After user feedback exposed completed-root plateaus, the follow-up review used
+  contiguous five-second frames across Research 60–115 seconds and Strawberry
+  45–100 and 120–175 seconds. The critic approved ongoing growth and changing
+  topology, including sparse handoffs. This was frame-sequence review, not live
+  MP4 playback. Reproducible three-minute, 15 FPS exports are produced by
+  `Scripts/render-print-motion.sh` without pre-roll or time compression.
+- Reproduced the upper-right displacement in macOS System Settings. Temporary
+  native-host tracing showed a 3420×2214 saver view clipped by a 1710×1107 parent.
+  Fitting a local scene layer to the visible viewport corrected the preview; the
+  vector chair appeared centered and sharp. Temporary tracing was then removed.
+  The actual-bundle smoke test now reproduces oversized views under both ordinary
+  and offset portrait parent bounds. Native development PreviewHost also covers
+  windowed/full-screen transitions; the native System Settings check used its
+  live preview, not a separately observed locked-screen session.
+- Regression coverage includes preview-to-full-screen resizing, positive and
+  negative host bounds origins, live rebuilds under an existing transform,
+  reparenting, backing resolution, seeded silhouettes, visible eight-second
+  growth on all three initially bare fruits, generation-specific geometry, paused
+  scenes and bounded one-hour layers. Every five-second window through an hour
+  must include growing ink: at least six Strawberry paths, and at least one
+  Research path plus a second growing or fading path during deliberate handoffs.
+  Research framing stays fixed while its geometry renews.
+- The gallery covers seeds 42 and 91, 280×180 previews, 800×1400 portrait,
+  3440×1440 ultrawide, light/dark palettes and states at 0, 8, 25, 55, 60, 300
+  and 900 seconds. README/picker artwork is actual renderer output.
+- Gallery CPU layer-update p95 was below 0.08 ms for both prints after
+  initialization, including vector chair updates. These are local
+  CPU measurements, not GPU, energy or display burn-in measurements.
+- Wider slow foreground drift and renewed routes reduce stationary high-contrast
+  content without changing palettes. These are not measured burn-in tests and do
+  not guarantee protection; normal display sleep remains appropriate for long absences.
+- These preparation checks were completed locally before tagging or publishing.
+
+
 ## v0.7.2 change validation
 
 - `make release-check` passed: 1,320,324 offline checks, zero failures; all nine

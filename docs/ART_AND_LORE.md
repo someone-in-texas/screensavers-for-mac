@@ -2,9 +2,9 @@
 
 ## The hidden second layer
 
-Version 0.7.2 presents two quiet moving prints by default: a blue chair with an
-unfinished architectural drawing, and three crimson forms with roots becoming
-circuits. The original worlds below remain intact as an easter egg.
+Version 0.7.2.1 refines the two moving prints introduced in 0.7.2: a blue chair
+with a growing architectural drawing, and three procedural strawberries with
+roots becoming circuits. The original worlds below remain intact as an easter egg.
 
 Hold **Option** while opening the saver’s Options (Configure in PreviewHost) to
 reveal **Enable Lore Mode**. Pressing Option with the sheet open also reveals it.

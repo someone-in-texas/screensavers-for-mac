@@ -19,13 +19,13 @@ enum PrintLine: String, FineChoice { case technical = "Technical Pen", ink = "Dr
 enum ChairMotion: String, FineChoice {
     case still = "Still", occasional = "Occasional Turn", rotation = "Slow Rotation"
     func angle(_ time: Double) -> Double {
-        let t = max(0,time.isFinite ? time : 0).truncatingRemainder(dividingBy: 3600)
+        let t = max(0,time.isFinite ? time : 0).truncatingRemainder(dividingBy: 1200)
         switch self {
         case .still: return -0.24
-        case .rotation: return -0.24 + sin(t * .pi * 2 / 3600) * 0.42
+        case .rotation: return -0.24 + sin(t * .pi * 2 / 300) * 0.42
         case .occasional:
-            let phase = t / 240, step = floor(phase)
-            return -0.24 + 0.24 * (sin(step * .pi * 2 / 15) + (sin((step+1) * .pi * 2 / 15)-sin(step * .pi * 2 / 15))*worldEase((phase-step-0.86)/0.14))
+            let phase = t / 80, step = floor(phase)
+            return -0.24 + 0.24 * (sin(step * .pi * 2 / 15) + (sin((step+1) * .pi * 2 / 15)-sin(step * .pi * 2 / 15))*worldEase((phase-step-0.72)/0.28))
         }
     }
 }
@@ -37,7 +37,7 @@ struct ResearchFineSettings: Codable, Equatable {
     var drawing = ResearchDrawing.labyrinth
     var line = PrintLine.graphite
     var chair = ChairMotion.occasional
-    var pace = PrintPace.meditative
+    var pace = PrintPace.measured
     var density = PrintDensity.balanced
     var composition = ResearchComposition.asymmetric
 }

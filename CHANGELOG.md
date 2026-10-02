@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.7.2.1
+
+- Keep Strawberry Fields Forever and Good Research Takes Time centered across
+  startup, preview resizing, display changes and live settings rebuilds.
+- Fit the visible macOS host viewport when it supplies an oversized Retina view,
+  preventing the drawing from moving into the upper-right corner or enlarging.
+- Center Research on the complete drawing and render its chair as native vectors.
+  Keep fine ink and strawberry subjects at display resolution, with breathing room
+  and gentle drift without animated zoom.
+- Generate distinct strawberry silhouettes, leafy crowns and scattered dark seeds
+  for each edition, inspired by botanical block prints. Grow longer roots into
+  circuit traces, small terminals and traveling signals. All three fruits start
+  with bare roots; connected branches independently fade and grow new geometry
+  throughout long sessions.
+- Grow the chair’s maze through connected chambers, branching turns and returning
+  routes. Renew its architecture in staggered cycles, keeping growth and fading
+  active beyond the opening minute while retaining a quiet composition.
+
 ## 0.7.2
 
 - Recast **Good Research Takes Time** as a sparse moving drawing: a matte blue
