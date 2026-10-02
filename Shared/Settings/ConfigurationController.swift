@@ -12,20 +12,36 @@ final class PickerColorWell: NSColorWell {
     }
 }
 
+final class ConfigurationWindow: NSWindow {
+    var revealAlternate: (() -> Void)?
+    override func flagsChanged(with event: NSEvent) {
+        if event.modifierFlags.contains(.option) { revealAlternate?() }
+        super.flagsChanged(with:event)
+    }
+}
+
 final class ConfigurationController: NSWindowController {
     private let store: SettingsStore
     private let changed: (SaverSettings) -> Void
+    private var revealLore = false
     private var controls: [String: NSControl] = [:]
     init(store: SettingsStore, changed: @escaping (SaverSettings) -> Void) {
         self.store = store; self.changed = changed
-        super.init(window: NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: store.kind == .worldClockRoom ? 400 : (store.kind == .dapple || store.kind == .flourish || store.kind == .lattice || store.kind == .strawberryFieldsForever || store.kind == .goodResearchTakesTime) ? 700 : store.kind == .voxelCosmos ? 650 : 610), styleMask: [.titled], backing: .buffered, defer: false))
+        super.init(window: ConfigurationWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: store.kind == .worldClockRoom ? 400 : (store.kind == .dapple || store.kind == .flourish || store.kind == .lattice || store.kind == .strawberryFieldsForever || store.kind == .goodResearchTakesTime) ? 700 : store.kind == .voxelCosmos ? 650 : 610), styleMask: [.titled], backing: .buffered, defer: false))
         window?.title = store.kind.title
         window?.isReleasedWhenClosed = false
+        revealLore = NSEvent.modifierFlags.contains(.option)
+        (window as? ConfigurationWindow)?.revealAlternate = { [weak self] in
+            guard let self, !self.revealLore,
+                  self.store.kind == .goodResearchTakesTime || self.store.kind == .strawberryFieldsForever else {return}
+            self.revealLore=true;self.build()
+        }
         build()
     }
     required init?(coder: NSCoder) { nil }
     func prepareForPresentation() {
         guard let window, !window.isVisible, window.sheetParent == nil else { return }
+        revealLore = NSEvent.modifierFlags.contains(.option)
         build()
     }
     private func build() {
@@ -79,37 +95,59 @@ final class ConfigurationController: NSWindowController {
             note.frame = NSRect(x: 28, y: 61, width: 424, height: 38); content.addSubview(note)
         } else if store.kind == .strawberryFieldsForever {
             func popup(_ titles:[String],_ index:Int)->NSPopUpButton {let p=NSPopUpButton();p.addItems(withTitles:titles);p.selectItem(at:index);return p}
+            func choice<T:FineChoice>(_ label:String,_ key:String,_ value:T) {
+                let values=Array(T.allCases);row(label,key,popup(values.map(\.title),values.firstIndex(of:value)!))
+            }
             let v=s.strawberry
-            row("Lore density","strawberryLore",popup(StrawberryLore.allCases.map {$0.title},StrawberryLore.allCases.firstIndex(of:v.lore)!))
-            row("Environment balance","strawberryBalance",popup(StrawberryBalance.allCases.map {$0.title},StrawberryBalance.allCases.firstIndex(of:v.balance)!))
-            row("Camera speed","strawberryPace",popup(StrawberryPace.allCases.map {$0.rawValue.capitalized},StrawberryPace.allCases.firstIndex(of:v.pace)!))
-            row("Hype weather","strawberryWeather",popup(StrawberryWeather.allCases.map {$0.rawValue.capitalized},StrawberryWeather.allCases.firstIndex(of:v.weather)!))
-            row("Network visibility","strawberryNetwork",popup(StrawberryNetwork.allCases.map {$0.rawValue.capitalized},StrawberryNetwork.allCases.firstIndex(of:v.network)!))
-            row("Palette","strawberryPalette",popup(StrawberryPalette.allCases.map {$0.title},StrawberryPalette.allCases.firstIndex(of:v.palette)!))
-            row("Wind","strawberryWind",popup(StrawberryWind.allCases.map {$0.rawValue.capitalized},StrawberryWind.allCases.firstIndex(of:v.wind)!))
-            row("Strawberry density","strawberryDensity",popup(StrawberryDensity.allCases.map {$0.title},StrawberryDensity.allCases.firstIndex(of:v.density)!))
-            row("Text fragments","strawberryText",popup(StrawberryText.allCases.map {$0.rawValue.capitalized},StrawberryText.allCases.firstIndex(of:v.text)!))
-            row("Scene seed","strawberrySeedBehavior",popup(ArtSeed.allCases.map {$0.title},ArtSeed.allCases.firstIndex(of:v.seedBehavior)!))
+            if revealLore || v.loreMode {row("Enable Lore Mode","strawberryLoreMode",check(v.loreMode))}
+            if v.loreMode {
+                row("Lore density","strawberryLore",popup(StrawberryLore.allCases.map {$0.title},StrawberryLore.allCases.firstIndex(of:v.lore)!))
+                row("Environment balance","strawberryBalance",popup(StrawberryBalance.allCases.map {$0.title},StrawberryBalance.allCases.firstIndex(of:v.balance)!))
+                row("Hype weather","strawberryWeather",popup(StrawberryWeather.allCases.map {$0.rawValue.capitalized},StrawberryWeather.allCases.firstIndex(of:v.weather)!))
+                row("Text fragments","strawberryText",popup(StrawberryText.allCases.map {$0.rawValue.capitalized},StrawberryText.allCases.firstIndex(of:v.text)!))
+                row("Network visibility","strawberryNetwork",popup(StrawberryNetwork.allCases.map {$0.rawValue.capitalized},StrawberryNetwork.allCases.firstIndex(of:v.network)!))
+            } else {
+                choice("Palette","strawberryFinePalette",v.fineArt.palette)
+                choice("Composition","strawberryFineComposition",v.fineArt.composition)
+                choice("Root / circuit blend","strawberryFineBlend",v.fineArt.blend)
+                choice("Motion","strawberryFineMotion",v.fineArt.motion)
+                choice("Texture","strawberryFineTexture",v.fineArt.texture)
+                choice("Form literalness","strawberryFineLiteralness",v.fineArt.literalness)
+                choice("Signal visibility","strawberryFineSignal",v.fineArt.signal)
+            }
+            row("Scene seed","strawberrySeedBehavior",popup(ArtSeed.allCases.map(\.title),ArtSeed.allCases.firstIndex(of:v.seedBehavior)!))
             row("Fixed seed","strawberrySeed",NSTextField(string:String(v.seed)))
-            let note=NSTextField(wrappingLabelWithString:"An impossible field above a fictional laboratory. Pure Art hides explicit lore and staged Easter eggs. Offline; daily seeds use UTC.")
+            let note=NSTextField(wrappingLabelWithString:v.loreMode ? "The original interpretation. Entirely offline. Daily compositions use UTC." : "A slowly evolving moving print. Entirely offline. Daily compositions use UTC.")
             note.font = .systemFont(ofSize:11);note.textColor = .secondaryLabelColor
-            note.frame=NSRect(x:28,y:72,width:424,height:65);content.addSubview(note)
+            note.frame=NSRect(x:28,y:72,width:424,height:40);content.addSubview(note)
             updateAvailability(s)
         } else if store.kind == .goodResearchTakesTime {
             func popup(_ titles:[String],_ index:Int)->NSPopUpButton {let p=NSPopUpButton();p.addItems(withTitles:titles);p.selectItem(at:index);return p}
+            func choice<T:FineChoice>(_ label:String,_ key:String,_ value:T) {
+                let values=Array(T.allCases);row(label,key,popup(values.map(\.title),values.firstIndex(of:value)!))
+            }
             let v=s.research
-            row("Lore density","researchLore",popup(ResearchLore.allCases.map {$0.title},ResearchLore.allCases.firstIndex(of:v.lore)!))
-            row("Camera speed","researchPace",popup(ResearchPace.allCases.map {$0.title},ResearchPace.allCases.firstIndex(of:v.pace)!))
-            row("Environment","researchEnvironment",popup(ResearchEnvironment.allCases.map {$0.title},ResearchEnvironment.allCases.firstIndex(of:v.environment)!))
-            row("Palette","researchPalette",popup(ResearchPalette.allCases.map {$0.title},ResearchPalette.allCases.firstIndex(of:v.palette)!))
-            row("Research activity","researchActivity",popup(ResearchActivity.allCases.map {$0.rawValue.capitalized},ResearchActivity.allCases.firstIndex(of:v.activity)!))
-            row("Maze presence","researchMazes",popup(ResearchMazePresence.allCases.map {$0.rawValue.capitalized},ResearchMazePresence.allCases.firstIndex(of:v.mazes)!))
-            row("Text","researchText",popup(ResearchText.allCases.map {$0.rawValue.capitalized},ResearchText.allCases.firstIndex(of:v.text)!))
-            row("Scene seed","researchSeedBehavior",popup(ArtSeed.allCases.map {$0.title},ArtSeed.allCases.firstIndex(of:v.seedBehavior)!))
+            if revealLore || v.loreMode {row("Enable Lore Mode","researchLoreMode",check(v.loreMode))}
+            if v.loreMode {
+                row("Lore density","researchLore",popup(ResearchLore.allCases.map {$0.title},ResearchLore.allCases.firstIndex(of:v.lore)!))
+                row("Environment","researchEnvironment",popup(ResearchEnvironment.allCases.map {$0.title},ResearchEnvironment.allCases.firstIndex(of:v.environment)!))
+                row("Maze presence","researchMazes",popup(ResearchMazePresence.allCases.map {$0.rawValue.capitalized},ResearchMazePresence.allCases.firstIndex(of:v.mazes)!))
+                row("Research activity","researchActivity",popup(ResearchActivity.allCases.map {$0.rawValue.capitalized},ResearchActivity.allCases.firstIndex(of:v.activity)!))
+                row("Text","researchText",popup(ResearchText.allCases.map {$0.rawValue.capitalized},ResearchText.allCases.firstIndex(of:v.text)!))
+            } else {
+                choice("Palette","researchFinePalette",v.fineArt.palette)
+                choice("Maze style","researchFineDrawing",v.fineArt.drawing)
+                choice("Line character","researchFineLine",v.fineArt.line)
+                choice("Chair motion","researchFineChair",v.fineArt.chair)
+                choice("Pace","researchFinePace",v.fineArt.pace)
+                choice("Density","researchFineDensity",v.fineArt.density)
+                choice("Composition","researchFineComposition",v.fineArt.composition)
+            }
+            row("Scene seed","researchSeedBehavior",popup(ArtSeed.allCases.map(\.title),ArtSeed.allCases.firstIndex(of:v.seedBehavior)!))
             row("Fixed seed","researchSeed",NSTextField(string:String(v.seed)))
-            let note=NSTextField(wrappingLabelWithString:"A fictional research cave, original mazes, and patient experiments. Pure Art removes explicit lore. Entirely offline; daily seeds use UTC.")
+            let note=NSTextField(wrappingLabelWithString:v.loreMode ? "The original interpretation. Entirely offline. Daily compositions use UTC." : "A slowly evolving moving print. Entirely offline. Daily compositions use UTC.")
             note.font = .systemFont(ofSize:11);note.textColor = .secondaryLabelColor
-            note.frame=NSRect(x:28,y:72,width:424,height:65);content.addSubview(note)
+            note.frame=NSRect(x:28,y:72,width:424,height:40);content.addSubview(note)
             updateAvailability(s)
         } else if store.kind == .flourish {
             func popup(_ titles:[String],_ index:Int)->NSPopUpButton {let p=NSPopUpButton();p.addItems(withTitles:titles);p.selectItem(at:index);return p}
@@ -225,6 +263,7 @@ final class ConfigurationController: NSWindowController {
     }
     @objc private func update() {
         var value = store.value
+        let previousModes = [value.strawberry.loreMode, value.research.loreMode]
         if let c = controls["floor"] as? NSColorWell { value.floor = RGB(c.color) }
         if let c = controls["face"] as? NSColorWell { value.face = RGB(c.color) }
         if let c = controls["speed"] { value.speed = c.doubleValue }
@@ -322,7 +361,24 @@ final class ConfigurationController: NSWindowController {
         if let c=controls["latticePersistence"] {value.lattice.persistence=c.doubleValue}
         if let c=controls["latticeEvents"] {value.lattice.events=c.doubleValue}
         if let c=controls["latticeSeed"] {if let seed=UInt64(c.stringValue.trimmingCharacters(in:.whitespacesAndNewlines)){value.lattice.seed=seed}else{c.stringValue=String(value.lattice.seed)}}
+        if let c=controls["strawberryLoreMode"] as? NSButton {value.strawberry.loreMode = c.state == .on}
+        if let c=controls["strawberryFinePalette"] as? NSPopUpButton {value.strawberry.fineArt.palette=StrawberryGround.allCases[c.indexOfSelectedItem]}
+        if let c=controls["strawberryFineComposition"] as? NSPopUpButton {value.strawberry.fineArt.composition=StrawberryComposition.allCases[c.indexOfSelectedItem]}
+        if let c=controls["strawberryFineBlend"] as? NSPopUpButton {value.strawberry.fineArt.blend=RootBlend.allCases[c.indexOfSelectedItem]}
+        if let c=controls["strawberryFineMotion"] as? NSPopUpButton {value.strawberry.fineArt.motion=PrintMotion.allCases[c.indexOfSelectedItem]}
+        if let c=controls["strawberryFineTexture"] as? NSPopUpButton {value.strawberry.fineArt.texture=PrintTexture.allCases[c.indexOfSelectedItem]}
+        if let c=controls["strawberryFineLiteralness"] as? NSPopUpButton {value.strawberry.fineArt.literalness=FormLiteralness.allCases[c.indexOfSelectedItem]}
+        if let c=controls["strawberryFineSignal"] as? NSPopUpButton {value.strawberry.fineArt.signal=PrintSignal.allCases[c.indexOfSelectedItem]}
+        if let c=controls["researchLoreMode"] as? NSButton {value.research.loreMode = c.state == .on}
+        if let c=controls["researchFinePalette"] as? NSPopUpButton {value.research.fineArt.palette=ResearchGround.allCases[c.indexOfSelectedItem]}
+        if let c=controls["researchFineDrawing"] as? NSPopUpButton {value.research.fineArt.drawing=ResearchDrawing.allCases[c.indexOfSelectedItem]}
+        if let c=controls["researchFineLine"] as? NSPopUpButton {value.research.fineArt.line=PrintLine.allCases[c.indexOfSelectedItem]}
+        if let c=controls["researchFineChair"] as? NSPopUpButton {value.research.fineArt.chair=ChairMotion.allCases[c.indexOfSelectedItem]}
+        if let c=controls["researchFinePace"] as? NSPopUpButton {value.research.fineArt.pace=PrintPace.allCases[c.indexOfSelectedItem]}
+        if let c=controls["researchFineDensity"] as? NSPopUpButton {value.research.fineArt.density=PrintDensity.allCases[c.indexOfSelectedItem]}
+        if let c=controls["researchFineComposition"] as? NSPopUpButton {value.research.fineArt.composition=ResearchComposition.allCases[c.indexOfSelectedItem]}
         store.value = value; changed(value); updateAvailability(value)
+        if previousModes != [value.strawberry.loreMode,value.research.loreMode] {revealLore=true;build()}
     }
     private func updateAvailability(_ value: SaverSettings) {
         controls["strawberrySeed"]?.isEnabled = value.strawberry.seedBehavior == .fixed

@@ -1,5 +1,59 @@
 # Validation
 
+## v0.7.2 change validation
+
+- `make release-check` passed: 1,320,324 offline checks, zero failures; all nine
+  actual bundles loaded; 54 Options lifecycle cycles with native callbacks and
+  another 54 with the fallback timer. The mounted DMG and expanded ZIP passed
+  checksums, architecture, metadata, thumbnails, identifiers and signatures.
+  Local packages are ad-hoc signed, not notarized.
+
+- Five sequential `art_critic` review/implementation rounds were completed for
+  **each** saver. Round one established the two print concepts. Round two removed
+  overlapping maze boxes, repeated fruit contours and stair-step circuits. Round
+  three varied architectural chambers and connected the root systems. Round four
+  refined pigment, small-preview visibility, portrait scale and dark ink. Round
+  five accepted the final light/dark prints, alternate seeds and sampled motion.
+- The research chair was rebuilt against the supplied blue folding-chair reference:
+  rounded tubular frame, inset bowed steel back, folded seat rim, splayed supports,
+  hinges and braces. Original procedural geometry keeps its reduced matte treatment.
+  The drawing consists of unequal open chambers and faint construction lines, with
+  foot routes connecting the object to the plan. No room, text or camera tour.
+- Strawberry uses exactly three unequal crimson pigment bodies, a shared root
+  anatomy, staggered organic-to-angular transitions, occasional contacts and faint
+  traveling signals. Pigment and paper are cached; curves and longer trace segments
+  share one drawing rather than meeting at a horizontal boundary.
+- Both original renderers remain intact behind a modifier-revealed checkbox.
+  Live UI verification covered discovery, switching into the compact alternate
+  panel, returning to the print, and re-hiding the checkbox on reopening Options.
+  The main README and its gallery contain no mention or promotion of the alternate
+  mode. Fine-art options, screenshots and picker thumbnails lead the release.
+- Preference migration retains original palette, environment, text and seed keys.
+  New fine-art preferences are namespaced. Missing mode keys select the new print,
+  including on upgrade; existing custom legacy settings remain available if the
+  alternate mode is enabled. Invalid individual legacy values fall back safely.
+- Offline tests cover deterministic paths, all composition/blend/drawing bounds,
+  exactly three forms, palette validity, day-long chair continuity, settings
+  migration/persistence/reset, hidden-panel discovery and simplification, live
+  renderer replacement, pause/resume and bounded one-hour layer trees. Existing
+  cave/field tests continue to exercise the preserved renderers directly.
+- Rendered galleries cover seeds 42, 91 and 807; ivory, charcoal, blueprint, sage and
+  museum-night palettes; 280×180 previews, 800×1400 portrait and 3440×1440 ultrawide;
+  and states at 0, 60, 300 and 900 seconds. Quarter-second samples from 57–62 seconds
+  show quiet incremental motion without visible jumps. The six refreshed README
+  images are actual renderer output; no synthetic marketing mockups are used.
+- Final gallery CPU layer-update p95 was below 0.004 ms for Research and 0.012 ms
+  for Strawberry after initialization; rare chair raster updates reached about
+  0.56 ms. Native development previews measured Research p50/p95 0.077/0.141 ms
+  over 2,512 frames and Strawberry 0.184/0.267 ms over 1,924 frames (the latter
+  included live mode changes). Both retain the existing 30 FPS target.
+- These are local CPU update measurements, not GPU/energy/scanout benchmarks.
+  Geometry is deliberately bounded and curated, with slowly changing stroke
+  reveals rather than unbounded maze growth. A physical hour-long soak, every
+  supported Mac/macOS, and the actual System Settings saver host remain manual
+  validation targets.
+
+
 ## v0.7.1 change validation
 
 - `make release-check` passed: 192,830 offline checks, zero failures, all nine

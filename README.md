@@ -98,33 +98,31 @@ and fixed seeds make each world spontaneous or repeatable. Entirely offline.
 
 ## Strawberry Fields Forever
 
-A moonlit strawberry dreamscape whose roots descend into a hidden computational
-world. Drift over layered fields, follow faint signals beneath the soil, and find
-warm machinery tending an ordinary basket of fruit. Gentle wind carries occasional
-waves of energy, then settles again.
+Three crimson forms hang in a quiet field of paper. Fine roots descend from the
+pigment, gradually finding the angles and junctions of a circuit. The drawing
+changes almost imperceptibly, leaving room for stillness and close looking.
 
-Seven palettes, field/basement balance, camera pace, wind, network visibility, fruit
-density, repeatable seeds, and optional lore. **Pure Art** keeps the landscape and
-removes explicit references; deeper modes reward a closer look. Entirely offline.
+Choose six restrained palettes, five compositions, root-to-circuit balance,
+paper/vellum/canvas surfaces, and gentle growth, breathing or signal motion.
+Fresh, daily and fixed seeds make each print repeatable. Entirely offline.
 
-![Strawberry Fields Forever: moonlit fruit and layered fields](docs/images/strawberry-fields-forever.png)
+![Strawberry Fields Forever: three crimson pigment forms with descending roots on ivory](docs/images/strawberry-fields-forever.png)
 
-[Underground](docs/images/strawberry-basement.png) · [Strawberry Night](docs/images/strawberry-night.png) · [Descent](docs/images/strawberry-transition.png) · [Art and lore](docs/ART_AND_LORE.md)
+[Museum Night](docs/images/strawberry-night.png) · [Root study](docs/images/strawberry-transition.png)
 
 ## Good Research Takes Time
 
-An underground monument to difficult problems and taking one's time. A slow camera
-visits a lamplit work desk, an original maze model, a dignified chair alcove, and an
-archive observatory. A tiny maze agent explores, pauses, and backtracks while the
-experiments continue.
+A solitary blue metal folding chair anchors an unfinished architectural drawing.
+Graphite routes open into chambers, turn back, and gradually find new edges across a warm
+ivory field. The chair rests for minutes between small changes of orientation.
 
-Six palettes, cave/archive/lab environments, camera pace, research activity, maze
-presence, repeatable seeds, and restrained optional lore. **Pure Art** retains the
-research atmosphere without explicit references. Entirely offline and silent.
+Five quiet palettes, five drawing styles, four line characters, and open or denser
+compositions. Choose a still chair, occasional turns, or a very slow change of angle;
+save a seed or let each day bring a new drawing. Entirely offline and silent.
 
-![Good Research Takes Time: a research desk, chair, and luminous maze in a deep cave](docs/images/good-research-takes-time.png)
+![Good Research Takes Time: a blue chair and an unfinished architectural drawing on ivory](docs/images/good-research-takes-time.png)
 
-[Chair alcove](docs/images/research-chair.png) · [Archive](docs/images/research-archive.png) · [Art and lore](docs/ART_AND_LORE.md)
+[Charcoal study](docs/images/research-chair.png) · [Blueprint study](docs/images/research-archive.png)
 
 ## Install
 

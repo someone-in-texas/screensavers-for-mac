@@ -1,7 +1,7 @@
 import AppKit
 import QuartzCore
 
-final class StrawberryFieldsScene:SaverScene {
+final class StrawberryLoreScene:SaverScene {
     private var settings=StrawberrySettings()
     private let explicitSeed:UInt64?
     private var sessionSeed:UInt64

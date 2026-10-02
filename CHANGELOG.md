@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.7.2
+
+- Recast **Good Research Takes Time** as a sparse moving drawing: a matte blue
+  folding chair, unfinished architectural routes, five quiet palettes, and patient
+  changes of orientation.
+- Recast **Strawberry Fields Forever** as three crimson pigment forms with fine
+  roots that gradually acquire circuit geometry, subtle print textures, six
+  palettes, and restrained growth, breathing and signals.
+- Add focused fine-art options, seeded compositions, updated gallery images and
+  picker thumbnails. Preserve the original scenes and saved preferences in an
+  optional hidden Lore Mode; new and upgraded installations begin with fine art.
+- Cache paper and pigment, keep animation geometry bounded, and expand offline
+  coverage for migration, live mode changes, aspect ratios and long sessions.
+
 ## 0.7.1
 
 - Add **Strawberry Fields Forever**, an offline moonlit field above a fictional

@@ -1,7 +1,7 @@
 import AppKit
 import QuartzCore
 
-final class GoodResearchScene:SaverScene {
+final class ResearchLoreScene:SaverScene {
     private var settings=ResearchSettings()
     private let explicitSeed:UInt64?
     private var sessionSeed:UInt64

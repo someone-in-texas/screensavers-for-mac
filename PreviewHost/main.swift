@@ -139,6 +139,12 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
             if CommandLine.arguments.contains("--lattice-review") { settings.lattice.seedBehavior = .fixed }
             if CommandLine.arguments.contains("--strawberry-review") {settings.strawberry.seedBehavior = .fixed}
             if CommandLine.arguments.contains("--research-review") {settings.research.seedBehavior = .fixed}
+            if CommandLine.arguments.contains("--lore") {settings.research.loreMode=true;settings.strawberry.loreMode=true}
+            if let i=CommandLine.arguments.firstIndex(of:"--seed"),i+1<CommandLine.arguments.count,let seed=UInt64(CommandLine.arguments[i+1]) {settings.research.seed=seed;settings.strawberry.seed=seed}
+            if let i=CommandLine.arguments.firstIndex(of:"--composition"),i+1<CommandLine.arguments.count {
+                settings.research.fineArt.composition=ResearchComposition(rawValue:CommandLine.arguments[i+1]) ?? settings.research.fineArt.composition
+                settings.strawberry.fineArt.composition=StrawberryComposition(rawValue:CommandLine.arguments[i+1]) ?? settings.strawberry.fineArt.composition
+            }
             store.value = settings
         }
         let noNetwork = CommandLine.arguments.contains("--offline") || CommandLine.arguments.contains("--launch-smoke")
@@ -187,13 +193,44 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
 
 let app = NSApplication.shared
 app.setActivationPolicy(.regular)
+if CommandLine.arguments.contains("--fine-gallery") {
+    let args=CommandLine.arguments
+    let out=args.firstIndex(of:"--output").flatMap { $0+1<args.count ? args[$0+1]:nil } ?? "build/fine-gallery"
+    let seed=args.firstIndex(of:"--seed").flatMap { $0+1<args.count ? UInt64(args[$0+1]):nil } ?? 42
+    try FileManager.default.createDirectory(atPath:out,withIntermediateDirectories:true)
+    for research in [true,false] {
+        for variant in 0..<(args.contains("--extended") ? 8:2) {
+            var s=SaverSettings()
+            if variant==1 {s.research.fineArt.palette = .charcoal;s.strawberry.fineArt.palette = .night}
+            if variant==2 {s.research.fineArt.composition = .radial;s.strawberry.fineArt.composition = .asymmetric}
+            if variant==3 {s.research.fineArt.palette = .blueprint;s.research.fineArt.drawing = .recursive;s.strawberry.fineArt.palette = .sage;s.strawberry.fineArt.blend = .synthetic}
+            if variant==6 {s.research.fineArt.density = .dense;s.strawberry.fineArt.composition = .clustered}
+            if variant==7 {s.research.fineArt.palette = .nocturne;s.strawberry.fineArt.palette = .charcoal}
+            let scene=FineArtScene(research:research,seed:seed)
+            let size=variant==4 ? CGSize(width:280,height:180):variant==5 ? CGSize(width:800,height:1400):variant==7 ? CGSize(width:3440,height:1440):CGSize(width:1600,height:1000)
+            let root=CALayer();root.bounds=CGRect(origin:.zero,size:size);scene.apply(s);scene.start()
+            var timings:[Double]=[]
+            for frame in 0...3600 {
+                let begin=ProcessInfo.processInfo.systemUptime
+                _=scene.updateLayer(root,size:size,time:Double(frame)/4,date:Date(timeIntervalSince1970:0))
+                if frame>0 {timings.append((ProcessInfo.processInfo.systemUptime-begin)*1000)}
+                if [0,240,1200,3600].contains(frame) || (args.contains("--motion-samples") && variant==0 && (228...248).contains(frame)) {
+                    let c=bitmap(width:Int(size.width),height:Int(size.height))!;root.render(in:c)
+                    try savePNG(c.makeImage()!,"\(out)/\(research ? "research":"strawberry")-\(variant)-\(frame/4)\(args.contains("--motion-samples") && ![0,240,1200,3600].contains(frame) ? "-frame\(frame)":"").png")
+                }
+            }
+            timings.sort();print("\(research ? "research":"strawberry") \(variant) seed \(scene.seed), strokes \(scene.segmentCount), angle \(scene.chairAngle): CPU update p50 \(timings[1800]) ms p95 \(timings[3420]) ms max \(timings.last!) ms")
+            scene.stop()
+        }
+    }
+} else
 if CommandLine.arguments.contains("--lore-gallery") {
 let out=CommandLine.arguments.firstIndex(of:"--output").flatMap {i in i+1<CommandLine.arguments.count ? CommandLine.arguments[i+1]:nil} ?? "build/lore-gallery"
 try FileManager.default.createDirectory(atPath:out,withIntermediateDirectories:true)
 for name in ["strawberry","research"] {
  for variant in 0..<9 {
   let seed:UInt64=variant==1 || variant==3 ? 91:variant==6 ? 807:42
-  var settings=SaverSettings()
+  var settings=SaverSettings();settings.strawberry.loreMode=true;settings.research.loreMode=true
   if variant==1 {settings.strawberry.palette = .moonlit;settings.research.palette = .archive;settings.research.environment = .archive}
   if variant==2 {settings.strawberry.balance = .moreBasement;settings.strawberry.network = .visible;settings.research.palette = .deepResearch;settings.research.environment = .deepLab}
   if variant==3 {settings.strawberry.lore = .pureArt;settings.research.lore = .pureArt}

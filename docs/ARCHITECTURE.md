@@ -333,3 +333,37 @@ lore modes, palettes, transitions, small/portrait framing and actual message win
 `--strawberry-review --profile` and `--research-review --profile` use temporary fixed
 preferences for native motion inspection. Source grounding and artistic constraints
 are documented in [Art and lore](ART_AND_LORE.md).
+
+
+## Fine-art prints (0.7.2)
+
+`ContemplativeScene` selects the new cached `FineArtScene` or the preserved
+`ResearchLoreScene` / `StrawberryLoreScene`. A live mode change stops the old scene,
+removes its canvas, and starts the selected scene. The production wrappers retain
+their existing class names and bundle identifiers.
+
+`ResearchPrint` and `StrawberryPrint` generate bounded seeded paths on a 1600×1000
+sheet. Background grain, three pigment bodies, and the folding chair are cached
+Core Graphics images; Core Animation reveals existing strokes and moves a few faint
+signals. The chair image changes only after a small angle threshold. Portrait
+layouts enlarge the motif while preserving the full artwork; small previews apply
+a bounded minimum stroke width. No camera tours or scenic geometry run in fine art.
+
+Fine-art preferences live under each saver's `fineArt` record. Existing preference
+keys retain their values; absent `loreMode` defaults to false for both new and
+upgraded installations. The ordinary Options panel contains only fine-art controls.
+Modifier discovery reveals the alternate checkbox; enabled alternate mode keeps
+that checkbox visible so returning to the default never requires rediscovery.
+
+Development previews:
+
+```sh
+build/products/PreviewHost.app/Contents/MacOS/PreviewHost --research-review --seed 91 --profile --offline
+build/products/PreviewHost.app/Contents/MacOS/PreviewHost --strawberry-review --composition Asymmetric --seed 807 --offline
+build/products/PreviewHost.app/Contents/MacOS/PreviewHost --fine-gallery --extended --motion-samples --seed 42 --output build/fine-gallery
+```
+
+The gallery reports seed, stroke count, chair angle, and CPU layer-update timings
+without adding debug marks to the artwork. Native configuration controls allow
+immediate mode, palette, blend and composition changes. Review sessions use temporary
+preferences, and `--lore` selects the original presentation for development review.

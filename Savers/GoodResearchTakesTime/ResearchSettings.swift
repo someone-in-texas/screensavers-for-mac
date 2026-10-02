@@ -21,6 +21,8 @@ enum ResearchPalette:String,CaseIterable,Codable {case cave,deepResearch,sodium,
 }
 struct ResearchColors {let dark:RGB,stone:RGB,paper:RGB,lamp:RGB,screen:RGB}
 struct ResearchSettings:Codable,Equatable {
+    var loreMode = false
+    var fineArt = ResearchFineSettings()
     var lore=ResearchLore.subtle
     var pace=ResearchPace.patient
     var environment=ResearchEnvironment.random
@@ -30,5 +32,22 @@ struct ResearchSettings:Codable,Equatable {
     var text=ResearchText.normal
     var seedBehavior=ArtSeed.fresh
     var seed:UInt64=42
+    init() {}
+    private enum CodingKeys: String, CodingKey { case lore,pace,environment,palette,activity,mazes,text,seedBehavior,seed,loreMode,fineArt }
+    init(from decoder: Decoder) throws {
+        self.init()
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        lore = (try? c.decode(ResearchLore.self, forKey: .lore)) ?? lore
+        pace = (try? c.decode(ResearchPace.self, forKey: .pace)) ?? pace
+        environment = (try? c.decode(ResearchEnvironment.self, forKey: .environment)) ?? environment
+        palette = (try? c.decode(ResearchPalette.self, forKey: .palette)) ?? palette
+        activity = (try? c.decode(ResearchActivity.self, forKey: .activity)) ?? activity
+        mazes = (try? c.decode(ResearchMazePresence.self, forKey: .mazes)) ?? mazes
+        text = (try? c.decode(ResearchText.self, forKey: .text)) ?? text
+        seedBehavior = (try? c.decode(ArtSeed.self, forKey: .seedBehavior)) ?? seedBehavior
+        seed = (try? c.decode(UInt64.self, forKey: .seed)) ?? seed
+        loreMode = (try? c.decode(Bool.self, forKey: .loreMode)) ?? loreMode
+        fineArt = (try? c.decode(ResearchFineSettings.self, forKey: .fineArt)) ?? fineArt
+    }
     func sanitized()->Self {self}
 }

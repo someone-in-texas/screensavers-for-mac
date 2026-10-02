@@ -28,6 +28,8 @@ enum StrawberryPalette:String,CaseIterable,Codable {case strawberryNight,moonlit
 }
 struct StrawberryColors {let sky:RGB,haze:RGB,leaf:RGB,fruit:RGB,light:RGB,signal:RGB}
 struct StrawberrySettings:Codable,Equatable {
+    var loreMode = false
+    var fineArt = StrawberryFineSettings()
     var lore=StrawberryLore.knowing
     var balance=StrawberryBalance.mostlyField
     var pace=StrawberryPace.calm
@@ -39,5 +41,24 @@ struct StrawberrySettings:Codable,Equatable {
     var text=StrawberryText.rare
     var seedBehavior=ArtSeed.fresh
     var seed:UInt64=42
+    init() {}
+    private enum CodingKeys: String, CodingKey { case lore,balance,pace,weather,network,palette,wind,density,text,seedBehavior,seed,loreMode,fineArt }
+    init(from decoder: Decoder) throws {
+        self.init()
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        lore = (try? c.decode(StrawberryLore.self, forKey: .lore)) ?? lore
+        balance = (try? c.decode(StrawberryBalance.self, forKey: .balance)) ?? balance
+        pace = (try? c.decode(StrawberryPace.self, forKey: .pace)) ?? pace
+        weather = (try? c.decode(StrawberryWeather.self, forKey: .weather)) ?? weather
+        network = (try? c.decode(StrawberryNetwork.self, forKey: .network)) ?? network
+        palette = (try? c.decode(StrawberryPalette.self, forKey: .palette)) ?? palette
+        wind = (try? c.decode(StrawberryWind.self, forKey: .wind)) ?? wind
+        density = (try? c.decode(StrawberryDensity.self, forKey: .density)) ?? density
+        text = (try? c.decode(StrawberryText.self, forKey: .text)) ?? text
+        seedBehavior = (try? c.decode(ArtSeed.self, forKey: .seedBehavior)) ?? seedBehavior
+        seed = (try? c.decode(UInt64.self, forKey: .seed)) ?? seed
+        loreMode = (try? c.decode(Bool.self, forKey: .loreMode)) ?? loreMode
+        fineArt = (try? c.decode(StrawberryFineSettings.self, forKey: .fineArt)) ?? fineArt
+    }
     func sanitized()->Self {self}
 }

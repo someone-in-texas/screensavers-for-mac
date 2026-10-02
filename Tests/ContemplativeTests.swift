@@ -100,7 +100,7 @@ func runContemplativeTests(){
     expect(old.strawberry==StrawberrySettings() && old.research==ResearchSettings() && old.speed==7,"older settings gain new saver defaults without losing existing preferences")
     for palette in StrawberryPalette.allCases {let p=palette.colors;expect([p.sky,p.haze,p.leaf,p.fruit,p.light,p.signal].allSatisfy(\.valid),"all seven field palettes have valid role colors")}
     for palette in ResearchPalette.allCases {let p=palette.colors;expect([p.dark,p.stone,p.paper,p.lamp,p.screen].allSatisfy(\.valid),"all six cave palettes have valid role colors")}
-    for scene:SaverScene in [StrawberryFieldsScene(seed:42),GoodResearchScene(seed:42)] {
+    for scene:SaverScene in [StrawberryLoreScene(seed:42),ResearchLoreScene(seed:42)] {
         let root=CALayer(),size=CGSize(width:800,height:600);root.bounds=CGRect(origin:.zero,size:size)
         scene.start();_ = scene.updateLayer(root,size:size,time:0,date:Date(timeIntervalSince1970:0))
         let canvas=root.sublayers![0],stage=canvas.sublayers![0],count=stage.sublayers!.count
