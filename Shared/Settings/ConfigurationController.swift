@@ -18,7 +18,7 @@ final class ConfigurationController: NSWindowController {
     private var controls: [String: NSControl] = [:]
     init(store: SettingsStore, changed: @escaping (SaverSettings) -> Void) {
         self.store = store; self.changed = changed
-        super.init(window: NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: store.kind == .worldClockRoom ? 400 : store.kind == .dapple ? 700 : store.kind == .voxelCosmos ? 650 : 610), styleMask: [.titled], backing: .buffered, defer: false))
+        super.init(window: NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: store.kind == .worldClockRoom ? 400 : (store.kind == .dapple || store.kind == .flourish || store.kind == .lattice) ? 700 : store.kind == .voxelCosmos ? 650 : 610), styleMask: [.titled], backing: .buffered, defer: false))
         window?.title = store.kind.title
         window?.isReleasedWhenClosed = false
         build()
@@ -77,6 +77,43 @@ final class ConfigurationController: NSWindowController {
             let note = NSTextField(wrappingLabelWithString: "A miniature imagined cosmos. Distances and sizes are artistic. Entirely offline. Zero motion holds drift; timed view changes continue.")
             note.font = .systemFont(ofSize: 11); note.textColor = .secondaryLabelColor
             note.frame = NSRect(x: 28, y: 61, width: 424, height: 38); content.addSubview(note)
+        } else if store.kind == .flourish {
+            func popup(_ titles:[String],_ index:Int)->NSPopUpButton {let p=NSPopUpButton();p.addItems(withTitles:titles);p.selectItem(at:index);return p}
+            let v=s.flourish
+            row("Palette","flourishPalette",popup(FlourishPalette.allCases.map {$0.title},FlourishPalette.allCases.firstIndex(of:v.palette)!))
+            row("Growth style","flourishStyle",popup(FlourishStyle.allCases.map {$0.rawValue.capitalized},FlourishStyle.allCases.firstIndex(of:v.style)!))
+            row("Background","flourishBackground",popup(FlourishBackground.allCases.map {$0.rawValue.capitalized},FlourishBackground.allCases.firstIndex(of:v.background)!))
+            row("Line character","flourishLine",popup(FlourishLine.allCases.map {$0.title},FlourishLine.allCases.firstIndex(of:v.line)!))
+            row("Scene seed","flourishSeedBehavior",popup(ArtSeed.allCases.map {$0.title},ArtSeed.allCases.firstIndex(of:v.seedBehavior)!))
+            row("Fixed seed","flourishSeed",NSTextField(string:String(v.seed)))
+            row("Growth speed","flourishSpeed",slider(v.speed,0.3,2))
+            row("Density","flourishDensity",slider(v.density,0,1))
+            row("Flowers","flourishFlowers",slider(v.flowers,0,1))
+            row("Leaves","flourishLeaves",slider(v.leaves,0,1))
+            row("Watercolor wash","flourishWash",check(v.wash))
+            row("Gentle breeze","flourishBreeze",check(v.breeze))
+            let note=NSTextField(wrappingLabelWithString:"A botanical drawing grows, rests, and gently gives way to a new composition. Daily seeds use UTC. Entirely offline.")
+            note.font = .systemFont(ofSize:11);note.textColor = .secondaryLabelColor
+            note.frame=NSRect(x:28,y:72,width:424,height:65);content.addSubview(note)
+            updateAvailability(s)
+        } else if store.kind == .lattice {
+            func popup(_ titles:[String],_ index:Int)->NSPopUpButton {let p=NSPopUpButton();p.addItems(withTitles:titles);p.selectItem(at:index);return p}
+            let v=s.lattice
+            row("Simulation","latticeMode",popup(LatticeMode.allCases.map {$0.rawValue.capitalized},LatticeMode.allCases.firstIndex(of:v.mode)!))
+            row("Palette","latticePalette",popup(LatticePalette.allCases.map {$0.title},LatticePalette.allCases.firstIndex(of:v.palette)!))
+            row("Pixel size","latticePixels",popup(LatticePixel.allCases.map {$0.rawValue.capitalized},LatticePixel.allCases.firstIndex(of:v.pixels)!))
+            row("Grid treatment","latticeGrid",popup(LatticeGrid.allCases.map {$0.title},LatticeGrid.allCases.firstIndex(of:v.grid)!))
+            row("Scene seed","latticeSeedBehavior",popup(ArtSeed.allCases.map {$0.title},ArtSeed.allCases.firstIndex(of:v.seedBehavior)!))
+            row("Fixed seed","latticeSeed",NSTextField(string:String(v.seed)))
+            row("Activity","latticeActivity",slider(v.activity,0,1))
+            row("Generations / sec","latticeSpeed",slider(v.speed,5,18))
+            row("Glow","latticeGlow",slider(v.glow,0,1))
+            row("Light persistence","latticePersistence",slider(v.persistence,0,1))
+            row("Events","latticeEvents",slider(v.events,0,1))
+            let note=NSTextField(wrappingLabelWithString:"A luminous cellular ecosystem. Local seeds keep it alive without full-grid resets. Daily seeds use UTC. Entirely offline.")
+            note.font = .systemFont(ofSize:11);note.textColor = .secondaryLabelColor
+            note.frame=NSRect(x:28,y:72,width:424,height:65);content.addSubview(note)
+            updateAvailability(s)
         } else if store.kind == .dapple {
             func popup(_ titles: [String], _ index: Int) -> NSPopUpButton {
                 let p = NSPopUpButton(); p.addItems(withTitles: titles); p.selectItem(at: index); return p
@@ -208,9 +245,34 @@ final class ConfigurationController: NSWindowController {
             if let seed = UInt64(c.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)) { value.dapple.seed = seed }
             else { c.stringValue = String(value.dapple.seed) }
         }
+        if let c=controls["flourishPalette"] as? NSPopUpButton {value.flourish.palette=FlourishPalette.allCases[c.indexOfSelectedItem]}
+        if let c=controls["flourishStyle"] as? NSPopUpButton {value.flourish.style=FlourishStyle.allCases[c.indexOfSelectedItem]}
+        if let c=controls["flourishBackground"] as? NSPopUpButton {value.flourish.background=FlourishBackground.allCases[c.indexOfSelectedItem]}
+        if let c=controls["flourishLine"] as? NSPopUpButton {value.flourish.line=FlourishLine.allCases[c.indexOfSelectedItem]}
+        if let c=controls["flourishSeedBehavior"] as? NSPopUpButton {value.flourish.seedBehavior=ArtSeed.allCases[c.indexOfSelectedItem]}
+        if let c=controls["flourishSpeed"] {value.flourish.speed=c.doubleValue}
+        if let c=controls["flourishDensity"] {value.flourish.density=c.doubleValue}
+        if let c=controls["flourishFlowers"] {value.flourish.flowers=c.doubleValue}
+        if let c=controls["flourishLeaves"] {value.flourish.leaves=c.doubleValue}
+        if let c=controls["flourishWash"] as? NSButton {value.flourish.wash=c.state == .on}
+        if let c=controls["flourishBreeze"] as? NSButton {value.flourish.breeze=c.state == .on}
+        if let c=controls["flourishSeed"] {if let seed=UInt64(c.stringValue.trimmingCharacters(in:.whitespacesAndNewlines)){value.flourish.seed=seed}else{c.stringValue=String(value.flourish.seed)}}
+        if let c=controls["latticeMode"] as? NSPopUpButton {value.lattice.mode=LatticeMode.allCases[c.indexOfSelectedItem]}
+        if let c=controls["latticePalette"] as? NSPopUpButton {value.lattice.palette=LatticePalette.allCases[c.indexOfSelectedItem]}
+        if let c=controls["latticePixels"] as? NSPopUpButton {value.lattice.pixels=LatticePixel.allCases[c.indexOfSelectedItem]}
+        if let c=controls["latticeGrid"] as? NSPopUpButton {value.lattice.grid=LatticeGrid.allCases[c.indexOfSelectedItem]}
+        if let c=controls["latticeSeedBehavior"] as? NSPopUpButton {value.lattice.seedBehavior=ArtSeed.allCases[c.indexOfSelectedItem]}
+        if let c=controls["latticeActivity"] {value.lattice.activity=c.doubleValue}
+        if let c=controls["latticeSpeed"] {value.lattice.speed=c.doubleValue}
+        if let c=controls["latticeGlow"] {value.lattice.glow=c.doubleValue}
+        if let c=controls["latticePersistence"] {value.lattice.persistence=c.doubleValue}
+        if let c=controls["latticeEvents"] {value.lattice.events=c.doubleValue}
+        if let c=controls["latticeSeed"] {if let seed=UInt64(c.stringValue.trimmingCharacters(in:.whitespacesAndNewlines)){value.lattice.seed=seed}else{c.stringValue=String(value.lattice.seed)}}
         store.value = value; changed(value); updateAvailability(value)
     }
     private func updateAvailability(_ value: SaverSettings) {
+        controls["flourishSeed"]?.isEnabled = value.flourish.seedBehavior == .fixed
+        controls["latticeSeed"]?.isEnabled = value.lattice.seedBehavior == .fixed
         controls["dappleSeed"]?.isEnabled = value.dapple.seedBehavior == .fixed
         for key in ["streetLabels", "water", "parks", "pointsOfInterest"] { controls[key]?.isEnabled = value.mapStyle != .traditional }
         for key in ["grain", "intensity"] { controls[key]?.isEnabled = value.mapStyle == .traditional }

@@ -1,5 +1,38 @@
 # Validation
 
+## v0.7.0 change validation
+
+- `make release-check` passed: 30,609 offline checks, zero failures, all seven
+  actual bundles loaded, 42 Options open/Done/reopen cycles with native callbacks
+  and another 42 with the fallback timer. Expanded ZIP and mounted DMG passed
+  checksum, architecture, metadata, thumbnail, identifier, and signature checks.
+  Local packages are ad-hoc signed, not notarized.
+
+- Five sequential art-critic review/response rounds were completed for **each** new
+  saver before release. Flourish revisions refined pacing, stem hierarchy, coherent
+  leaf families, separated blossoms, fern and bell silhouettes, tightening tendrils,
+  and ornament spacing. Lattice revisions refined glyph rarity, age/light hierarchy,
+  distinct Drift headings and sustained vitality, and edge-to-edge integer scaling.
+- Final galleries cover seeds 42, 91, and 807, mature and renewal states through
+  340 seconds, small previews, portrait layouts, dense/sparse drawing styles, and
+  matched zero/default/high glow. The four README images are actual native renderer
+  output from seed 91: Midnight/Spiral and Porcelain/Ornamental for Flourish;
+  Bioluminescent/Reef and Amber/Signal for Lattice.
+
+- Flourish tests cover seeded growth, tapered geometry and polygon closure, bounded
+  dense portrait growth in all styles, 30/60 Hz equivalence, spatial occupancy,
+  palette roles, settings migration/round trips, and suspended-time exclusion.
+- Lattice tests cover four deterministic long-running rules, cell/resource bounds,
+  local recovery, event expiry, wrapped boundaries, prolonged Drift vitality,
+  settings migration, and integer nearest-neighbor single-image presentation.
+- Native Options for both new savers were visually inspected. Flourish ran for
+  8,149 native preview frames; the first 6,000 CPU samples measured p50 0.311 ms,
+  p95 0.595 ms, maximum 0.894 ms on the development Mac. These measurements cover
+  simulation and layer publication, not GPU cost, power use, or physical scanout.
+  Lattice's 5,789-frame native run measured p50 0.040 ms, p95 7.966 ms, maximum
+  11.056 ms, including its independently timed cellular bitmap updates.
+
+
 ## v0.6.0 change validation
 
 - `make release-check` passed: 18,366 offline checks, zero failures, all five actual

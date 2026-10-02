@@ -5,54 +5,6 @@ Built with Swift, AppKit, Core Graphics, and Core Animation. No browser runtime 
 
 **[Download latest release](https://github.com/someone-in-texas/screensavers-for-mac/releases/latest)** · Apple Silicon · macOS 14.6 or later
 
-## Dapple
-
-A little kinetic artwork: textured paper circles coast over invisible hills, nudge
-each other, and occasionally make a playful hop. Warm pigment, fine fibers, and
-soft shadows give each shape a tactile presence, with room for the eye to rest.
-
-Choose Hills, Float, Playground, or Zen; eight curated palettes and four materials
-change the mood from warm printed paper to an after-dark garden. Adjust size,
-population, speed, texture, shadows, and occasional events. Start a fresh composition
-each launch, repeat a daily scene, or keep a favorite seed. Entirely procedural and offline.
-
-![Dapple: tactile circles rolling across invisible hills](docs/images/dapple.png)
-
-[Night Garden](docs/images/dapple-night.png)
-
-## Paper Sky
-
-An endless paper-airplane flight above sculpted clouds and synthwave sunsets.
-Individually folded wings catch warm light as companions join and peel away.
-The camera eases between isometric, third-person, and side-on views.
-
-Choose a viewpoint or the changing-camera journey; select four sunset palettes or
-evolving colors. Adjust flight speed, cloud cover, view duration, and glow; toggle
-companions, vapor trails, and the striped sun. Procedural, crisp at every size, and entirely offline.
-
-![Paper Sky: folded airplanes above a synthwave cloudscape](docs/images/paper-sky.png)
-
-## Voxel Cosmos
-
-A pixel-lit solar system made of tiny shaded cubes. Tour all eight planets, Saturn’s
-rings, an asteroid belt, and deep space with varied compositions and soft crossfades.
-
-Choose from 14 views, four camera modes, and Nebula, Aurora, Stars, or Black void
-backgrounds. Adjust motion, pixel size, glow, and star density. Entirely procedural
-and offline; sizes and distances are artistic rather than scientific.
-
-![Voxel Cosmos: an isometric pixel solar system](docs/images/voxel-cosmos.png)
-
-[Saturn closeup](docs/images/voxel-cosmos-saturn.png)
-
-## World Clock Room
-
-An isometric installation of ivory clocks on a charcoal floor. Twenty cities keep
-real local time, with smooth hands, subtle shadows, and a slowly drifting camera.
-Change the floor and clock colors, density, motion, second hands, and labels.
-
-![World Clock Room: isometric clock floor](docs/images/world-clock-room.png)
-
 ## City Drift
 
 Drift through the street patterns of 64 cities, drawn as crisp online vector maps.
@@ -68,6 +20,82 @@ fallback. Traditional OpenStreetMap imagery is also available. Select **Line map
 [More map styles](docs/images/city-drift-online.png) · [Map sources and caching](docs/MAPS_AND_PERFORMANCE.md).
 Map data and imagery © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright).
 
+## World Clock Room
+
+An isometric installation of ivory clocks on a charcoal floor. Twenty cities keep
+real local time, with smooth hands, subtle shadows, and a slowly drifting camera.
+Change the floor and clock colors, density, motion, second hands, and labels.
+
+![World Clock Room: isometric clock floor](docs/images/world-clock-room.png)
+
+## Voxel Cosmos
+
+A pixel-lit solar system made of tiny shaded cubes. Tour all eight planets, Saturn’s
+rings, an asteroid belt, and deep space with varied compositions and soft crossfades.
+
+Choose from 14 views, four camera modes, and Nebula, Aurora, Stars, or Black void
+backgrounds. Adjust motion, pixel size, glow, and star density. Entirely procedural
+and offline; sizes and distances are artistic rather than scientific.
+
+![Voxel Cosmos: an isometric pixel solar system](docs/images/voxel-cosmos.png)
+
+[Saturn closeup](docs/images/voxel-cosmos-saturn.png)
+
+## Paper Sky
+
+An endless paper-airplane flight above sculpted clouds and synthwave sunsets.
+Individually folded wings catch warm light as companions join and peel away.
+The camera eases between isometric, third-person, and side-on views.
+
+Choose a viewpoint or the changing-camera journey; select four sunset palettes or
+evolving colors. Adjust flight speed, cloud cover, view duration, and glow; toggle
+companions, vapor trails, and the striped sun. Procedural, crisp at every size, and entirely offline.
+
+![Paper Sky: folded airplanes above a synthwave cloudscape](docs/images/paper-sky.png)
+
+## Dapple
+
+A little kinetic artwork: textured paper circles coast over invisible hills, nudge
+each other, and occasionally make a playful hop. Warm pigment, fine fibers, and
+soft shadows give each shape a tactile presence, with room for the eye to rest.
+
+Choose Hills, Float, Playground, or Zen; eight curated palettes and four materials
+change the mood from warm printed paper to an after-dark garden. Adjust size,
+population, speed, texture, shadows, and occasional events. Start a fresh composition
+each launch, repeat a daily scene, or keep a favorite seed. Entirely procedural and offline.
+
+![Dapple: tactile circles rolling across invisible hills](docs/images/dapple.png)
+
+[Night Garden](docs/images/dapple-night.png)
+
+## Flourish
+
+A botanical drawing that grows across the screen: tapered ink stems curl into
+leaves, ferns, bells, and delicate blossoms, leaving generous open space. Each
+composition develops over several minutes, rests, then gently gives way to another.
+
+Choose five growth styles, eight palettes, three pen characters, paper or clean
+backgrounds, a faint pigment wash, and optional breeze. Adjust growth, density,
+leaves, and flowers; save a seed or let each day bring something new. Entirely offline.
+
+![Flourish: fine botanical curls and blossoms in the Midnight palette](docs/images/flourish.png)
+
+[Porcelain](docs/images/flourish-porcelain.png)
+
+## Lattice
+
+A small luminous ecosystem. Pixel colonies branch, drift, pulse, and fall dormant
+while new life finds its way into the dark. Crisp cores sit above a restrained glow;
+local events keep the world changing without an abrupt full-screen reset.
+
+Four rule families—Bloom, Drift, Reef, and Signal—pair with eight palettes and
+controls for activity, speed, pixel size, glow, trails, and events. Fresh, daily,
+and fixed seeds make each world spontaneous or repeatable. Entirely offline.
+
+![Lattice: bioluminescent cellular colonies in a dark pixel world](docs/images/lattice.png)
+
+[Amber Terminal](docs/images/lattice-amber.png)
+
 ## Install
 
 1. Download the **DMG** from [Releases](https://github.com/someone-in-texas/screensavers-for-mac/releases).
@@ -75,7 +103,7 @@ Map data and imagery © [OpenStreetMap contributors](https://www.openstreetmap.o
 3. Open **System Settings → Wallpaper → Screen Saver** (or **Screen Saver** on older
    macOS). Under **Other → Show All**, select a saver and open **Options / Screen Saver Options**.
 
-The ZIP contains the same five bundles. To verify downloads, place the DMG, ZIP,
+The ZIP contains the same seven bundles. To verify downloads, place the DMG, ZIP,
 and `SHA256SUMS` in one directory and run `shasum -a 256 -c SHA256SUMS` there.
 
 Releases without Apple signing credentials are **ad-hoc signed, not notarized**.
@@ -93,7 +121,7 @@ Use current Xcode or Apple’s Command Line Tools on an Apple Silicon Mac.
 ```sh
 git clone https://github.com/someone-in-texas/screensavers-for-mac.git
 cd screensavers-for-mac
-make build       # five .saver bundles and PreviewHost.app in build/products
+make build       # seven .saver bundles and PreviewHost.app in build/products
 make test        # deterministic offline tests, bundle loading, and renderer checks
 make preview     # switch savers, configure, resize, or save a frame
 open build/products/PreviewHost.app --args --dapple
@@ -106,12 +134,12 @@ Settings so it can load the updated bundles.
 
 ## Privacy and power
 
-Dapple, Paper Sky, Voxel Cosmos, and World Clock Room are entirely offline.
+Flourish, Lattice, Dapple, Paper Sky, Voxel Cosmos, and World Clock Room are entirely offline.
 City Drift’s online modes request OpenStreetMap tiles for the selected public city,
 never your location; offline mode makes no requests. No analytics, telemetry,
 location permission, updater, or configuration upload.
 
-Dapple, World Clock Room, and Voxel Cosmos target 30 FPS; City Drift and Paper Sky
+Flourish, Lattice, Dapple, World Clock Room, and Voxel Cosmos target 30 FPS; City Drift and Paper Sky
 target 60 FPS. Geometry, textures, and map tiles are cached. See
 [map policies and rendering details](docs/MAPS_AND_PERFORMANCE.md).
 

@@ -17,12 +17,14 @@ class SceneSaverView: ScreenSaverView {
             case .voxelCosmos: self.scene = VoxelCosmosScene()
             case .paperSky: self.scene = PaperSkyScene()
             case .dapple: self.scene = DappleScene()
+            case .flourish: self.scene = FlourishScene()
+            case .lattice: self.scene = LatticeScene()
             }
         }
         super.init(frame: frame, isPreview: isPreview)
         wantsLayer = true
         layerContentsRedrawPolicy = .onSetNeedsDisplay
-        animationTimeInterval = 1.0 / (kind == .worldClockRoom || kind == .voxelCosmos || kind == .dapple ? 30 : 60)
+        animationTimeInterval = 1.0 / (kind == .cityDrift || kind == .paperSky ? 60 : 30)
         self.scene.apply(store.value)
         autoresizingMask = [.width, .height]
     }

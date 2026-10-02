@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.7.0
+
+- Add **Flourish**, progressive procedural botanical ink with tapered stems,
+  space-aware branching, distinct leaf and blossom families, and gentle renewal.
+  Five growth styles, eight palettes, three pen characters, paper backgrounds,
+  wash, breeze, and fresh/daily/fixed seeds.
+- Add **Lattice**, a luminous pixel ecosystem with four cellular rule families,
+  resource and age dynamics, localized events and recovery, eight palettes,
+  integer-scaled pixel cores, adjustable glow, trails, and deterministic seeds.
+- Integrate both savers into native options, previews, installation, and verified
+  seven-bundle DMG/ZIP releases. Existing preferences remain compatible.
+- Arrange the README gallery from City Drift and World Clock Room through the
+  newer additions, keeping new savers at the bottom.
+
 ## 0.6.0
 
 - Add **Dapple**, an entirely offline piece of generative kinetic art: tactile circles,

@@ -144,7 +144,7 @@ universal release using the same source and bundle metadata.
 The build makes optimized binaries, then ad-hoc signs them. Packaging stages copies,
 optionally re-signs with Developer ID, creates a DMG, optionally notarizes/staples it,
 creates a ZIP and hashes the deliverables. Verification mounts the DMG, expands the
-ZIP and checks all five bundles. Release Actions build the exact version tag and publish
+ZIP and checks all seven bundles. Release Actions build the exact version tag and publish
 only after tests and package verification pass. Ordinary CI needs no signing secrets.
 
 ## Configuration lifecycle
@@ -276,3 +276,20 @@ is cached at a bounded backing size; there is no per-frame noise generation or n
 `PreviewHost --dapple-gallery --output <folder>` renders the review palettes and profiles
 two simultaneous scenes at 1080p, 1440p, 5K, and portrait sizes. `--dapple-review --profile`
 uses temporary preferences and a repeatable seed for live motion review.
+
+
+## Flourish and Lattice (0.7)
+
+Flourish integrates seeded growth tips over a 900-unit world, with a coarse occupancy
+field, edge/negative-space steering, bounded branches, and energy-limited curls.
+Each stem keeps its own leaf family. Filled tapered polygons provide pressure-like
+line weight; cached shape layers trace new ornaments and retain completed geometry.
+A bounded bitmap preserves the outgoing composition during the renewal dissolve.
+
+Lattice keeps compact cell state, age, and energy arrays in two fixed-size buffers.
+Precomputed wrapped neighbors support four excitable/resource-limited rule families;
+slow substrate variation, local seeds and temporary events prevent global resets.
+The renderer publishes one complete bitmap at each simulation step, with a reused
+low-resolution glow field and nearest-neighbor integer physical pixel scaling.
+Its presentation targets 30 FPS; cellular updates are independently configurable.
+Both scenes use typed persisted settings and fresh/daily/fixed SplitMix64 seeds.
