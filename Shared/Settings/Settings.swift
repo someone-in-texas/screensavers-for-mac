@@ -19,7 +19,7 @@ struct RGB: Codable, Equatable {
 }
 
 enum MapPalette: String, CaseIterable, Codable { case original, ink, blueprint, night, paper, terminal }
-enum MapStyle: String, CaseIterable, Codable { case lines, traditional }
+enum MapStyle: String, CaseIterable, Codable { case online, lines, traditional }
 
 struct SaverSettings: Codable, Equatable {
     var floor = RGB(0.16, 0.20, 0.22)
@@ -33,7 +33,8 @@ struct SaverSettings: Codable, Equatable {
     var intensity = 0.85
     var grain = false
     var vignette = false
-    var mapStyle = MapStyle.lines
+    let mapSourceVersion = 1
+    var mapStyle = MapStyle.online
     var streetLabels = false
     var water = false
     var parks = false
@@ -41,7 +42,7 @@ struct SaverSettings: Codable, Equatable {
     init() {}
     private enum CodingKeys: String, CodingKey {
         case floor, face, speed, density, smoothSeconds, labels, palette, intensity, grain, vignette
-        case mapStyle, streetLabels, water, parks, pointsOfInterest
+        case mapSourceVersion, mapStyle, streetLabels, water, parks, pointsOfInterest
     }
     init(from decoder: Decoder) throws {
         self.init()
@@ -57,6 +58,7 @@ struct SaverSettings: Codable, Equatable {
         grain = try c.decodeIfPresent(Bool.self, forKey: .grain) ?? grain
         vignette = try c.decodeIfPresent(Bool.self, forKey: .vignette) ?? vignette
         mapStyle = try c.decodeIfPresent(MapStyle.self, forKey: .mapStyle) ?? mapStyle
+        if try c.decodeIfPresent(Int.self, forKey: .mapSourceVersion) == nil, mapStyle == .lines { mapStyle = .online }
         streetLabels = try c.decodeIfPresent(Bool.self, forKey: .streetLabels) ?? streetLabels
         water = try c.decodeIfPresent(Bool.self, forKey: .water) ?? water
         parks = try c.decodeIfPresent(Bool.self, forKey: .parks) ?? parks

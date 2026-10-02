@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.0
+
+- Make online vector maps the default across all 64 cities, with no API key. Preserve
+  independent street-label, water, park and POI controls, and add local road detail.
+- Retain the three-city offline mode, bundled startup maps and cached-city fallback.
+  Load only the displayed vector viewport; never prefetch future cities over the network.
+- Add a bounded native MVT decoder and reuse HTTP cache, concurrency, cancellation,
+  conditional requests and backoff logic across vector and raster formats.
+- Keep vector geometry crisp at Retina resolution without multiplying tile requests.
+- Migrate the previous default to online while preserving appearance; explicit new
+  offline selections persist. Traditional raster mode remains available.
+
 ## 0.2.0
 
 - Default City Drift to solid, fully offline vector roads in Paris, Boston and Tokyo.

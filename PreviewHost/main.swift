@@ -41,6 +41,13 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
         NSApp.mainMenu = menu
         if CommandLine.arguments.contains("--map") { picker.selectItem(at: 1) }
         switchScene(); window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
+        if let i = CommandLine.arguments.firstIndex(of: "--capture-after"), i + 1 < CommandLine.arguments.count,
+           let seconds = Double(CommandLine.arguments[i + 1]), seconds.isFinite {
+            DispatchQueue.main.asyncAfter(deadline: .now() + min(60, max(1, seconds))) {
+                self.saveFrame()
+                if CommandLine.arguments.contains("--capture-and-quit") { self.view?.stopAnimation(); NSApp.terminate(nil) }
+            }
+        }
         if CommandLine.arguments.contains("--launch-smoke") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.checkConfigurationCycle(0) }
         }
@@ -66,7 +73,13 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
     @objc func switchScene() {
         view?.stopAnimation(); view?.removeFromSuperview()
         let kind = SaverKind.allCases[picker.indexOfSelectedItem]
-        let store = SettingsStore(kind, defaults: CommandLine.arguments.contains("--launch-smoke") ? UserDefaults(suiteName: smokeSuite + kind.rawValue) : nil)
+        let review = CommandLine.arguments.contains("--online-vector")
+        let store = SettingsStore(kind, defaults: (CommandLine.arguments.contains("--launch-smoke") || review) ? UserDefaults(suiteName: smokeSuite + kind.rawValue) : nil)
+        if review {
+            var settings = SaverSettings(); settings.mapStyle = .online; settings.palette = .blueprint
+            if CommandLine.arguments.contains("--details") { settings.streetLabels = true; settings.water = true; settings.parks = true; settings.pointsOfInterest = true }
+            store.value = settings
+        }
         let noNetwork = CommandLine.arguments.contains("--offline") || CommandLine.arguments.contains("--launch-smoke")
         let fixed = CommandLine.arguments.firstIndex(of: "--city").flatMap { i in i + 1 < CommandLine.arguments.count ? CommandLine.arguments[i + 1] : nil }
         let scene: SaverScene = kind == .worldClockRoom ? WorldClockScene() : CityDriftScene(store: store, networkEnabled: !noNetwork, city: MapCity.all.first { $0.name == fixed }, visitCache: noNetwork && !CommandLine.arguments.contains("--launch-smoke") ? CityVisitCache() : nil)
@@ -98,7 +111,7 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
     @objc func fullScreen() { window.toggleFullScreen(nil) }
     func applicationWillTerminate(_ notification: Notification) {
         view?.stopAnimation()
-        if CommandLine.arguments.contains("--launch-smoke") {
+        if CommandLine.arguments.contains("--launch-smoke") || CommandLine.arguments.contains("--online-vector") {
             for kind in SaverKind.allCases { UserDefaults.standard.removePersistentDomain(forName: smokeSuite + kind.rawValue) }
         }
     }
@@ -148,7 +161,7 @@ if CommandLine.arguments.contains("--smoke") {
     for city in StarterMaps.bundled.catalog {
         let starter = CityDriftScene(store: store, networkEnabled: false, city: city)
         starter.start()
-        var settings = SaverSettings(); settings.palette = .blueprint
+        var settings = SaverSettings(); settings.palette = .blueprint; settings.mapStyle = .lines
         starter.apply(settings)
         let c = bitmap(width: 1600, height: 1000)!
         starter.draw(in: c, size: CGSize(width: 1600, height: 1000), time: 0, date: Date())

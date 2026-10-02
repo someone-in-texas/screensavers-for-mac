@@ -3,7 +3,9 @@
 The Swift implementation is MIT licensed and has no third-party code dependencies.
 Apple frameworks are provided by macOS under Apple's terms.
 
-City Drift’s optional traditional mode uses the OpenStreetMap standard raster tile service over HTTPS.
+City Drift’s default online mode uses OpenStreetMap Shortbread vector tiles, under
+the [vector tile policy](https://operations.osmfoundation.org/policies/vector/).
+Its optional traditional mode uses the OpenStreetMap standard raster tile service over HTTPS.
 Map data and any map screenshots: **© OpenStreetMap contributors**.
 OpenStreetMap data is available under the Open Data Commons Open Database
 License (ODbL). See [copyright and licensing](https://www.openstreetmap.org/copyright).

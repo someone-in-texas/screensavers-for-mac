@@ -47,15 +47,19 @@ enum CachePolicy {
 /// image/validator pairs when separate screen-saver processes share the cache.
 final class TileCache {
     let directory: URL
-    init(directory: URL? = nil, namespace: String = "osm-standard") {
+    private let validate: (Data) -> Bool
+    private let maximumRecordBytes: Int
+    init(directory: URL? = nil, namespace: String = "osm-standard", maximumRecordBytes: Int = 1_000_000,
+         validate: @escaping (Data) -> Bool = { TileCache.decode($0) != nil }) {
+        self.validate = validate; self.maximumRecordBytes = maximumRecordBytes
         self.directory = directory ?? FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("com.someoneintexas.screensavers/\(namespace)", isDirectory: true)
     }
     func read(_ id: TileID) -> CachedTile? {
         let path = directory.appendingPathComponent(id.key + ".json")
-        guard let size = try? path.resourceValues(forKeys: [.fileSizeKey]).fileSize, size <= 1_000_000,
+        guard let size = try? path.resourceValues(forKeys: [.fileSizeKey]).fileSize, size <= maximumRecordBytes,
               let data = try? Data(contentsOf: path), let entry = try? JSONDecoder().decode(CachedTile.self, from: data),
-              Self.decode(entry.data) != nil else { return nil }
+              validate(entry.data) else { return nil }
         return entry
     }
     func write(_ entry: CachedTile?, id: TileID) {
@@ -97,8 +101,11 @@ final class HTTPTransport: NSObject, TileTransport, URLSessionDataDelegate {
     private struct Transfer {
         var data = Data()
         var response: HTTPURLResponse?
+        var tooLarge = false
         let completion: (Data?, HTTPURLResponse?, Error?) -> Void
     }
+    private let maximumBytes: Int
+    init(maximumBytes: Int = 512_000) { self.maximumBytes = maximumBytes; super.init() }
     private let lock = NSLock()
     private var transfers: [Int: Transfer] = [:]
     private lazy var session: URLSession = {
@@ -117,19 +124,21 @@ final class HTTPTransport: NSObject, TileTransport, URLSessionDataDelegate {
     }
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse,
                     completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
-        lock.lock(); transfers[dataTask.taskIdentifier]?.response = response as? HTTPURLResponse; lock.unlock()
-        completionHandler(response.expectedContentLength > 512_000 ? .cancel : .allow)
+        lock.lock(); transfers[dataTask.taskIdentifier]?.response = response as? HTTPURLResponse
+        transfers[dataTask.taskIdentifier]?.tooLarge = response.expectedContentLength > maximumBytes; lock.unlock()
+        completionHandler(response.expectedContentLength > maximumBytes ? .cancel : .allow)
     }
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         lock.lock()
         let total = (transfers[dataTask.taskIdentifier]?.data.count ?? 0) + data.count
-        if total <= 512_000 { transfers[dataTask.taskIdentifier]?.data.append(data) }
+        if total <= maximumBytes { transfers[dataTask.taskIdentifier]?.data.append(data) }
+        else { transfers[dataTask.taskIdentifier]?.tooLarge = true }
         lock.unlock()
-        if total > 512_000 { dataTask.cancel() }
+        if total > maximumBytes { dataTask.cancel() }
     }
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         lock.lock(); let transfer = transfers.removeValue(forKey: task.taskIdentifier); lock.unlock()
-        transfer?.completion(transfer?.data, transfer?.response, error)
+        transfer?.completion(transfer?.data, transfer?.response, transfer?.tooLarge == true ? URLError(.dataLengthExceedsMaximum) : error)
     }
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
                     newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
@@ -138,7 +147,7 @@ final class HTTPTransport: NSObject, TileTransport, URLSessionDataDelegate {
     func invalidate() { session.invalidateAndCancel() }
 }
 
-final class TileLoader {
+final class TileResourceLoader<Content> {
     private let queue = DispatchQueue(label: "screensavers.tiles", qos: .utility)
     private let cache: TileCache
     private let transport: TileTransport
@@ -152,11 +161,13 @@ final class TileLoader {
     private var generation = 0
     private var stopped = false
     private var cooldown = Date.distantPast
-    private let deliver: (TileID, CGImage) -> Void
-    init(provider: TileProvider = .osm, cache: TileCache? = nil, transport: TileTransport? = nil,
-         deliver: @escaping (TileID, CGImage) -> Void) {
-        self.provider = provider; self.cache = cache ?? TileCache(namespace: provider.cacheNamespace)
-        self.transport = transport ?? HTTPTransport(); self.deliver = deliver
+    private let deliver: (TileID, Content) -> Void
+    private let decode: (Data) -> Content?
+    private let mimeTypes: Set<String>
+    init(provider: TileProvider, cache: TileCache, transport: TileTransport,
+         mimeTypes: Set<String>, decode: @escaping (Data) -> Content?, deliver: @escaping (TileID, Content) -> Void) {
+        self.provider = provider; self.cache = cache; self.transport = transport
+        self.decode = decode; self.mimeTypes = mimeTypes; self.deliver = deliver
         queue.async { [weak self] in self?.cache.prune() }
     }
     func request(_ ids: [TileID]) {
@@ -191,7 +202,7 @@ final class TileLoader {
         }
     }
     deinit { (transport as? HTTPTransport)?.invalidate() }
-    private func emit(_ id: TileID, _ image: CGImage) {
+    private func emit(_ id: TileID, _ image: Content) {
         completed.insert(id)
         DispatchQueue.main.async { [weak self] in self?.deliver(id, image) }
     }
@@ -199,8 +210,8 @@ final class TileLoader {
         while !stopped && active.count < 2 && !pending.isEmpty {
             let id = pending.removeFirst()
             let cached = cache.read(id)
-            if let cached, cached.expires > Date(), let image = TileCache.decode(cached.data) { emit(id, image); continue }
-            if let cached, !cached.mustRevalidate, let image = TileCache.decode(cached.data) { emit(id, image) }
+            if let cached, cached.expires > Date(), let image = decode(cached.data) { emit(id, image); continue }
+            if let cached, !cached.mustRevalidate, let image = decode(cached.data) { emit(id, image) }
             guard requestCount < 256, Date() >= cooldown, let url = provider.url(id) else { continue }
             requestCount += 1
             var request = URLRequest(url: url)
@@ -226,12 +237,22 @@ final class TileLoader {
                     }
                     let bytes = response.statusCode == 304 ? cached?.data : data
                     guard response.statusCode == 200 || response.statusCode == 304, let bytes,
-                          response.statusCode == 304 || response.mimeType == "image/png",
-                          let image = TileCache.decode(bytes) else { self.failed.insert(id); return }
+                          response.statusCode == 304 || self.mimeTypes.contains(response.mimeType ?? ""),
+                          let image = self.decode(bytes) else { self.failed.insert(id); return }
                     self.cache.write(CachePolicy.entry(data: bytes, response: response, now: Date(), previous: cached), id: id)
                     self.emit(id, image)
                 }
             }
         }
+    }
+}
+
+// Both formats share cancellation, request budgets, cache headers and backoff.
+typealias TileLoader = TileResourceLoader<CGImage>
+extension TileResourceLoader where Content == CGImage {
+    convenience init(provider: TileProvider = .osm, cache: TileCache? = nil, transport: TileTransport? = nil,
+                     deliver: @escaping (TileID, CGImage) -> Void) {
+        self.init(provider: provider, cache: cache ?? TileCache(namespace: provider.cacheNamespace),
+                  transport: transport ?? HTTPTransport(), mimeTypes: ["image/png"], decode: TileCache.decode, deliver: deliver)
     }
 }

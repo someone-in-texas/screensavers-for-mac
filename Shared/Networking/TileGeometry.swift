@@ -33,6 +33,13 @@ enum Mercator {
         let scale = min(1, 1792 / max(1, size.width), 1120 / max(1, size.height))
         return CGSize(width: max(1, size.width * scale), height: max(1, size.height * scale))
     }
+    /// Vector coordinates do not depend on backing pixels. At most 54 visible
+    /// z14 tiles cover this viewport, including portrait and ultrawide displays.
+    static func vectorRenderSize(_ size: CGSize) -> CGSize {
+        let width = max(1, size.width), height = max(1, size.height)
+        let scale = min(1, 1920 / max(width, height), 1280 / min(width, height))
+        return CGSize(width: width * scale, height: height * scale)
+    }
     /// Map pixels follow the backing display, capped at 4K-class detail in either orientation.
     static func mapRenderSize(_ size: CGSize, backingScale: CGFloat = 1) -> CGSize {
         let width = max(1, size.width * backingScale), height = max(1, size.height * backingScale)

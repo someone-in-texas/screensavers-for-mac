@@ -67,12 +67,12 @@ expect(SaverSettings().speed == 6 && SaverSettings.maximumSpeed == 16, "new moti
 let olderJSON = Data(#"{"speed":8.5,"palette":"blueprint","vignette":true,"labels":false}"#.utf8)
 defaultsA.set(olderJSON, forKey: "settings.v2")
 expect(a.value.speed == 8.5 && a.value.palette == .blueprint && a.value.vignette && !a.value.labels, "old appearance settings survive added detail fields")
-expect(a.value.mapStyle == .lines && !a.value.streetLabels && !a.value.water && !a.value.pointsOfInterest && !a.value.parks, "existing users get minimal map default without losing appearance")
+expect(a.value.mapStyle == .online && !a.value.streetLabels && !a.value.water && !a.value.pointsOfInterest && !a.value.parks, "existing users get minimal map default without losing appearance")
 var details = a.value; details.streetLabels = true; details.water = true; details.pointsOfInterest = true; details.parks = true; details.mapStyle = .traditional
 a.value = details
 expect(a.value == details, "all map detail preferences persist")
 a.reset()
-expect(!a.value.vignette && a.value.mapStyle == .lines, "reset returns to solid roads-only appearance")
+expect(!a.value.vignette && a.value.mapStyle == .online, "reset returns to solid roads-only appearance")
 
 // Wall time and DST use Calendar + IANA zones, not a table of offsets.
 expect(ClockCity.all.count == 20, "clock catalog size")
@@ -408,6 +408,7 @@ for scale in [CGFloat(1), 2] {
     let root = CALayer(); root.contentsScale = scale
     let previewSize = CGSize(width: 280, height: 180)
     _ = scene.updateLayer(root, size: previewSize, time: 0, date: fixed) // host lays out before start
+    var offlineSettings = SaverSettings(); offlineSettings.mapStyle = .lines; scene.apply(offlineSettings)
     scene.start()
     for (index, size) in [previewSize, CGSize(width: 2560, height: 1440), CGSize(width: 1440, height: 2560)].enumerated() {
         CATransaction.begin(); CATransaction.setDisableActions(true)
@@ -463,6 +464,7 @@ slowScene.stop()
 
 let vectorTransport = MockTransport()
 let vectorScene = CityDriftScene(store: b, starterMaps: starterMaps, tileCache: slowDisk, tileTransport: vectorTransport)
+var offlineOnly = SaverSettings(); offlineOnly.mapStyle = .lines; vectorScene.apply(offlineOnly)
 vectorScene.start(); let vectorRoot = CALayer()
 for time in [0.0, 2, 241.5, 244, 484, 487] { _ = vectorScene.updateLayer(vectorRoot, size: smallViewport, time: time, date: fixed) }
 RunLoop.main.run(until: Date().addingTimeInterval(0.05))
@@ -474,7 +476,7 @@ for city in starterMaps.catalog {
     let scene = CityDriftScene(store: b, networkEnabled: false, city: city, starterMaps: starterMaps)
     let root = CALayer(); root.contentsScale = 2; scene.start()
     for mask in 0..<16 {
-        var options = SaverSettings()
+        var options = SaverSettings(); options.mapStyle = .lines
         options.streetLabels = mask & 1 != 0; options.water = mask & 2 != 0
         options.parks = mask & 4 != 0; options.pointsOfInterest = mask & 8 != 0
         scene.apply(options)
@@ -574,5 +576,6 @@ cachedLoader.request([])
 cachedLoader.request([third]); cachedDelivered = false; waitUntil { cachedDelivered }
 expect(cachedDelivered && cachedTransport.calls.isEmpty, "revisited tile returns from cache after leaving viewport")
 cachedLoader.stop()
+runVectorTests()
 print("\(checks) checks, \(failures) failures (no live network requests).")
 exit(failures == 0 ? 0 : 1)

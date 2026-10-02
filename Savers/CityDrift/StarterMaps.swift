@@ -15,6 +15,7 @@ struct StarterMap: Decodable {
     let areas: [Area]?
     let waterways: [[[Double]]]?
     let pointsOfInterest: [Place]?
+    var streetNames: [Road]? = nil
 
     func paths() -> [String: CGPath] {
         var paths: [String: CGMutablePath] = [:]
@@ -72,7 +73,7 @@ struct StarterMap: Decodable {
         struct Label { let name: String; let point: CGPoint; let isPlace: Bool }
         var candidates: [Label] = []
         if settings.streetLabels {
-            for road in roads {
+            for road in streetNames ?? roads {
                 guard let name = road.name, !name.isEmpty, let p = road.points.dropFirst(road.points.count / 2).first, p.count == 2 else { continue }
                 candidates.append(Label(name: name, point: CGPoint(x: p[0], y: -p[1]), isPlace: false))
             }

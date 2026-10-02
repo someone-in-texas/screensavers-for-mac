@@ -109,7 +109,7 @@ asynchronous results after stopping, restarting or resizing. At most one future
 city's decoded tiles and one outgoing scene are retained.
 
 `StarterMaps` loads three bundled ODbL vector extracts from the saver resource
-bundle. The default `.lines` style renders these for the entire session and selects
+bundle. The optional `.lines` style renders these for the entire session and selects
 only their three cities. It constructs no tile loader or cache-selection request.
 Five opaque road-path layers use one ink color; optional water/park paths use at
 most three additional layers. Ring winding preserves holes without one layer per
@@ -118,7 +118,7 @@ a shared 350-label budget. Geometry and labels rebuild on city/style/detail/scal
 changes, not on every frame or speed adjustment. Native vectors remain crisp above
 the raster viewport cap. The `.traditional` mode retains the 64-city tile renderer.
 
-The following startup cache behavior applies to traditional maps: Cached city views can be used at startup regardless of recent-city history.
+The following startup cache behavior applies to traditional maps (online vectors use the equivalent disk-only vector visit reader): Cached city views can be used at startup regardless of recent-city history.
 When there is no complete cached city, vector street outlines provide an immediate,
 resolution-independent map while currently selected tiles load. Starter paths are
 cached and translated with the camera; incoming raster tiles remain hidden until
@@ -155,3 +155,43 @@ still requires a manual check on each supported macOS version.
 Legacy picker artwork is generated in 90×58 / 180×116 PNGs plus multi-resolution
 TIFF. These are best-effort resources: current System Settings has no supported
 custom thumbnail API, as documented in the README.
+
+## Online vector maps (default)
+
+`.online` renders OSM Shortbread v1 MVTs from `vector.openstreetmap.org/shortbread_v1`.
+`VectorTile` is a bounded native protobuf/geometry reader: up to 2 MB per response,
+100 layers, 20,000 features per layer and 100,000 retained geometry points per tile.
+It validates field lengths, UTF-8, varints, tag indices, geometry commands, extents,
+coordinate bounds and supported versions. Unused layers are discarded; no scripts,
+styles, glyph downloads or web runtime are executed. Empty valid map layers are allowed.
+The implementation follows the public [MVT specification](https://github.com/mapbox/vector-tile-spec)
+and [Shortbread schema](https://shortbread-tiles.org/schema/1.0/).
+
+`TileResourceLoader<Content>` shares the raster loader’s request scheduling, two-request
+concurrency, 256-request visit budget, cancellation, response validation, validators,
+backoff and HTTP freshness rules. Vector disk records use the separate `osm-shortbread-v1`
+namespace. The vector response cap also applies after URLSession decompresses HTTP gzip.
+Oversized transfers fail quietly instead of being mistaken for cancelled viewport work.
+
+`VectorMapSource` composes complete visible tile sets into the existing native map
+geometry, including residential roads, street-name geometry, water/ocean polygons,
+waterways, green areas and named POIs. Road lines and polygon rings remain vectors.
+The scene retains its previous complete geometry while a new visible tile arrives.
+Composition/path building occurs only on data or style changes; motion moves retained
+layers. The geographic viewport uses logical points capped at 1920×1280 in either
+orientation (at most 54 z14 tiles), independent of Retina backing scale. Labels retain
+the existing collision checks and 350-label cap.
+
+Startup and future-city preparation scan existing vector cache records on a utility
+queue, rejecting incomplete, corrupt and mandatory-revalidation stale data. No future
+city is downloaded. Bundled data remains the cold-start and network-failure fallback;
+normal online touring uses all 64 cities. The initial online viewport stays fixed until
+complete so the next launch can reuse it. A separate motion clock keeps the bundled
+fallback moving during that wait, followed by a complete-scene crossfade. Switching mode or stopping cancels cache
+selection and network tasks. The prior v0.2 line default migrates to online once via
+`mapSourceVersion`; subsequent explicit offline choices persist unchanged.
+
+Live review can use PreviewHost `--online-vector --map --city London --capture-dir PATH
+--capture-after 15 --capture-and-quit` (add `--details`). This launches a visible window,
+downloads only its displayed viewport, saves its actual native layer tree, then stops.
+`--online-vector` uses temporary preferences and does not overwrite user settings.

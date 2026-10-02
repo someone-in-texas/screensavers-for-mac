@@ -54,7 +54,7 @@ final class ConfigurationController: NSWindowController {
             row("Smooth seconds", "smooth", check(s.smoothSeconds))
             row("City labels", "labels", check(s.labels))
         } else {
-            let style = NSPopUpButton(); style.addItems(withTitles: ["Line map · 3 cities · Offline", "Traditional map · Worldwide"])
+            let style = NSPopUpButton(); style.addItems(withTitles: ["Vector map · Worldwide · Online", "Line map · 3 cities · Offline", "Traditional map · Worldwide"])
             style.selectItem(at: MapStyle.allCases.firstIndex(of: s.mapStyle)!)
             row("Map style", "mapStyle", style)
             let palette = NSPopUpButton(); palette.addItems(withTitles: MapPalette.allCases.map { $0.rawValue.capitalized })
@@ -69,7 +69,7 @@ final class ConfigurationController: NSWindowController {
             row("Paper grain", "grain", check(s.grain))
             row("Soft vignette", "vignette", check(s.vignette))
             row("City label", "labels", check(s.labels))
-            let note = NSTextField(wrappingLabelWithString: "Line map: Paris, Boston and Tokyo. Traditional maps include all details; individual layers cannot be hidden.")
+            let note = NSTextField(wrappingLabelWithString: "Online vectors: worldwide. Offline vectors: Paris, Boston and Tokyo. Traditional maps have fixed labels and details.")
             note.font = .systemFont(ofSize: 11); note.textColor = .secondaryLabelColor
             note.frame = NSRect(x: 28, y: 61, width: 424, height: 34); content.addSubview(note)
             updateAvailability(s)
@@ -100,7 +100,7 @@ final class ConfigurationController: NSWindowController {
         store.value = value; changed(value); updateAvailability(value)
     }
     private func updateAvailability(_ value: SaverSettings) {
-        for key in ["streetLabels", "water", "parks", "pointsOfInterest"] { controls[key]?.isEnabled = value.mapStyle == .lines }
+        for key in ["streetLabels", "water", "parks", "pointsOfInterest"] { controls[key]?.isEnabled = value.mapStyle != .traditional }
         for key in ["grain", "intensity"] { controls[key]?.isEnabled = value.mapStyle == .traditional }
     }
     @objc private func reset() { store.reset(); changed(store.value); build() }

@@ -1,5 +1,32 @@
 # Validation
 
+## v0.3.0 change validation
+
+- 15,387 deterministic offline checks pass. New MVT coverage includes feature
+  categories, extent scaling, signed buffered coordinates, closed rings, malformed
+  commands, overflowing/truncated protobufs, unsupported versions and byte limits.
+- All 16 combinations of online detail switches are checked using synthetic MVTs.
+  Mocked HTTP verifies MVT URLs/User-Agent, fresh-cache zero-request reopening, ETag
+  revalidation/304 reuse, cancellation and late-response rejection. The shared loader
+  retains the existing concurrency, failure, backoff and request-budget tests.
+- Vector cache selection accepts complete cities, rejects corrupt/mandatory-stale
+  records and discards cancelled scans. Defaults migrate to online while preserving
+  appearance; explicitly selecting offline remains persistent.
+- Scene tests verify the bundled first frame, bounded Retina viewport, native-resolution
+  overlays, stable initial network coverage, continued fallback motion during loading,
+  city changes and switching back to offline without further requests.
+- A visible live London preview loaded and rendered OSM Shortbread vectors. Only its
+  displayed viewport was requested. A follow-up details review used the same location;
+  water, parks, street labels and POIs were visually inspected in the native layer capture.
+- The resulting London map also reopened successfully in a visible preview with
+  networking disabled, using its on-disk vector cache.
+- The live review caught incomplete reusable startup coverage caused by early camera
+  movement. Initial online coverage now stays fixed until complete while the fallback
+  keeps moving; the complete online view then crossfades into place.
+- With all detail switches enabled, the local M5 preview sampled approximately **0.4%
+  CPU and 222 MiB RSS** at 1200×742 logical points after loading. This is a short spot
+  sample, not a multi-hour energy benchmark. CI/smoke tests never contact public tiles.
+
 ## v0.2.0 change validation
 
 - 15,247 offline checks pass, including older-settings decoding and all 16 combinations

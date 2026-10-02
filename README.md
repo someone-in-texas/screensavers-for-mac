@@ -4,7 +4,7 @@ Two quiet, native screen savers for people who like clocks, cities and the geome
 of everyday things. Written in Swift, AppKit, Core Graphics and Core Animation.
 No browser runtime. No dependencies.
 
-**[Download v0.2.0](https://github.com/someone-in-texas/screensavers-for-mac/releases/latest)** ·
+**[Download v0.3.0](https://github.com/someone-in-texas/screensavers-for-mac/releases/latest)** ·
 Apple Silicon · macOS 14.6 or later
 
 ## World Clock Room
@@ -18,28 +18,32 @@ motion, second hands and labels.
 
 ## City Drift
 
-City Drift defaults to **solid road lines**, drawn as crisp vectors with no tile
-loading and no network requests. Paris, Boston and Tokyo are included in the bundle.
+City Drift defaults to **online vector maps across all 64 cities**: solid road
+lines, drawn natively at your display’s resolution. No API key is required.
 In Options, enable **Street labels**, **Water**, **Parks**, and **Points of interest**
-independently. These are simplified major-road maps, not navigation maps; coastal
-water coverage and points of interest follow the bundled extracts.
+independently. The online source includes local streets as well as major roads.
 
-Choose **Traditional map · Worldwide** for the original detailed map and its
-64-city catalog. This mode uses OpenStreetMap imagery, so its street labels and
-other features are part of the image and cannot be switched off independently.
-It starts with a bundled map, reuses complete eligible cached cities when available,
-and keeps the outgoing scene visible while preparing the next one.
+Bundled maps of Paris, Boston and Tokyo provide an immediate opening scene. Online
+geometry replaces them only after the current viewport is complete; cached vector
+cities can also open the next session. If a new destination cannot load, the saver
+returns to a bundled city. Previously viewed tiles are reused according to their
+HTTP cache policy. Future-city preparation reads the local cache only.
 
-Both styles offer Original, Ink, Blueprint, Night, Paper and Terminal palettes.
-Paper is the default. Vignette is optional; grain and tint intensity apply to the
-traditional map. The camera curves through horizontal, vertical and diagonal
-movement, changing city about every four minutes. Zero speed pauses the camera,
-while city changes continue. Existing color/speed preferences survive the update;
-Reset to Defaults selects the minimal line map.
+Choose **Line map · 3 cities · Offline** to use only the bundled maps with no network
+requests. Choose **Traditional map · Worldwide** for raster OpenStreetMap imagery;
+its labels and other details are part of the image and cannot be hidden independently.
+
+All modes offer Original, Ink, Blueprint, Night, Paper and Terminal palettes. Paper
+is the default. Vignette is optional; grain and tint intensity apply to traditional
+maps. The camera curves through horizontal, vertical and diagonal movement, changing
+city about every four minutes. Zero speed pauses the camera while city changes continue.
+The upgrade changes the previous default line-map mode to online vectors, preserving
+colors, speed and detail choices. You can select offline mode again; that selection
+will persist. Reset to Defaults selects online vectors with only road lines.
 
 ![City Drift: Paris in the Paper palette, © OpenStreetMap contributors](docs/images/city-drift.png)
 
-[See Blueprint](docs/images/city-drift-blueprint.png) · [Optional map details](docs/images/city-drift-details.png). Map data and imagery
+[Online London with details](docs/images/city-drift-online.png) · [See Blueprint](docs/images/city-drift-blueprint.png) · [Optional map details](docs/images/city-drift-details.png). Map data and imagery
 © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright).
 
 ## Install
@@ -52,7 +56,7 @@ Reset to Defaults selects the minimal line map.
 The ZIP contains the same two bundles. For checksums, download the DMG, ZIP and
 `SHA256SUMS` into one directory and run `shasum -a 256 -c SHA256SUMS` there.
 
-**v0.2.0 is ad-hoc signed, not Apple-notarized.** If macOS blocks opening a downloaded
+**v0.3.0 is ad-hoc signed, not Apple-notarized.** If macOS blocks opening a downloaded
 saver, check the source/checksum, attempt to open that saver, then use **System Settings
 → Privacy & Security → Open Anyway** for that item if offered. Never disable Gatekeeper
 globally. Managed Macs may prohibit third-party savers; a local source build is another
@@ -95,9 +99,10 @@ module. If it persists, log out and back in. The scripts do not kill system proc
 
 ## Privacy and power
 
-World Clock Room and City Drift’s default line-map style are entirely offline.
-City Drift’s optional traditional style requests HTTPS street tiles from
-OpenStreetMap for the **displayed public city**, never your location. OSM receives the
+World Clock Room and City Drift’s optional offline mode make no network requests.
+The default online vector mode requests HTTPS Shortbread tiles from
+`vector.openstreetmap.org`; traditional mode uses `tile.openstreetmap.org`.
+Requests cover only the **displayed public city**, never your location. OSM receives the
 IP address and requested tile coordinates as with any tile client; its
 [privacy policy](https://osmfoundation.org/wiki/Privacy_Policy) applies. There is no
 analytics, telemetry, location permission, updater or configuration upload.
@@ -113,11 +118,15 @@ bundled maps also work without connectivity. No future city is downloaded in
 advance from OSM’s public tile server; its service availability is best-effort.
 
 Animation is capped at 30 FPS. Static clock faces and graded map tiles are cached;
-Core Animation moves layers and clock hands. Line maps stay vector-based at any
-display resolution. Traditional maps use the display’s backing pixels
+Core Animation moves layers and clock hands. Online and offline vectors stay crisp at any
+display resolution; their geographic viewport is capped at 1920 × 1280 (orientation-independent),
+so Retina displays need no extra tile requests. Traditional maps use the display’s backing pixels
 for sharper detail, capped at 3840 × 2560 pixels (rotated for portrait displays).
 A 4K display renders at native resolution; 5K and larger displays scale from this
-bounded detail level. Tile tasks stop with the saver.
+bounded detail level. Tile tasks stop with the saver. Vector responses are capped at 2 MB and decoded
+off the render thread. Only displayed tiles are downloaded, following the
+[vector tile policy](https://operations.osmfoundation.org/policies/vector/).
+Vector and raster caches are separate; downloaded vectors are never packaged or redistributed.
 
 ## Contribute
 
