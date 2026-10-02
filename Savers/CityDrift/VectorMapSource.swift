@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import CoreGraphics
 
 struct CachedVectorVisit {
@@ -28,14 +28,36 @@ final class VectorMapSource {
     private var city: MapCity?
     private var dirty = false
     private var generation = 0
+    private var compositionVersion = 0
+    private var composing = false
+    private struct Appearance: Equatable {
+        let ink: RGB
+        let scale: CGFloat
+        let streetLabels: Bool, water: Bool, parks: Bool, pointsOfInterest: Bool
+        init(settings: SaverSettings, ink: NSColor, scale: CGFloat) {
+            self.ink = RGB(ink); self.scale = scale
+            streetLabels = settings.streetLabels; water = settings.water
+            parks = settings.parks; pointsOfInterest = settings.pointsOfInterest
+        }
+        var settings: SaverSettings {
+            var s = SaverSettings(); s.streetLabels = streetLabels; s.water = water
+            s.parks = parks; s.pointsOfInterest = pointsOfInterest; return s
+        }
+    }
+    private var appearance = Appearance(settings: SaverSettings(), ink: .gray, scale: 1)
+    private(set) var layers: [CALayer] = []
+    private let geometryQueue = DispatchQueue(label: "screensavers.vector-geometry", qos: .userInitiated)
+    private(set) var paths: [String: CGPath] = [:]
+    private var renderedPlacements: [TilePlacement] = []
     private(set) var map: StarterMap?
     private(set) var revision = 0
-    var complete: Bool { !visible.isEmpty && visible.allSatisfy { tiles[$0.id] != nil } }
+    private var tilesReady: Bool { !visible.isEmpty && visible.allSatisfy { tiles[$0.id] != nil } }
+    var complete: Bool { tilesReady && map != nil && renderedPlacements == visible }
     init(networkEnabled: Bool, cache: TileCache? = nil, transport: TileTransport? = nil) {
         self.networkEnabled = networkEnabled; self.cache = cache ?? Self.makeCache(); self.transport = transport
     }
     func begin(city: MapCity, preloaded: [TileID: VectorTile] = [:]) {
-        self.city = city; tiles = preloaded; visible = []; map = nil; revision += 1; dirty = true
+        self.city = city; tiles = preloaded; visible = []; map = nil; paths = [:]; layers = []; renderedPlacements = []; revision += 1; dirty = true; compositionVersion += 1
         loader?.beginVisit()
         if loader == nil {
             let session = generation
@@ -44,21 +66,49 @@ final class VectorMapSource {
                                         mimeTypes: ["application/vnd.mapbox-vector-tile", "application/x-protobuf", "application/octet-stream"],
                                         decode: VectorTile.decode) { [weak self] id, tile in
                 guard let self, self.generation == session, self.visible.contains(where: { $0.id == id }) else { return }
-                self.tiles[id] = tile; self.dirty = true
+                self.tiles[id] = tile; self.dirty = true; self.compositionVersion += 1
             }
         }
     }
-    func stop() { generation += 1; loader?.stop(); loader = nil; tiles = [:]; map = nil; visible = []; revision += 1 }
+    func stop() { generation += 1; loader?.stop(); loader = nil; tiles = [:]; map = nil; paths = [:]; layers = []; visible = []; renderedPlacements = []; revision += 1; compositionVersion += 1 }
+    func configure(settings: SaverSettings, ink: NSColor, scale: CGFloat) {
+        let next = Appearance(settings: settings, ink: ink, scale: scale)
+        guard next != appearance else { return }
+        appearance = next; dirty = true; compositionVersion += 1
+    }
     func update(_ placements: [TilePlacement]) {
         if visible != placements {
             visible = placements
             let ids = Set(placements.map(\.id)); tiles = tiles.filter { ids.contains($0.key) }
-            loader?.request(placements.map(\.id)); dirty = true
+            loader?.request(placements.map(\.id)); dirty = true; compositionVersion += 1
         }
         // Replace a complete map as a unit. Never render partly arrived vector tiles.
-        if dirty && complete, let city {
-            map = Self.compose(city: city, placements: visible, tiles: tiles)
-            dirty = false; revision += 1
+        if dirty && tilesReady && !composing, let city {
+            let version = compositionVersion, session = generation
+            let placements = visible, snapshot = tiles, appearance = appearance
+            composing = true; dirty = false
+            geometryQueue.async { [weak self] in
+                let map = Self.compose(city: city, placements: placements, tiles: snapshot)
+                let paths = map.paths()
+                // Build detached layers entirely on this queue. Only the main
+                // thread owns them after publication; no shared tree is mutated.
+                CATransaction.begin(); CATransaction.setDisableActions(true)
+                var layers = map.detailLayers(settings: appearance.settings, ink: appearance.ink.color)
+                for (kind, width) in [("minor", 0.65), ("tertiary", 1.0), ("secondary", 1.4), ("primary", 1.8), ("trunk", 2.2), ("motorway", 2.6)] {
+                    guard let path = paths[kind] else { continue }
+                    let road = CAShapeLayer(); road.name = "road"; road.path = path; road.fillColor = nil
+                    road.strokeColor = appearance.ink.color.cgColor; road.lineWidth = width
+                    road.lineCap = .round; road.lineJoin = .round; layers.append(road)
+                }
+                layers += map.labelLayers(settings: appearance.settings, ink: appearance.ink.color, scale: appearance.scale)
+                CATransaction.commit()
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    self.composing = false
+                    guard self.generation == session, self.compositionVersion == version else { return }
+                    self.map = map; self.paths = paths; self.layers = layers; self.renderedPlacements = placements; self.revision += 1
+                }
+            }
         }
     }
     @discardableResult

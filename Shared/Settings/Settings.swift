@@ -2,8 +2,10 @@ import AppKit
 import ScreenSaver
 
 enum SaverKind: String, CaseIterable {
-    case worldClockRoom, cityDrift
-    var title: String { self == .worldClockRoom ? "World Clock Room" : "City Drift" }
+    case worldClockRoom, cityDrift, voxelCosmos
+    var title: String {
+        switch self { case .worldClockRoom: return "World Clock Room"; case .cityDrift: return "City Drift"; case .voxelCosmos: return "Voxel Cosmos" }
+    }
     var identifier: String { "com.someoneintexas.screensavers.\(rawValue.lowercased())" }
 }
 
@@ -22,6 +24,7 @@ enum MapPalette: String, CaseIterable, Codable { case original, ink, blueprint, 
 enum MapStyle: String, CaseIterable, Codable { case online, lines, traditional }
 
 struct SaverSettings: Codable, Equatable {
+    var cosmos = CosmosSettings()
     var floor = RGB(0.16, 0.20, 0.22)
     var face = RGB(0.89, 0.86, 0.76)
     static let maximumSpeed = 16.0
@@ -41,12 +44,14 @@ struct SaverSettings: Codable, Equatable {
     var pointsOfInterest = false
     init() {}
     private enum CodingKeys: String, CodingKey {
+        case cosmos
         case floor, face, speed, density, smoothSeconds, labels, palette, intensity, grain, vignette
         case mapSourceVersion, mapStyle, streetLabels, water, parks, pointsOfInterest
     }
     init(from decoder: Decoder) throws {
         self.init()
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        cosmos = try c.decodeIfPresent(CosmosSettings.self, forKey: .cosmos) ?? cosmos
         floor = try c.decodeIfPresent(RGB.self, forKey: .floor) ?? floor
         face = try c.decodeIfPresent(RGB.self, forKey: .face) ?? face
         speed = try c.decodeIfPresent(Double.self, forKey: .speed) ?? speed
@@ -66,6 +71,7 @@ struct SaverSettings: Codable, Equatable {
     }
     func sanitized() -> Self {
         var copy = self
+        copy.cosmos = cosmos.sanitized()
         if !copy.floor.valid { copy.floor = Self().floor }
         if !copy.face.valid { copy.face = Self().face }
         copy.speed = speed.isFinite ? min(Self.maximumSpeed, max(0, speed)) : Self().speed

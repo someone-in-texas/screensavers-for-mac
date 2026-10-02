@@ -33,15 +33,18 @@ plist() {
 </dict></plist>
 PLIST
 }
-for kind in WorldClockRoom CityDrift; do
-    if [[ "$kind" == WorldClockRoom ]]; then name='World Clock Room'; id=worldclockroom; else name='City Drift'; id=citydrift; fi
+for kind in WorldClockRoom CityDrift VoxelCosmos; do
+    case "$kind" in
+        WorldClockRoom) name='World Clock Room'; id=worldclockroom; image=world-clock-room ;;
+        CityDrift) name='City Drift'; id=citydrift; image=city-drift ;;
+        VoxelCosmos) name='Voxel Cosmos'; id=voxelcosmos; image=voxel-cosmos ;;
+    esac
     bundle="build/products/$name.saver"
     mkdir -p "$bundle/Contents/MacOS" "$bundle/Contents/Resources"
     # Swift emits one relocatable object; the final link explicitly produces MH_BUNDLE.
     xcrun swiftc "${FLAGS[@]}" -module-name "$kind" -parse-as-library -emit-object "${SOURCES[@]}" "Savers/$kind/${kind}View.swift" -o "build/$kind.o"
     xcrun swiftc "${FLAGS[@]}" -Xlinker -bundle "build/$kind.o" -o "$bundle/Contents/MacOS/$kind"
     plist "$bundle/Contents/Info.plist" "$name" "com.someoneintexas.screensavers.$id" "$kind" "${kind}View" BNDL
-    if [[ "$kind" == WorldClockRoom ]]; then image=world-clock-room; else image=city-drift; fi
     xcrun swift Scripts/make-thumbnails.swift "docs/images/$image.png" "$bundle/Contents/Resources"
     if [[ "$kind" == CityDrift ]]; then ditto Assets/StarterMaps "$bundle/Contents/Resources/StarterMaps"; fi
     codesign --force --sign - "$bundle"
@@ -52,4 +55,4 @@ ditto Assets/StarterMaps "$app/Contents/Resources/StarterMaps"
 xcrun swiftc "${FLAGS[@]}" -module-name PreviewHost "${SOURCES[@]}" PreviewHost/main.swift -o "$app/Contents/MacOS/PreviewHost"
 plist "$app/Contents/Info.plist" PreviewHost com.someoneintexas.screensavers.preview PreviewHost NSApplication APPL
 codesign --force --sign - "$app"
-echo "Built both savers and PreviewHost ($ARCH, macOS 14.6+)."
+echo "Built all three savers and PreviewHost ($ARCH, macOS 14.6+)."

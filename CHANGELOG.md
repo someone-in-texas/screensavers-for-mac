@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.0
+
+- Add Voxel Cosmos: an entirely offline voxel solar system with all eight planet
+  closeups, isometric system views, an asteroid belt and deep space. Choose a grand
+  tour or fixed subject, changing camera angles, four backgrounds, pixel size, glow,
+  star density, orbit guides, asteroids and captions. Include native options and artwork.
+- Smooth City Drift with a 60 Hz cadence, cached vector layer rasterization, tighter
+  recovery after delayed frames, and background vector composition/path preparation.
+- Reduce city visits to two minutes. Start online sessions from the full city catalog
+  behind a labeled bundled fallback; favor less-recent complete cached cities. Keep
+  future-city preparation disk-only because public OSM services prohibit prefetching.
+- Extend build, install, uninstall, preview, smoke tests and verified DMG/ZIP packaging
+  to all three savers.
+
 ## 0.3.0
 
 - Make online vector maps the default across all 64 cities, with no API key. Preserve

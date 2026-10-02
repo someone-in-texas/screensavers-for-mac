@@ -1,5 +1,33 @@
 # Validation
 
+## v0.4.0 change validation
+
+- 15,418 deterministic offline checks cover the existing renderers plus Cosmos
+  settings/migration, all-planet tour coverage, bounded aspect-preserving buffers,
+  stopped/paused/restarted motion, fixed subjects, captions and transition cleanup.
+- Vector regressions check background publication of complete paths/details/labels,
+  backing-scale correctness, speed-only changes, rejection of stopped/replaced work,
+  preserved complete geometry during incomplete downloads, and fresh city selection
+  even when a recently viewed city is the only complete cached destination.
+- Offline smoke frames cover all three savers at five aspect ratios, every Cosmos
+  subject, all four camera/background options and pixel/glow extremes. Native bundles
+  load independently. Eighteen real options open/Done/reopen cycles pass, including
+  a check that each saver actually receives animation callbacks.
+- Visually inspected full system, individual planets, portrait backgrounds, camera
+  angles and small previews. The native Cosmos options sheet was also inspected.
+  Small previews reserve space for captions; high-angle system views fit their
+  wider vertical footprint. README images are actual renderer output.
+- A 22-second native Cosmos review traversed a system view, dissolve and Earth
+  closeup: 692 frames, render p50 1.89 ms / p95 2.21 ms / maximum 16.13 ms. A cached
+  London review with all map details enabled produced 745 frames in approximately
+  12 seconds: p50 0.021 ms / p95 0.027 ms, with an 86 ms startup/update maximum.
+  These are short local M5 CPU-side observations, not GPU/energy benchmarks or a
+  guarantee of every display's frame pacing. No live map downloads were needed.
+- All three arm64 saver bundles are included in the DMG and ZIP, with verified
+  checksums, metadata, thumbnails and ad-hoc signatures. System Settings' actual
+  saver host and older macOS versions still require manual release testing.
+
+
 ## v0.3.0 change validation
 
 - 15,387 deterministic offline checks pass. New MVT coverage includes feature

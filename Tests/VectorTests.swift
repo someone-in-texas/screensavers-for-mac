@@ -75,6 +75,17 @@ func runVectorTests() {
     let cached = VectorMapSource(networkEnabled: true, cache: cache, transport: cachedTransport)
     cached.begin(city: city); cached.update([placement]); waitUntil { cached.update([placement]); return cached.complete }
     expect(cached.complete && cachedTransport.calls.isEmpty, "fresh vector cache reopens without a network request")
+    var details = SaverSettings(); details.streetLabels = true; details.water = true; details.parks = true; details.pointsOfInterest = true
+    let previousRevision = cached.revision
+    cached.configure(settings: details, ink: .blue, scale: 3); cached.update([placement])
+    waitUntil { cached.update([placement]); return cached.revision > previousRevision }
+    let preparedNames = Set(cached.layers.compactMap(\.name))
+    expect(["road", "water", "park", "street-label", "poi"].allSatisfy { preparedNames.contains($0) }, "background preparation publishes all selected detail layers together")
+    expect(cached.layers.filter { $0 is CATextLayer }.allSatisfy { $0.contentsScale == 3 }, "prepared text uses the target backing scale")
+    let styledRevision = cached.revision
+    details.speed = 12; cached.configure(settings: details, ink: .blue, scale: 3); cached.update([placement])
+    RunLoop.main.run(until: Date().addingTimeInterval(0.02))
+    expect(cached.revision == styledRevision, "speed-only changes preserve prepared vector geometry")
     cached.stop()
     var stale = cache.read(id)!; stale.expires = .distantPast; stale.mustRevalidate = true; cache.write(stale, id: id)
     let refreshing = VectorMapSource(networkEnabled: true, cache: cache, transport: cachedTransport)
@@ -118,6 +129,22 @@ func runVectorTests() {
     expect(!cancelledDelivered, "cancelled vector cache scans cannot select a city")
     // The actual scene must select the full catalog online while keeping fallback
     // geometry visible. No live transport is used here.
+    // Composition must not publish old city/viewport geometry after lifecycle changes.
+    let composing = VectorMapSource(networkEnabled: false, cache: cache)
+    composing.begin(city: city, preloaded: [id: parsed!]); composing.update([placement])
+    expect(composing.map == nil, "vector composition is deferred off the animation thread")
+    composing.stop()
+    RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+    expect(composing.map == nil && composing.paths.isEmpty, "stopped source rejects queued geometry")
+    composing.begin(city: city, preloaded: [id: parsed!]); composing.update([placement])
+    let replacement = MapCity.all.first { $0.name == "Paris" }!
+    composing.begin(city: replacement, preloaded: [id: parsed!]); composing.update([placement])
+    waitUntil { composing.update([placement]); return composing.complete }
+    expect(composing.map?.name == replacement.name && !composing.paths.isEmpty, "replacement visit publishes only its own prepared paths")
+    composing.update([missingPlacement])
+    expect(composing.map?.name == replacement.name && !composing.complete, "incomplete viewport keeps previous complete geometry")
+    composing.stop()
+
     let defaultsName = "screensavers.vector-tests.\(UUID().uuidString)"
     let defaults = UserDefaults(suiteName: defaultsName)!
     defer { defaults.removePersistentDomain(forName: defaultsName) }
@@ -128,11 +155,13 @@ func runVectorTests() {
     var offline = store.value; offline.mapStyle = .lines; store.value = offline
     expect(store.value.mapStyle == .lines, "explicit offline selection remains offline on subsequent reads")
     store.reset()
+    defaults.set(["Paris", "Boston", "Tokyo"], forKey: "recentCities")
     let starters = StarterMaps.load(url: URL(fileURLWithPath: "Assets/StarterMaps/streets.json"))
     let sceneTransport = MockTransport()
     let scene = CityDriftScene(store: store, starterMaps: starters, vectorCache: VectorMapSource.makeCache(directory: temp.appendingPathComponent("scene")), vectorTransport: sceneTransport)
     let root = CALayer(); root.contentsScale = 2
     let size = CGSize(width: 2560, height: 1440)
+    expect(!["Paris", "Boston", "Tokyo"].contains(scene.city.name), "cold online startup selects a fresh worldwide destination")
     scene.start(); _ = scene.updateLayer(root, size: size, time: 0, date: Date())
     expect(!(root.sublayers![0].sublayers ?? []).isEmpty, "online default starts with complete bundled streets")
     waitUntil { _ = scene.updateLayer(root, size: size, time: 0.01, date: Date()); return sceneTransport.calls.count == 2 }
@@ -154,6 +183,19 @@ func runVectorTests() {
     RunLoop.main.run(until: Date().addingTimeInterval(0.05))
     expect(sceneTransport.calls.count == countBefore && starters[scene.city] != nil, "switching to offline cancels online loading and selects bundled city")
     scene.stop()
+    // A small warm cache must not monopolize every short online session.
+    for tile in ids { cache.write(freshEntry, id: tile) }
+    defaults.set([city.name], forKey: "recentCities")
+    let variedTransport = MockTransport()
+    let varied = CityDriftScene(store: store, starterMaps: starters, vectorCache: cache, vectorTransport: variedTransport)
+    varied.start(); let variedRoot = CALayer()
+    waitUntil {
+        _ = varied.updateLayer(variedRoot, size: viewport, time: 0, date: Date())
+        return !variedTransport.calls.isEmpty
+    }
+    expect(varied.city != city && !variedTransport.calls.isEmpty, "recent cached city does not prevent a fresh selected destination from loading")
+    expect(!(variedRoot.sublayers?.first?.sublayers ?? []).isEmpty, "fresh worldwide destination retains complete bundled cover")
+    varied.stop()
     let noResourcesTransport = MockTransport()
     let noResources = CityDriftScene(store: store, starterMaps: .empty, tileTransport: noResourcesTransport, vectorTransport: noResourcesTransport)
     noResources.apply(offline); noResources.start()

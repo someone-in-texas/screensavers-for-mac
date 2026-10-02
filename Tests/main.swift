@@ -169,7 +169,7 @@ for frame in 0...2884 {
     touring.advance(time: Double(frame) / 4)
     if touring.city.name != visited.last { visited.append(touring.city.name) }
 }
-expect(visited.count == 3 && Set(visited).count == 3, "automatic city changes without restart or camera motion")
+expect(visited.count == 6 && Set(visited).count == 6, "automatic city changes without restart or camera motion")
 touring.stop(); let stoppedCity = touring.city
 touring.advance(time: 90000)
 expect(touring.city == stoppedCity, "stopped saver does not tour")
@@ -179,9 +179,9 @@ expect(fixedScene.city == MapCity.all[0], "explicit preview city does not auto-c
 fixedScene.stop()
 let delayed = CityDriftScene(store: b, networkEnabled: false)
 delayed.start(); let delayedCity = delayed.city
-delayed.advance(time: 0); delayed.advance(time: 240.75)
+delayed.advance(time: 0); delayed.advance(time: 120.75)
 expect(delayed.city == delayedCity, "outgoing city remains until the transition deadline")
-delayed.advance(time: 241.5)
+delayed.advance(time: 121.5)
 expect(delayed.city != delayedCity, "city deadline follows elapsed time rather than frame count")
 delayed.stop()
 
@@ -577,5 +577,6 @@ cachedLoader.request([third]); cachedDelivered = false; waitUntil { cachedDelive
 expect(cachedDelivered && cachedTransport.calls.isEmpty, "revisited tile returns from cache after leaving viewport")
 cachedLoader.stop()
 runVectorTests()
+runCosmosTests()
 print("\(checks) checks, \(failures) failures (no live network requests).")
 exit(failures == 0 ? 0 : 1)

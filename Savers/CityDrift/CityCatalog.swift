@@ -43,6 +43,13 @@ struct MapCity: Equatable {
         .init("Sydney", "Australia", -33.867, 151.208), .init("Melbourne", "Australia", -37.814, 144.963),
         .init("Auckland", "New Zealand", -36.848, 174.764), .init("Wellington", "New Zealand", -41.29, 174.779)
     ]
+    static func startupCandidates(recent: [String], catalog: [MapCity] = all.shuffled()) -> [MapCity] {
+        let fresh = catalog.filter { !recent.suffix(8).contains($0.name) }
+        let seen = catalog.filter { recent.suffix(8).contains($0.name) }.sorted {
+            (recent.lastIndex(of: $0.name) ?? -1) < (recent.lastIndex(of: $1.name) ?? -1)
+        }
+        return fresh + seen
+    }
     static func choose(recent: [String], randomIndex: (Int) -> Int = { Int.random(in: 0..<$0) }) -> MapCity {
         let candidates = all.filter { !recent.suffix(8).contains($0.name) }
         let pool = candidates.isEmpty ? all : candidates

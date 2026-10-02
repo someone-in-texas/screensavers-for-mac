@@ -3,12 +3,12 @@
 ## Native modules and shared scenes
 
 Each `.saver` is a real Mach-O `MH_BUNDLE`, with a unique Objective-C principal class
-and bundle identifier. The tiny WorldClockRoomView / CityDriftView entry points
+and bundle identifier. The tiny WorldClockRoomView / CityDriftView / VoxelCosmosView entry points
 compose a `SaverScene` through `SceneSaverView`. Shared Swift types are compiled
 into each module with distinct Swift module names; no separately installed framework
 or dynamic package is required. No private entitlements, web content or runtime shell commands.
 
-`ScreenSaverView` owns the 30 Hz animation callback. `startAnimation` applies settings
+`ScreenSaverView` requests 60 Hz animation for City Drift and 30 Hz for the other savers. `startAnimation` applies settings
 and starts the scene; `stopAnimation` cancels work. The development app uses the same
 wrapper and macOS timer. Scenes present a cached Core Animation layer tree, updating
 transforms at 30 Hz; reference Core Graphics rendering also supports offline snapshots.
@@ -21,7 +21,7 @@ bandwidth without continuously repainting the surface. There is no fixed screen 
 
 `SaverScene` defines start, stop, apply settings, reference drawing and optional layer presentation. The wrapper has
 one level of subclassing, with scene behavior implemented through composition.
-`PreviewHost` links these sources directly, and smoke mode additionally loads both
+`PreviewHost` links these sources directly, and smoke mode additionally loads all three
 built bundles to validate their metadata and Objective-C entry points.
 
 ## Time and World Clock Room
@@ -41,6 +41,7 @@ Only vector hand transforms and the gently moving camera change per frame. Floor
 
 - `com.someoneintexas.screensavers.worldclockroom`
 - `com.someoneintexas.screensavers.citydrift`
+- `com.someoneintexas.screensavers.voxelcosmos`
 
 The v2 settings record expands camera speed from 0–2 to 0–16, defaulting to 6.
 Legacy speeds are multiplied by six once, preserving zero and other appearance
@@ -54,7 +55,7 @@ are picked up at the next animation start; they are not broadcast during a sessi
 
 The editable 64-city source catalog contains names, regions, coordinates and zoom.
 The previous eight cities are excluded from the next random choice. Each instance
-selects another city after roughly four minutes of active elapsed time. A retained
+selects another city after roughly two minutes of active elapsed time. A retained
 outgoing layer tree covers the new scene until it is complete, then crossfades over
 1.5 seconds. A fixed PreviewHost city stays fixed. The camera
 follows a rotated 160 × 120 pixel ellipse whose speed never falls to zero, with
@@ -118,7 +119,11 @@ a shared 350-label budget. Geometry and labels rebuild on city/style/detail/scal
 changes, not on every frame or speed adjustment. Native vectors remain crisp above
 the raster viewport cap. The `.traditional` mode retains the 64-city tile renderer.
 
-The following startup cache behavior applies to traditional maps (online vectors use the equivalent disk-only vector visit reader): Cached city views can be used at startup regardless of recent-city history.
+The following startup cache behavior applies to traditional maps (online vectors use the equivalent disk-only vector visit reader): Startup cache searches prefer cities outside the recent history, then older recent cities.
+A recent cached city remains eligible in offline previews. Online sessions skip
+recent cached cities so short runs do not repeatedly choose the same small cache. Online
+cold starts choose a fresh destination from the full catalog, independently of the
+bundled map that covers loading; the caption identifies the actually displayed map.
 When there is no complete cached city, vector street outlines provide an immediate,
 resolution-independent map while currently selected tiles load. Starter paths are
 cached and translated with the camera; incoming raster tiles remain hidden until
@@ -138,7 +143,7 @@ universal release using the same source and bundle metadata.
 The build makes optimized binaries, then ad-hoc signs them. Packaging stages copies,
 optionally re-signs with Developer ID, creates a DMG, optionally notarizes/staples it,
 creates a ZIP and hashes the deliverables. Verification mounts the DMG, expands the
-ZIP and checks both bundles. Release Actions build the exact version tag and publish
+ZIP and checks all three bundles. Release Actions build the exact version tag and publish
 only after tests and package verification pass. Ordinary CI needs no signing secrets.
 
 ## Configuration lifecycle
@@ -148,7 +153,7 @@ property queries, including while a sheet is open, return the same window. Contr
 refresh from persistence only when hidden and detached. Done deactivates color wells,
 ends the parent sheet (or standalone modal session), and orders the window out.
 New optional settings decode with defaults so older records keep color/speed choices.
-PreviewHost’s launch smoke test performs 12 real open/Done/reopen cycles across both
+PreviewHost’s launch smoke test performs 18 real open/Done/reopen cycles across all three
 savers and asserts window identity and dismissal. Actual System Settings behavior
 still requires a manual check on each supported macOS version.
 
@@ -177,8 +182,12 @@ Oversized transfers fail quietly instead of being mistaken for cancelled viewpor
 geometry, including residential roads, street-name geometry, water/ocean polygons,
 waterways, green areas and named POIs. Road lines and polygon rings remain vectors.
 The scene retains its previous complete geometry while a new visible tile arrives.
-Composition/path building occurs only on data or style changes; motion moves retained
-layers. The geographic viewport uses logical points capped at 1920×1280 in either
+Composition, road/detail paths, label collision layout and detached presentation
+layers are prepared on a serial background queue. At most one
+composition runs per source, with new work coalesced and version/generation checks
+rejecting obsolete results. The previous complete geometry remains visible. Native
+layer rasterization caches online tessellation at the display scale while motion translates
+the tree at fractional positions. Camera recovery caps delayed deltas at 1/15 second. The geographic viewport uses logical points capped at 1920×1280 in either
 orientation (at most 54 z14 tiles), independent of Retina backing scale. Labels retain
 the existing collision checks and 350-label cap.
 
@@ -195,3 +204,24 @@ Live review can use PreviewHost `--online-vector --map --city London --capture-d
 --capture-after 15 --capture-and-quit` (add `--details`). This launches a visible window,
 downloads only its displayed viewport, saves its actual native layer tree, then stops.
 `--online-vector` uses temporary preferences and does not overwrite user settings.
+
+## Voxel Cosmos
+
+`CosmosSettings` is a separate typed settings value nested in the shared persisted
+record; absent cosmos settings decode to defaults without altering older appearance
+preferences. Numeric inputs are clamped, including nonfinite values. The new module
+has its own permanent settings domain and Objective-C principal class.
+
+A deterministic voxel sphere painter generates shaded cube faces, banded/rocky/icy
+surfaces and depth-sorted ring particles in an orthographic projection. Sprites are
+cached per camera angle and discarded when a shot changes. A cached dithered sky,
+soft radial light, orbit guides and those sprites compose into a reusable bitmap
+capped at 800 × 600 pixels. Nearest-neighbor magnification preserves pixel edges;
+captions render separately at display resolution. There are no downloaded assets.
+
+A monotonic motion clock drives gentle drift and miniature orbits; a separate active
+time clock changes subjects and camera angles even at zero motion speed. Stopping
+pauses both clocks. A 2.4-second dissolve retains one outgoing image, then releases
+it. The grand tour visits all eight planets and five wide/deep-space compositions;
+fixed subjects can use changing angles or hold a selected angle. Portrait, ultrawide
+and small previews fit the same composition without stretching the scene.

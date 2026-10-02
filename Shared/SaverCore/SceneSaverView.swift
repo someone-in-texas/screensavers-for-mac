@@ -9,11 +9,18 @@ class SceneSaverView: ScreenSaverView {
     private var bufferSize = CGSize.zero
     init?(frame: NSRect, isPreview: Bool, kind: SaverKind, scene: SaverScene? = nil, settingsStore: SettingsStore? = nil) {
         store = settingsStore ?? SettingsStore(kind)
-        self.scene = scene ?? (kind == .worldClockRoom ? WorldClockScene() : CityDriftScene(store: store))
+        if let scene { self.scene = scene }
+        else {
+            switch kind {
+            case .worldClockRoom: self.scene = WorldClockScene()
+            case .cityDrift: self.scene = CityDriftScene(store: store)
+            case .voxelCosmos: self.scene = VoxelCosmosScene()
+            }
+        }
         super.init(frame: frame, isPreview: isPreview)
         wantsLayer = true
         layerContentsRedrawPolicy = .onSetNeedsDisplay
-        animationTimeInterval = 1.0 / 30
+        animationTimeInterval = 1.0 / (kind == .cityDrift ? 60 : 30)
         self.scene.apply(store.value)
         autoresizingMask = [.width, .height]
     }
