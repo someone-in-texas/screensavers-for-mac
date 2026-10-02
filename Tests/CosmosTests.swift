@@ -5,7 +5,7 @@ func runCosmosTests() {
     let defaults = UserDefaults(suiteName: suite)!
     defer { defaults.removePersistentDomain(forName: suite) }
     let store = SettingsStore(.voxelCosmos, defaults: defaults)
-    expect(Set(SaverKind.allCases.map(\.identifier)).count == 3, "all saver preference domains unique")
+    expect(Set(SaverKind.allCases.map(\.identifier)).count == SaverKind.allCases.count, "all saver preference domains unique")
     var s = SaverSettings(); s.cosmos.view = .saturn; s.cosmos.background = .aurora; s.cosmos.glow = 0; s.cosmos.angle = .low
     store.value = s
     expect(store.value == s, "cosmos options survive persistence")
@@ -47,6 +47,48 @@ func runCosmosTests() {
     expect(scene.activeView == .neptune && root.sublayers![2].contents == nil, "fixed view stays selected and captions can be hidden")
     expect(root.sublayers?.count == 3 && root.sublayers![0].magnificationFilter == .nearest, "bounded layer tree preserves crisp pixels")
     scene.stop(); CATransaction.commit()
+
+    // A fixed sculpture must not progressively rescale or crawl across the pixel grid.
+    let steady = VoxelCosmosScene(), steadyRoot = CALayer()
+    var fixed = SaverSettings(); fixed.cosmos.view = .mercury; fixed.cosmos.angle = .classic
+    fixed.cosmos.composition = .centered; fixed.cosmos.background = .void; fixed.cosmos.glow = 0; fixed.cosmos.labels = false
+    steady.apply(fixed); steady.start()
+    _ = steady.updateLayer(steadyRoot, size: size, time: 0, date: Date())
+    let fixedFrame = steadyRoot.sublayers![0].contents as! CGImage
+    let fixedBytes = fixedFrame.dataProvider!.data! as Data
+    for i in 1...80 { _ = steady.updateLayer(steadyRoot, size: size, time: Double(i)/10, date: Date()) }
+    expect(fixedBytes == (steadyRoot.sublayers![0].contents as! CGImage).dataProvider!.data! as Data, "fixed Cosmos sculpture has no zoom-induced pixel crawl")
+    expect(fixedBytes == fixedFrame.dataProvider!.data! as Data, "published frame remains immutable after subsequent rendering")
+    fixed.cosmos.view = .earth; steady.apply(fixed)
+    _ = steady.updateLayer(steadyRoot, size: size, time: 9, date: Date())
+    let movingFrame = steadyRoot.sublayers![0].contents as! CGImage
+    let movingBytes = movingFrame.dataProvider!.data! as Data
+    for i in 1...100 { _ = steady.updateLayer(steadyRoot, size: size, time: 9+Double(i)/10, date: Date()) }
+    expect(movingBytes != (steadyRoot.sublayers![0].contents as! CGImage).dataProvider!.data! as Data, "orbiting moon changes complete frames")
+    expect(movingBytes == movingFrame.dataProvider!.data! as Data, "a retained moving frame never borrows mutable back-buffer pixels")
+    steady.stop(); fixed.cosmos.view = .mercury
+    var anchors = Set<String>()
+    let compositionScene = VoxelCosmosScene()
+    fixed.cosmos.composition = .varied; fixed.cosmos.secondsPerView = 15
+    compositionScene.apply(fixed); compositionScene.start()
+    for i in 0..<6 {
+        _ = compositionScene.updateLayer(steadyRoot, size: size, time: Double(i)*15, date: Date())
+        anchors.insert("\(compositionScene.compositionAnchor)")
+    }
+    expect(anchors.count == 5, "composition tour includes center and all four quadrants")
+    compositionScene.stop()
+    for composition in CosmosComposition.allCases where composition != .varied {
+        fixed.cosmos.composition = composition; steady.apply(fixed)
+        _ = steady.updateLayer(steadyRoot, size: size, time: 0, date: Date())
+        let frame = steadyRoot.sublayers![0].contents as! CGImage
+        let data = [UInt8](frame.dataProvider!.data! as Data)
+        var xSum = 0.0, count = 0.0
+        for y in 0..<frame.height { for x in 0..<frame.width {
+            let offset = y*frame.bytesPerRow+x*4
+            if data[offset] > 20 || data[offset+1] > 20 || data[offset+2] > 20 { xSum += Double(x); count += 1 }
+        } }
+        expect(count > 0 && abs(xSum/count/Double(frame.width)-composition.anchor.x) < 0.05, "rendered planet follows requested composition, not a host corner")
+    }
 
     let catalog = Array(MapCity.all.prefix(12)), recent = Array(catalog.suffix(8).map(\.name))
     let candidates = MapCity.startupCandidates(recent: recent, catalog: catalog)

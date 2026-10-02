@@ -27,7 +27,35 @@ enum CosmosAngle: String, CaseIterable, Codable {
         switch self { case .roaming: return "Changing angles"; case .classic: return "Classic isometric"; case .low: return "Low horizon"; case .high: return "Overhead oblique" }
     }
 }
+enum CosmosComposition: String, CaseIterable, Codable {
+    case varied, centered, upperLeft, upperRight, lowerLeft, lowerRight
+    var title: String {
+        switch self {
+        case .varied: return "Varied compositions"
+        case .centered: return "Centered"
+        case .upperLeft: return "Upper left"
+        case .upperRight: return "Upper right"
+        case .lowerLeft: return "Lower left"
+        case .lowerRight: return "Lower right"
+        }
+    }
+    var anchor: CGPoint {
+        switch self {
+        case .varied, .centered: return CGPoint(x: 0.5, y: 0.5)
+        case .upperLeft: return CGPoint(x: 0.34, y: 0.65)
+        case .upperRight: return CGPoint(x: 0.66, y: 0.65)
+        case .lowerLeft: return CGPoint(x: 0.34, y: 0.37)
+        case .lowerRight: return CGPoint(x: 0.66, y: 0.37)
+        }
+    }
+}
 struct CosmosSettings: Codable, Equatable {
+    // Optional storage keeps v0.4 preference records decodable.
+    private var storedComposition: CosmosComposition?
+    var composition: CosmosComposition {
+        get { storedComposition ?? .varied }
+        set { storedComposition = newValue == .varied ? nil : newValue }
+    }
     var view = CosmosView.tour
     var background = CosmosBackground.nebula
     var angle = CosmosAngle.roaming

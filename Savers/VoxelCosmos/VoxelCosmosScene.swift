@@ -22,6 +22,7 @@ final class VoxelCosmosScene: SaverScene {
     private var captionKey = ""
     private let picture = CALayer()
     private let dissolve = CALayer()
+    private(set) var compositionAnchor = CGPoint(x: 0.5, y: 0.5)
     private(set) var activeView = CosmosView.solarSystem
     static let planetNames = ["Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune"]
 
@@ -31,7 +32,7 @@ final class VoxelCosmosScene: SaverScene {
         let next = value.cosmos.sanitized()
         if next.background != settings.background || next.starDensity != settings.starDensity { sky = nil }
         if next.angle != settings.angle || next.glow != settings.glow { sprites.removeAll() }
-        if next.view != settings.view || next.angle != settings.angle {
+        if next.view != settings.view || next.angle != settings.angle || next.composition != settings.composition {
             tour = MotionClock(); shotIndex = 0; renderedShot = -1; outgoing = nil
         }
         settings = next; captionKey = ""
@@ -46,7 +47,9 @@ final class VoxelCosmosScene: SaverScene {
             tour.step(now: time, speed: 1, maximumStep: .infinity)
         }
         // Fixed subjects can still be explored from changing viewpoints.
-        shotIndex = (settings.view == .tour || settings.angle == .roaming) ? Int(tour.elapsed / settings.secondsPerView) : 0
+        shotIndex = (settings.view == .tour || settings.angle == .roaming || settings.composition == .varied) ? Int(tour.elapsed / settings.secondsPerView) : 0
+        let compositions: [CosmosComposition] = [.centered, .upperLeft, .lowerRight, .centered, .upperRight, .lowerLeft]
+        compositionAnchor = (settings.composition == .varied ? compositions[shotIndex % compositions.count] : settings.composition).anchor
         activeView = settings.view == .tour ? CosmosView.itinerary[shotIndex % CosmosView.itinerary.count] : settings.view
         if renderedShot != shotIndex {
             outgoing = currentImage; transitionStart = time; renderedShot = shotIndex
@@ -177,7 +180,11 @@ final class VoxelCosmosScene: SaverScene {
     }
     private func body(_ c: CGContext, _ planet: Int, at p: CGPoint, radius: Double) {
         let scale = radius / 31
-        c.draw(sprite(planet), in: CGRect(x: p.x - 120 * scale, y: p.y - 100 * scale, width: 240 * scale, height: 200 * scale))
+        // Move a sprite as one pixel-aligned image. Fractional translation of a
+        // nearest-neighbor sprite makes different voxel edges step on different frames.
+        let origin = c.convertToDeviceSpace(CGPoint(x: p.x - 120 * scale, y: p.y - 100 * scale))
+        let snapped = c.convertToUserSpace(CGPoint(x: origin.x.rounded(), y: origin.y.rounded()))
+        c.draw(sprite(planet), in: CGRect(origin: snapped, size: CGSize(width: 240 * scale, height: 200 * scale)))
     }
     private func render(size: CGSize, compact: Bool) -> CGImage? {
         if bufferSize != size || buffer == nil { buffer = bitmap(width: Int(size.width), height: Int(size.height)); bufferSize = size }
@@ -188,11 +195,16 @@ final class VoxelCosmosScene: SaverScene {
         // Common design coordinates preserve compositions on portrait and ultrawide screens.
         let isSystem = [.solarSystem, .innerPlanets, .outerPlanets].contains(activeView)
         let designHeight = CGFloat(isSystem ? max(420, 2 * (280 * sin(elevation) + 45)) : 420)
-        let scale: CGFloat = min(size.width / 640, size.height / designHeight) * (compact && settings.labels ? 0.68 : 1)
-        c.saveGState(); c.translateBy(x: size.width / 2, y: size.height * 0.54); c.scaleBy(x: scale, y: scale)
+        let anchor = compositionAnchor
+        let availableWidth = size.width * 2 * min(anchor.x, 1 - anchor.x)
+        let availableHeight = size.height * 2 * min(anchor.y, 1 - anchor.y)
+        let scale: CGFloat = min(availableWidth / 640, availableHeight / designHeight) * (compact && settings.labels ? 0.68 : 1)
+        c.saveGState()
+        c.translateBy(x: (size.width * anchor.x).rounded(), y: (size.height * anchor.y).rounded())
+        c.scaleBy(x: scale, y: scale)
+        // A stable camera scale for the entire shot prevents a wave of pixel
+        // requantization across the sculpture. Camera changes use the full-frame dissolve.
         let t = motion.elapsed
-        let zoom = 1 + 0.025 * sin(t * 0.035)
-        c.translateBy(x: sin(t * 0.025) * 7, y: cos(t * 0.031) * 4); c.scaleBy(x: zoom, y: zoom)
         if let planet = activeView.planet {
             let radius = planet == 5 || planet == 6 ? 69.0 : 91.0
             let a = t * 0.035 + 0.5
@@ -254,13 +266,15 @@ final class VoxelCosmosScene: SaverScene {
     }
     func updateLayer(_ root: CALayer, size: CGSize, time: Double, date: Date) -> Bool {
         guard size.width > 0, size.height > 0 else { return true }
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        defer { CATransaction.commit() }
         advance(time)
         let pixels = Self.renderSize(size, pixelSize: settings.pixelSize)
         if let image = render(size: pixels, compact: size.width < 600 || size.height < 300) { currentImage = image; picture.contents = image }
         if picture.superlayer !== root { root.addSublayer(picture); root.addSublayer(dissolve); root.addSublayer(caption) }
         root.backgroundColor = NSColor.black.cgColor; root.masksToBounds = true
         for layer in [picture, dissolve] {
-            layer.frame = CGRect(origin: .zero, size: size); layer.magnificationFilter = .nearest; layer.minificationFilter = .nearest
+            layer.frame = CGRect(origin: root.bounds.origin, size: size); layer.contentsGravity = .resize; layer.magnificationFilter = .nearest; layer.minificationFilter = .nearest
         }
         dissolve.contents = outgoing
         dissolve.opacity = Float(max(0, 1 - (time-transitionStart) / 2.4))
@@ -281,7 +295,7 @@ final class VoxelCosmosScene: SaverScene {
                     caption.contents = c.makeImage()
                 }
             }
-            caption.frame = CGRect(origin: .zero, size: size)
+            caption.frame = CGRect(origin: root.bounds.origin, size: size)
         }
         caption.opacity = outgoing == nil ? 1 : Float(min(1, max(0, (time-transitionStart-0.9)/1.5)))
         return true

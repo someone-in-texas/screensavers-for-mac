@@ -1,6 +1,6 @@
 # Releasing
 
-`VERSION` is the canonical collection version. All three savers use it; generated files
+`VERSION` is the canonical collection version. All four savers use it; generated files
 live only under `build`. Releases target Apple Silicon and macOS 14.6+.
 
 ```sh
@@ -30,7 +30,7 @@ Expected files in `dist`:
 - local `SIGNING.txt`, incorporated into release notes
 
 Download the published files to a fresh directory, run `shasum -a 256 -c SHA256SUMS`,
-mount the DMG and check all three savers. Confirm the release notes state the actual signing
+mount the DMG and check all four savers. Confirm the release notes state the actual signing
 level. For final validation, also build from a clean checkout, launch PreviewHost,
 install the bundles and check System Settings preview/configuration.
 

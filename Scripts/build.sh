@@ -33,11 +33,12 @@ plist() {
 </dict></plist>
 PLIST
 }
-for kind in WorldClockRoom CityDrift VoxelCosmos; do
+for kind in WorldClockRoom CityDrift VoxelCosmos PaperSky; do
     case "$kind" in
         WorldClockRoom) name='World Clock Room'; id=worldclockroom; image=world-clock-room ;;
         CityDrift) name='City Drift'; id=citydrift; image=city-drift ;;
         VoxelCosmos) name='Voxel Cosmos'; id=voxelcosmos; image=voxel-cosmos ;;
+        PaperSky) name='Paper Sky'; id=papersky; image=paper-sky ;;
     esac
     bundle="build/products/$name.saver"
     mkdir -p "$bundle/Contents/MacOS" "$bundle/Contents/Resources"
@@ -55,4 +56,4 @@ ditto Assets/StarterMaps "$app/Contents/Resources/StarterMaps"
 xcrun swiftc "${FLAGS[@]}" -module-name PreviewHost "${SOURCES[@]}" PreviewHost/main.swift -o "$app/Contents/MacOS/PreviewHost"
 plist "$app/Contents/Info.plist" PreviewHost com.someoneintexas.screensavers.preview PreviewHost NSApplication APPL
 codesign --force --sign - "$app"
-echo "Built all three savers and PreviewHost ($ARCH, macOS 14.6+)."
+echo "Built all four savers and PreviewHost ($ARCH, macOS 14.6+)."

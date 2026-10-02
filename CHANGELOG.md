@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0
+
+- Add **Paper Sky**, an offline procedural paper-airplane flight through synthwave sunsets, with isometric, follow and side-on cameras, evolving palettes, layered clouds and arriving/departing companion planes.
+- Polish Paper Sky with coherent cloud parallax during camera rotations, atmospheric cloud edges, a slowly drifting sun and soft halo, individually shaped and shaded aircraft, fine fold lines, and spatial companion arrivals/departures.
+- Add native Paper Sky controls for viewpoint, palette, duration, speed, cloud cover, companions, trails, sun and glow. Include the fourth saver in builds, installation, packaging and bundle-load checks.
+- Give Voxel Cosmos centered and four-quadrant compositions, with a varied tour or a fixed preferred position. Keep the full subject within the viewport in portrait and wide layouts.
+- Remove the slow fractional zoom that made voxel edges update in sweeping waves. Snap sprite movement to pixels and publish complete frames in a single disabled-animation transaction; retain soft dissolves between shots.
+- Preserve existing preferences while adding the new settings. Broaden the repository description to cover the growing collection.
+
 ## 0.4.0
 
 - Add Voxel Cosmos: an entirely offline voxel solar system with all eight planet

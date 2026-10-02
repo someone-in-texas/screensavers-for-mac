@@ -578,5 +578,6 @@ expect(cachedDelivered && cachedTransport.calls.isEmpty, "revisited tile returns
 cachedLoader.stop()
 runVectorTests()
 runCosmosTests()
+runPaperSkyTests()
 print("\(checks) checks, \(failures) failures (no live network requests).")
 exit(failures == 0 ? 0 : 1)

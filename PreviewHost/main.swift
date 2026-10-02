@@ -84,6 +84,7 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
         NSApp.mainMenu = menu
         if CommandLine.arguments.contains("--map") { picker.selectItem(at: 1) }
         if CommandLine.arguments.contains("--cosmos") || CommandLine.arguments.contains("--cosmos-review") { picker.selectItem(at: 2) }
+        if CommandLine.arguments.contains("--paper") || CommandLine.arguments.contains("--paper-review") { picker.selectItem(at: 3) }
         switchScene(); window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
         if let i = CommandLine.arguments.firstIndex(of: "--capture-after"), i + 1 < CommandLine.arguments.count,
            let seconds = Double(CommandLine.arguments[i + 1]), seconds.isFinite {
@@ -102,7 +103,7 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { self.checkConfigurationCycle(index, attempt: attempt + 1) }
             return
         }
-        if index == 18 { print("Passed 18 configuration open/Done/reopen cycles across all three savers."); view?.stopAnimation(); NSApp.terminate(nil); return }
+        if index == SaverKind.allCases.count * 6 { print("Passed \(index) configuration open/Done/reopen cycles across all savers."); view?.stopAnimation(); NSApp.terminate(nil); return }
         if index > 0 && index % 6 == 0 { picker.selectItem(at: index / 6); switchScene() }
         guard let sheet = view?.configureSheet else { fatalError("Missing configuration sheet") }
         precondition(view?.configureSheet === sheet, "Host property queries must return the same window")
@@ -122,16 +123,16 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
     @objc func switchScene() {
         view?.reportPerformance(); view?.stopAnimation(); view?.removeFromSuperview()
         let kind = SaverKind.allCases[picker.indexOfSelectedItem]
-        let review = CommandLine.arguments.contains("--online-vector") || CommandLine.arguments.contains("--cosmos-review")
+        let review = CommandLine.arguments.contains("--online-vector") || CommandLine.arguments.contains("--cosmos-review") || CommandLine.arguments.contains("--paper-review")
         let store = SettingsStore(kind, defaults: (CommandLine.arguments.contains("--launch-smoke") || review) ? UserDefaults(suiteName: smokeSuite + kind.rawValue) : nil)
         if review {
-            var settings = SaverSettings(); settings.cosmos.secondsPerView = 15; settings.mapStyle = .online; settings.palette = .blueprint
+            var settings = SaverSettings(); settings.cosmos.secondsPerView = 15; settings.paperSky.secondsPerView = 20; settings.mapStyle = .online; settings.palette = .blueprint
             if CommandLine.arguments.contains("--details") { settings.streetLabels = true; settings.water = true; settings.parks = true; settings.pointsOfInterest = true }
             store.value = settings
         }
         let noNetwork = CommandLine.arguments.contains("--offline") || CommandLine.arguments.contains("--launch-smoke")
         let fixed = CommandLine.arguments.firstIndex(of: "--city").flatMap { i in i + 1 < CommandLine.arguments.count ? CommandLine.arguments[i + 1] : nil }
-        let scene: SaverScene = kind == .worldClockRoom ? WorldClockScene() : kind == .voxelCosmos ? VoxelCosmosScene() as SaverScene : CityDriftScene(store: store, networkEnabled: !noNetwork, city: MapCity.all.first { $0.name == fixed }, visitCache: noNetwork && !CommandLine.arguments.contains("--launch-smoke") ? CityVisitCache() : nil)
+        let scene: SaverScene = kind == .worldClockRoom ? WorldClockScene() : kind == .voxelCosmos ? VoxelCosmosScene() as SaverScene : kind == .paperSky ? PaperSkyScene() as SaverScene : CityDriftScene(store: store, networkEnabled: !noNetwork, city: MapCity.all.first { $0.name == fixed }, visitCache: noNetwork && !CommandLine.arguments.contains("--launch-smoke") ? CityVisitCache() : nil)
         let frame = NSRect(x: 0, y: 0, width: window.contentView!.bounds.width, height: window.contentView!.bounds.height - 48)
         view = PreviewSaverView(frame: frame, isPreview: false, kind: kind, scene: scene, settingsStore: store)
         window.contentView?.addSubview(view!, positioned: .below, relativeTo: picker)
@@ -145,7 +146,7 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
         c.scaleBy(x: size.width / view.bounds.width, y: size.height / view.bounds.height)
         layer.render(in: c)
         guard let image = c.makeImage() else { return }
-        let filename = ["world-clock-room.png", "city-drift.png", "voxel-cosmos.png"][picker.indexOfSelectedItem]
+        let filename = ["world-clock-room.png", "city-drift.png", "voxel-cosmos.png", "paper-sky.png"][picker.indexOfSelectedItem]
         if let i = CommandLine.arguments.firstIndex(of: "--capture-dir"), i + 1 < CommandLine.arguments.count {
             let directory = CommandLine.arguments[i + 1]
             try? FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
@@ -160,7 +161,7 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
     @objc func fullScreen() { window.toggleFullScreen(nil) }
     func applicationWillTerminate(_ notification: Notification) {
         view?.reportPerformance(); view?.stopAnimation()
-        if CommandLine.arguments.contains("--launch-smoke") || CommandLine.arguments.contains("--online-vector") || CommandLine.arguments.contains("--cosmos-review") {
+        if CommandLine.arguments.contains("--launch-smoke") || CommandLine.arguments.contains("--online-vector") || CommandLine.arguments.contains("--cosmos-review") || CommandLine.arguments.contains("--paper-review") {
             for kind in SaverKind.allCases { UserDefaults.standard.removePersistentDomain(forName: smokeSuite + kind.rawValue) }
         }
     }
@@ -179,7 +180,7 @@ if CommandLine.arguments.contains("--smoke") {
     let map = CityDriftScene(store: store, networkEnabled: false, city: MapCity.all[0]); map.useFixture(fixtureTile())
     let clock = WorldClockScene()
     let sizes = [CGSize(width: 1600, height: 1000), CGSize(width: 1920, height: 1080), CGSize(width: 2560, height: 1080), CGSize(width: 280, height: 180), CGSize(width: 800, height: 1200)]
-    for (name, scene) in [("world-clock-room", clock as SaverScene), ("city-drift-fixture", map as SaverScene), ("voxel-cosmos", VoxelCosmosScene() as SaverScene)] {
+    for (name, scene) in [("world-clock-room", clock as SaverScene), ("city-drift-fixture", map as SaverScene), ("voxel-cosmos", VoxelCosmosScene() as SaverScene), ("paper-sky", PaperSkyScene(seed: 42) as SaverScene)] {
         scene.start()
         for size in sizes {
             let c = bitmap(width: Int(size.width), height: Int(size.height))!
@@ -233,6 +234,40 @@ if CommandLine.arguments.contains("--smoke") {
         try savePNG(c.makeImage()!, "\(folder)/cosmos-background-\(background.rawValue).png")
         scene.stop()
     }
+    for camera in PaperCamera.allCases {
+        for palette in PaperPalette.allCases {
+            let scene = PaperSkyScene(seed: 42); var settings = SaverSettings()
+            settings.paperSky.camera = camera; settings.paperSky.palette = palette
+            scene.apply(settings); scene.start()
+            let size = CGSize(width: 1600, height: 1000), c = bitmap(width: 1600, height: 1000)!
+            scene.draw(in: c, size: size, time: 0, date: Date())
+            try savePNG(c.makeImage()!, "\(folder)/paper-\(camera.rawValue)-\(palette.rawValue).png")
+            scene.stop()
+        }
+    }
+    let paperTour = PaperSkyScene(seed: 42); var paperTourSettings = SaverSettings()
+    paperTourSettings.paperSky.secondsPerView = 20
+    paperTour.apply(paperTourSettings); paperTour.start()
+    let paperRoot = CALayer(), paperSize = CGSize(width: 1200, height: 800)
+    for frame in 0...470 {
+        let time = Double(frame)/10
+        _ = paperTour.updateLayer(paperRoot, size: paperSize, time: time, date: Date())
+        if [190, 235, 270, 435, 470].contains(frame) {
+            let c = bitmap(width: 1200, height: 800)!
+            paperTour.draw(in: c, size: paperSize, time: time, date: Date())
+            try savePNG(c.makeImage()!, "\(folder)/paper-transition-\(frame).png")
+        }
+    }
+    paperTour.stop()
+    for composition in CosmosComposition.allCases {
+        let scene = VoxelCosmosScene(); var settings = SaverSettings()
+        settings.cosmos.view = .saturn; settings.cosmos.composition = composition
+        scene.apply(settings); scene.start()
+        let size = CGSize(width: 1200, height: 800), c = bitmap(width: 1200, height: 800)!
+        scene.draw(in: c, size: size, time: 0, date: Date())
+        try savePNG(c.makeImage()!, "\(folder)/cosmos-composition-\(composition.rawValue).png")
+        scene.stop()
+    }
     precondition(StarterMaps.bundled.cities.count == 3, "Bundled starter maps missing")
     for city in StarterMaps.bundled.catalog {
         let starter = CityDriftScene(store: store, networkEnabled: false, city: city)
@@ -263,7 +298,7 @@ if CommandLine.arguments.contains("--smoke") {
     }
     // Load the actual bundles and invoke their principal classes, not just the shared scenes.
     let products = Bundle.main.bundleURL.deletingLastPathComponent()
-    for name in ["World Clock Room", "City Drift", "Voxel Cosmos"] {
+    for name in SaverKind.allCases.map(\.title) {
         guard let bundle = Bundle(url: products.appendingPathComponent("\(name).saver")),
               let type = bundle.principalClass as? ScreenSaverView.Type,
               let view = type.init(frame: NSRect(x: 0, y: 0, width: 300, height: 200), isPreview: true),
@@ -272,7 +307,7 @@ if CommandLine.arguments.contains("--smoke") {
         if name != "City Drift" { view.startAnimation(); view.animateOneFrame(); view.stopAnimation() }
         print("Loaded \(name).saver and its configuration sheet")
     }
-    print("Rendered all three savers, five aspect ratios, six map palettes and every cosmos view offline.")
+    print("Rendered all four savers, five aspect ratios, six map palettes and every cosmos view offline.")
 } else {
     let delegate = PreviewDelegate(); app.delegate = delegate; app.run()
 }

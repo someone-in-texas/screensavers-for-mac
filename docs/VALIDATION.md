@@ -1,5 +1,39 @@
 # Validation
 
+## v0.5.0 change validation
+
+- `Scripts/release-check.sh` passed locally: 15,449 checks, zero failures, both
+  native preview lifecycle runs, and verified arm64 DMG/ZIP packages with all four
+  savers. Packages are ad-hoc signed, not notarized.
+
+- Offline regressions cover v0.4 preference migration, all five Cosmos placement
+  anchors, stable fixed-subject pixels over successive frames, and immutability
+  of retained images while an orbiting moon advances.
+- Paper Sky checks seeded reproducibility, launch variation, three distinct camera
+  projections, continuous camera blending, paused flight, stop/restart behavior,
+  arriving/departing companions, a bounded layer tree, live switches and resizing.
+  The polish pass also samples 1,500 animation ticks across camera changes to check
+  fixed cloud silhouettes and continuous visible positions, plus slow solar motion
+  and its pause behavior. Three art-critic iterations covered full-size, portrait,
+  small previews and sampled transition poses.
+- Smoke images cover all four savers at five aspect ratios, every Paper Sky
+  camera/palette combination, both Paper Sky camera transition midpoints, every
+  Cosmos composition, and existing map/planet
+  variants. All four actual bundles load and expose native options sheets.
+- The options lifecycle exercises 24 open/Done/reopen cycles, both with native
+  callbacks and with the forced standalone preview timer. Paper Sky's native
+  options sheet and Retina live preview were also visually inspected.
+- A 53-second local polished Paper Sky run crossed all three camera styles: 3,338
+  frames, CPU render p50 0.93 ms, p95 1.94 ms, maximum 2.27 ms. Its live Retina
+  preview was also visually inspected. A 22-second Cosmos run
+  crossed a system view and off-center Earth closeup: 694 frames, p50 1.33 ms,
+  p95 2.25 ms, maximum 14.40 ms. These are local CPU observations, not GPU,
+  energy or physical display scanout measurements. Actual ScreenSaver-host
+  behavior and older macOS versions remain release-test targets.
+- README images and picker thumbnails come from the native procedural renderer.
+  The release gate rebuilds, runs offline and native-preview checks, and verifies the
+  four bundles, signatures, metadata and checksums in expanded ZIP and mounted DMG.
+
 ## v0.4.0 change validation
 
 - 15,418 deterministic offline checks cover the existing renderers plus Cosmos

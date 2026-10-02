@@ -226,3 +226,28 @@ pauses both clocks. A 2.4-second dissolve retains one outgoing image, then relea
 it. The grand tour visits all eight planets and five wide/deep-space compositions;
 fixed subjects can use changing angles or hold a selected angle. Portrait, ultrawide
 and small previews fit the same composition without stretching the scene.
+
+## Paper Sky and stable Cosmos frames (0.5)
+
+Paper Sky owns a bounded Core Animation tree: a gradient sky, circular striped sun,
+48 seeded cloud silhouettes, up to six four-face paper aircraft and six trails.
+Camera projections blend over seven seconds between orthographic isometric,
+perspective follow and orthographic side views. Cloud centers occupy a persistent
+seeded 3D field and use the same projection as the planes; fixed camera-facing
+silhouette masks and gradient undersides suggest soft volumes without morphing
+between unrelated screen layouts. Distance/horizon fog and invisible field-edge
+recycling keep the view open. Sunlight uses a slowly drifting disc, camera parallax
+and a broad radial halo. Aircraft vary in wing/nose/keel geometry, tint and banking,
+with face-normal lighting, slight reflected warmth and selected fold highlights.
+Companions approach and depart spatially, with brief fades at the edges of their
+flight cycles. Color interpolation and flight use a capped
+motion clock; view changes use a separate monotonic tour clock. Both pause when
+stopped. No assets, downloads or display-sized per-frame bitmap allocations are needed.
+
+Cosmos holds its camera scale and framing constant within a shot. Sprite origins
+snap to the bitmap pixel grid before compositing, so a moving sculpture shifts as
+one image instead of resampling its edges independently. A complete CGImage snapshot
+is published inside a disabled-animation transaction. The outgoing snapshot remains
+immutable throughout the shot dissolve. Composition anchors cycle through center
+and four quadrants; the fit scale reserves space around each anchor in either aspect
+ratio. A new optional stored composition preserves decoding of v0.4 preferences.

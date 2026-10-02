@@ -18,7 +18,7 @@ final class ConfigurationController: NSWindowController {
     private var controls: [String: NSControl] = [:]
     init(store: SettingsStore, changed: @escaping (SaverSettings) -> Void) {
         self.store = store; self.changed = changed
-        super.init(window: NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: store.kind == .worldClockRoom ? 400 : 610), styleMask: [.titled], backing: .buffered, defer: false))
+        super.init(window: NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: store.kind == .worldClockRoom ? 400 : store.kind == .voxelCosmos ? 650 : 610), styleMask: [.titled], backing: .buffered, defer: false))
         window?.title = store.kind.title
         window?.isReleasedWhenClosed = false
         build()
@@ -59,6 +59,7 @@ final class ConfigurationController: NSWindowController {
             }
             let v = s.cosmos
             row("View", "cosmosView", popup(CosmosView.allCases.map(\.title), CosmosView.allCases.firstIndex(of: v.view)!))
+            row("Composition", "cosmosComposition", popup(CosmosComposition.allCases.map(\.title), CosmosComposition.allCases.firstIndex(of: v.composition)!))
             row("Camera angle", "cosmosAngle", popup(CosmosAngle.allCases.map(\.title), CosmosAngle.allCases.firstIndex(of: v.angle)!))
             row("Background", "cosmosBackground", popup(CosmosBackground.allCases.map(\.title), CosmosBackground.allCases.firstIndex(of: v.background)!))
             row("Seconds per view", "cosmosDuration", slider(v.secondsPerView, 15, 120))
@@ -76,6 +77,24 @@ final class ConfigurationController: NSWindowController {
             let note = NSTextField(wrappingLabelWithString: "A miniature imagined cosmos. Distances and sizes are artistic. Entirely offline. Zero motion holds drift; timed view changes continue.")
             note.font = .systemFont(ofSize: 11); note.textColor = .secondaryLabelColor
             note.frame = NSRect(x: 28, y: 61, width: 424, height: 38); content.addSubview(note)
+        } else if store.kind == .paperSky {
+            func popup(_ titles: [String], _ index: Int) -> NSPopUpButton {
+                let p = NSPopUpButton(); p.addItems(withTitles: titles); p.selectItem(at: index); return p
+            }
+            let v = s.paperSky
+            row("Viewpoint", "paperCamera", popup(PaperCamera.allCases.map(\.title), PaperCamera.allCases.firstIndex(of: v.camera)!))
+            row("Sunset colors", "paperPalette", popup(PaperPalette.allCases.map(\.title), PaperPalette.allCases.firstIndex(of: v.palette)!))
+            row("Seconds per view", "paperDuration", slider(v.secondsPerView, 20, 120))
+            addValueLabel(key: "paperDuration", text: "\(Int(v.secondsPerView)) s", content: content)
+            row("Flight speed", "paperSpeed", slider(v.speed, 0, 3))
+            row("Cloud cover", "paperClouds", slider(v.clouds, 0, 1))
+            row("Other airplanes", "paperCompanions", check(v.companions))
+            row("Vapor trails", "paperTrails", check(v.trails))
+            row("Striped sun", "paperSun", check(v.sun))
+            row("Soft glow", "paperGlow", slider(v.glow, 0, 1))
+            let note = NSTextField(wrappingLabelWithString: "An endless flight through procedurally shaped skies. A new sky on each launch, with gradual camera changes. Entirely offline. Zero speed holds flight and sunset colors; viewpoint changes continue.")
+            note.font = .systemFont(ofSize: 11); note.textColor = .secondaryLabelColor
+            note.frame = NSRect(x: 28, y: 72, width: 424, height: 65); content.addSubview(note)
         } else {
             let style = NSPopUpButton(); style.addItems(withTitles: ["Vector map · Worldwide · Online", "Line map · 3 cities · Offline", "Traditional map · Worldwide"])
             style.selectItem(at: MapStyle.allCases.firstIndex(of: s.mapStyle)!)
@@ -128,6 +147,7 @@ final class ConfigurationController: NSWindowController {
         if let c = controls["parks"] as? NSButton { value.parks = c.state == .on }
         if let c = controls["pointsOfInterest"] as? NSButton { value.pointsOfInterest = c.state == .on }
         if let c = controls["palette"] as? NSPopUpButton { value.palette = MapPalette.allCases[c.indexOfSelectedItem] }
+        if let c = controls["cosmosComposition"] as? NSPopUpButton { value.cosmos.composition = CosmosComposition.allCases[c.indexOfSelectedItem] }
         if let c = controls["cosmosView"] as? NSPopUpButton { value.cosmos.view = CosmosView.allCases[c.indexOfSelectedItem] }
         if let c = controls["cosmosAngle"] as? NSPopUpButton { value.cosmos.angle = CosmosAngle.allCases[c.indexOfSelectedItem] }
         if let c = controls["cosmosBackground"] as? NSPopUpButton { value.cosmos.background = CosmosBackground.allCases[c.indexOfSelectedItem] }
@@ -141,6 +161,16 @@ final class ConfigurationController: NSWindowController {
         if let c = controls["cosmosLabels"] as? NSButton { value.cosmos.labels = c.state == .on }
         controls["cosmosDurationValue"]?.stringValue = "\(Int(value.cosmos.secondsPerView)) s"
         controls["cosmosPixelsValue"]?.stringValue = "\(Int(value.cosmos.pixelSize))"
+        if let c = controls["paperCamera"] as? NSPopUpButton { value.paperSky.camera = PaperCamera.allCases[c.indexOfSelectedItem] }
+        if let c = controls["paperPalette"] as? NSPopUpButton { value.paperSky.palette = PaperPalette.allCases[c.indexOfSelectedItem] }
+        if let c = controls["paperDuration"] { value.paperSky.secondsPerView = c.doubleValue }
+        if let c = controls["paperSpeed"] { value.paperSky.speed = c.doubleValue }
+        if let c = controls["paperClouds"] { value.paperSky.clouds = c.doubleValue }
+        if let c = controls["paperGlow"] { value.paperSky.glow = c.doubleValue }
+        if let c = controls["paperCompanions"] as? NSButton { value.paperSky.companions = c.state == .on }
+        if let c = controls["paperTrails"] as? NSButton { value.paperSky.trails = c.state == .on }
+        if let c = controls["paperSun"] as? NSButton { value.paperSky.sun = c.state == .on }
+        controls["paperDurationValue"]?.stringValue = "\(Int(value.paperSky.secondsPerView)) s"
         store.value = value; changed(value); updateAvailability(value)
     }
     private func updateAvailability(_ value: SaverSettings) {

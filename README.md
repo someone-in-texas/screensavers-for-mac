@@ -1,22 +1,42 @@
 # Screensavers for Mac
 
-Three quiet, native screen savers: clocks, drifting cities and a miniature voxel cosmos. Written in Swift, AppKit, Core Graphics and Core Animation.
+Native macOS screen savers that turn idle displays into imaginative, ever-changing worlds. Written in Swift, AppKit, Core Graphics and Core Animation.
 No browser runtime. No dependencies.
 
 **[Download latest release](https://github.com/someone-in-texas/screensavers-for-mac/releases/latest)** ·
 Apple Silicon · macOS 14.6 or later
 
-Source version **0.4.0** adds Voxel Cosmos and smoother City Drift motion.
+Source version **0.5.0** adds Paper Sky, varied Cosmos compositions and stable voxel frames.
+
+## Paper Sky
+
+An endless paper-airplane flight above sculpted clouds and synthwave sunsets.
+Ivory wings catch peach and violet light as other folded airplanes drift into
+formation and peel away. A striped sun hangs above layers of gently moving clouds.
+
+The journey eases between isometric, third-person perspective and side-on views.
+Choose a fixed viewpoint or the changing-camera journey; select Afterglow, Coral,
+Violet, Lagoon, or slowly evolving sunset colors. Adjust flight speed, cloud cover,
+view duration (20–120 seconds) and glow; toggle companions, vapor trails and the sun.
+Cloud silhouettes and formations are seeded anew for each launch. Clouds keep their
+place in a shared 3D field as the camera turns, with mist-soft undersides and warm
+crest light. The sun drifts along a slow arc; aircraft have individual wing shapes,
+paper tints and banking rhythms, with light catching their folds. Vector geometry
+stays crisp at every screen size. Entirely procedural and offline, with no image assets.
+Zero speed holds flight and colors while timed camera changes continue.
+
+![Paper Sky: folded airplanes above a synthwave cloudscape](docs/images/paper-sky.png)
 
 ## Voxel Cosmos
 
 A pixel-lit solar system made of tiny shaded cubes. The grand tour moves between
 isometric system views, all eight planet closeups, an asteroid belt and deep space,
-with gentle drift and soft crossfades. Saturn’s layered rings, icy moons, colorful
+with stable pixel framing and soft whole-frame crossfades. Saturn’s layered rings, icy moons, colorful
 planet surfaces and a distant comet give each scene its own character.
 
 Choose from 14 view modes, four camera modes and four backgrounds: Nebula, Aurora,
-Stars or Black void. Adjust view duration (15–120 seconds), motion, pixel size,
+Stars or Black void. Compositions alternate between the center and all four quadrants,
+or can be pinned to your preferred position. Adjust view duration (15–120 seconds), motion, pixel size,
 subtle glow and star density; toggle orbit guides, asteroids and captions. Fixed
 subjects can cycle through camera angles too. Zero motion stops drift while timed
 view changes continue. Sizes, distances and surfaces are artistic, not a scientific
@@ -115,6 +135,7 @@ make test        # deterministic, offline tests + bundle and renderer smoke chec
 make preview     # switch savers, resize, configure, go full screen, save a frame
 # Or launch directly into the new saver:
 open build/products/PreviewHost.app --args --cosmos
+open build/products/PreviewHost.app --args --paper
 make install     # build and install into ~/Library/Screen Savers
 make package     # DMG, ZIP and SHA256SUMS in dist
 ```
@@ -125,7 +146,7 @@ module. If it persists, log out and back in. The scripts do not kill system proc
 
 ## Privacy and power
 
-Voxel Cosmos, World Clock Room and City Drift’s optional offline mode make no network requests.
+Paper Sky, Voxel Cosmos, World Clock Room and City Drift’s optional offline mode make no network requests.
 The default online vector mode requests HTTPS Shortbread tiles from
 `vector.openstreetmap.org`; traditional mode uses `tile.openstreetmap.org`.
 Requests cover only the **selected public city**, never your location. OSM receives the
@@ -143,14 +164,15 @@ destination falls back to a bundled street map after 20 seconds. Cached tiles an
 bundled maps also work without connectivity. No future city is downloaded in
 advance from OSM’s public tile server; its service availability is best-effort.
 
-City Drift targets 60 FPS; World Clock Room and Voxel Cosmos target 30 FPS. Static clock faces and graded map tiles are cached;
+City Drift and Paper Sky target 60 FPS; World Clock Room and Voxel Cosmos target 30 FPS. Static clock faces and graded map tiles are cached;
 Core Animation moves layers and clock hands. Online and offline vectors stay crisp at any
 display resolution; their geographic viewport is capped at 1920 × 1280 (orientation-independent),
 so Retina displays need no extra tile requests. Traditional maps use the display’s backing pixels
 for sharper detail, capped at 3840 × 2560 pixels (rotated for portrait displays).
 A 4K display renders at native resolution; 5K and larger displays scale from this
 bounded detail level. Tile tasks stop with the saver. Vector responses are capped at 2 MB and decoded
-off the render thread. Cosmos reuses voxel sprites and a pixel buffer capped at 800 × 600;
+off the render thread. Paper Sky uses a bounded tree of vector layers with atomic frame updates.
+Cosmos reuses voxel sprites and a pixel buffer capped at 800 × 600;
 nearest-neighbor enlargement keeps the pixel edges crisp. Only selected-view tiles are downloaded, following the
 [vector tile policy](https://operations.osmfoundation.org/policies/vector/).
 Vector and raster caches are separate; downloaded vectors are never packaged or redistributed.
