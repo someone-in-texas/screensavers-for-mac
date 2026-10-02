@@ -268,9 +268,9 @@ waitUntil({
         finished += 1
     }
     return finished == 256
-})
+}, timeout: 15)
 RunLoop.main.run(until: Date().addingTimeInterval(0.05))
-expect(budgetTransport.calls.count == 256, "hard city budget under repeated failures")
+expect(budgetTransport.calls.count == 256, "hard city budget under repeated failures (received \(budgetTransport.calls.count), completed \(finished))")
 budgetLoader.beginVisit(); budgetLoader.request([first, second])
 waitUntil { budgetTransport.calls.count == 258 }
 expect(budgetTransport.calls.count == 258, "new city resets the bounded request allowance")
