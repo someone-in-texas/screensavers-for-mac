@@ -55,7 +55,7 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
         let store = SettingsStore(kind, defaults: CommandLine.arguments.contains("--launch-smoke") ? UserDefaults(suiteName: smokeSuite + kind.rawValue) : nil)
         let noNetwork = CommandLine.arguments.contains("--offline") || CommandLine.arguments.contains("--launch-smoke")
         let fixed = CommandLine.arguments.firstIndex(of: "--city").flatMap { i in i + 1 < CommandLine.arguments.count ? CommandLine.arguments[i + 1] : nil }
-        let scene: SaverScene = kind == .worldClockRoom ? WorldClockScene() : CityDriftScene(store: store, networkEnabled: !noNetwork, city: MapCity.all.first { $0.name == fixed })
+        let scene: SaverScene = kind == .worldClockRoom ? WorldClockScene() : CityDriftScene(store: store, networkEnabled: !noNetwork, city: MapCity.all.first { $0.name == fixed }, visitCache: noNetwork && !CommandLine.arguments.contains("--launch-smoke") ? CityVisitCache() : nil)
         let frame = NSRect(x: 0, y: 0, width: window.contentView!.bounds.width, height: window.contentView!.bounds.height - 48)
         view = SceneSaverView(frame: frame, isPreview: false, kind: kind, scene: scene, settingsStore: store)
         window.contentView?.addSubview(view!, positioned: .below, relativeTo: picker)
@@ -129,6 +129,17 @@ if CommandLine.arguments.contains("--smoke") {
             if name == "city-drift-fixture" { try savePNG(c.makeImage()!, "\(folder)/palette-\(palette.rawValue).png") }
         }
         scene.stop()
+    }
+    precondition(StarterMaps.bundled.cities.count == 3, "Bundled starter maps missing")
+    for city in StarterMaps.bundled.catalog {
+        let starter = CityDriftScene(store: store, networkEnabled: false, city: city)
+        starter.start()
+        var settings = SaverSettings(); settings.palette = .blueprint
+        starter.apply(settings)
+        let c = bitmap(width: 1600, height: 1000)!
+        starter.draw(in: c, size: CGSize(width: 1600, height: 1000), time: 0, date: Date())
+        try savePNG(c.makeImage()!, "\(folder)/starter-\(city.name.lowercased()).png")
+        starter.stop()
     }
     // Load the actual bundles and invoke their principal classes, not just the shared scenes.
     let products = Bundle.main.bundleURL.deletingLastPathComponent()

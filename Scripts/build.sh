@@ -46,10 +46,12 @@ for kind in WorldClockRoom CityDrift; do
         sips -s format png --resampleWidth 600 "docs/images/$image.png" --out "$bundle/Contents/Resources/thumbnail.png" >/dev/null
         sips -s format png --resampleWidth 1200 "docs/images/$image.png" --out "$bundle/Contents/Resources/thumbnail@2x.png" >/dev/null
     fi
+    if [[ "$kind" == CityDrift ]]; then ditto Assets/StarterMaps "$bundle/Contents/Resources/StarterMaps"; fi
     codesign --force --sign - "$bundle"
 done
 app=build/products/PreviewHost.app
-mkdir -p "$app/Contents/MacOS"
+mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+ditto Assets/StarterMaps "$app/Contents/Resources/StarterMaps"
 xcrun swiftc "${FLAGS[@]}" -module-name PreviewHost "${SOURCES[@]}" PreviewHost/main.swift -o "$app/Contents/MacOS/PreviewHost"
 plist "$app/Contents/Info.plist" PreviewHost com.someoneintexas.screensavers.preview PreviewHost NSApplication APPL
 codesign --force --sign - "$app"

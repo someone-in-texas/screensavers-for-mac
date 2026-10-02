@@ -1,5 +1,20 @@
 # Validation
 
+## v0.1.2 change validation
+
+- Uniform map fixtures exposed a persistent grid in the actual layer renderer.
+  Opaque, non-antialiased tile edges pass pixel-uniformity checks in all six palettes
+  at 1×, 1.5× and 2× display scales during fractional-pixel camera movement.
+- Filled-glyph tests cover Blueprint, Night and Terminal. A gradient with an
+  antialiased diagonal is pixel-identical when tinted whole or as four separate tiles.
+- Startup cache selection rejects missing, corrupt and must-revalidate stale data;
+  complete cached cities appear without network requests. Crossfade tests verify
+  outgoing-scene retention/release and fallback when a destination stays unavailable.
+- All three bundled street datasets decode and render offline in PreviewHost;
+  packaging verifies that the editable data, attribution and ODbL license are present.
+- Real cached Dhaka tiles were used for local before/after palette review without
+  requesting additional raster tiles. Automated tests use synthetic tiles only.
+
 ## v0.1.1 change validation
 
 - Offline regression coverage includes one-time preference migration, zero-speed
@@ -46,6 +61,12 @@ every intervening OS release.
   and validates both bundles' metadata, architecture, Mach-O type and code signatures.
 
 ## Performance observations
+
+The v0.1.2 offline Boston starter-map preview showed about **0.3% CPU** and
+**174 MiB RSS** at 1200 × 742 logical points on the local M5. This is a spot sample.
+The native UI inspection connection was unavailable for this update; palette and
+starter-map visual review used the actual offline layer-rendered PNGs.
+
 
 The v0.1.0 1200 × 742 live preview on the local M5 showed approximately **0.3% CPU for City
 Drift** after loading and **1.6% for World Clock Room**, using `ps` samples. These are

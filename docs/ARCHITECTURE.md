@@ -54,8 +54,9 @@ are picked up at the next animation start; they are not broadcast during a sessi
 
 The editable 64-city source catalog contains names, regions, coordinates and zoom.
 The previous eight cities are excluded from the next random choice. Each instance
-changes cities after four minutes of active elapsed time, fading out over 1.5 seconds
-before selecting the next city. A fixed PreviewHost city stays fixed. The camera
+selects another city after roughly four minutes of active elapsed time. A retained
+outgoing layer tree covers the new scene until it is complete, then crossfades over
+1.5 seconds. A fixed PreviewHost city stays fixed. The camera
 follows a rotated 160 × 120 pixel ellipse whose speed never falls to zero, with
 a different route bearing per city. Camera speed zero pauses travel but not city
 changes. A separate uncapped monotonic timer keeps the city deadline accurate even
@@ -86,15 +87,33 @@ records are ignored. Files live below the user's caches directory at
 Pruning targets 192 MiB but preserves unexpired records and a minimum seven-day
 retention window, so it is a soft disk limit. There is no offline download feature.
 
-Available tiles are graded individually with Core Image only when imagery/settings
-change. Animation moves cached tile layers; vignette and typography live in a
+Available tiles are graded only when imagery/settings change. Light styles use
+Core Image; dark styles use a pointwise sRGB tint that preserves filled glyphs and
+antialiasing without a neighborhood-dependent edge filter. Opaque tile layers disable
+edge antialiasing so fractional camera positions do not expose the background as
+a persistent grid. Animation moves cached tile layers; vignette and typography live in a
 separate overlay rasterized at the display detail level. Offscreen decoded tiles
 and layers are discarded; revisits reload from the HTTP-aware disk cache. New tile
 layers fade in over 1.2 seconds. Downloads are cancelled if their response exceeds
 512 KB; decoding accepts only single-frame 256 × 256 images. Static optional grain
 does not shimmer. Opaque overlay backgrounds
 preserve contrast for city names and permanent attribution across all six palettes.
-Offline with no cached tiles shows the palette background and city/attribution.
+`CityVisitCache` searches the existing disk cache for complete viewports at startup,
+and reads the planned next city's cache records 20 seconds before its transition.
+It never creates a network transport. Expired records requiring revalidation and
+corrupt/incomplete cities are rejected. Generation and viewport checks discard stale
+asynchronous results after stopping, restarting or resizing. At most one future
+city's decoded tiles and one outgoing scene are retained.
+
+`StarterMaps` loads the three bundled ODbL street extracts from the saver resource
+bundle. Cached city views can be used at startup regardless of recent-city history.
+When there is no complete cached city, vector street outlines provide an immediate,
+resolution-independent map while currently selected tiles load. Starter paths are
+cached and translated with the camera; incoming raster tiles remain hidden until
+the whole visible viewport is available. A destination that stays incomplete for
+20 seconds switches to a bundled city so the outgoing cover cannot freeze forever.
+The data refresh script is a maintainer-only Overpass operation, not a runtime or
+CI dependency. Map data retains ODbL licensing separately from the MIT code.
 
 ## Build and distribution
 

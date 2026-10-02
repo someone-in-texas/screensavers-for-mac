@@ -169,9 +169,9 @@ fixedScene.stop()
 let delayed = CityDriftScene(store: b, networkEnabled: false)
 delayed.start(); let delayedCity = delayed.city
 delayed.advance(time: 0); delayed.advance(time: 240.75)
-near(delayed.transitionOpacity, 0.5, "city fades before transition even after delayed frames")
+expect(delayed.city == delayedCity, "outgoing city remains until the transition deadline")
 delayed.advance(time: 241.5)
-expect(delayed.city != delayedCity && delayed.transitionOpacity == 1, "city deadline follows elapsed time rather than frame count")
+expect(delayed.city != delayedCity, "city deadline follows elapsed time rather than frame count")
 delayed.stop()
 
 // The real layer renderer consumes backing pixels, retaining 256-pixel tile detail.
@@ -183,14 +183,98 @@ root.bounds = CGRect(origin: .zero, size: logical)
 CATransaction.begin(); CATransaction.setDisableActions(true)
 expect(crisp.updateLayer(root, size: logical, time: 0, date: fixed), "Retina map layer render")
 _ = crisp.updateLayer(root, size: logical, time: 2, date: fixed)
-let mapLayers = root.sublayers![0].sublayers!
+let mapLayers = root.sublayers![1].sublayers!
 expect(!mapLayers.isEmpty && mapLayers.count <= 176, "bounded Retina tile layers")
 expect(mapLayers.allSatisfy { ($0.contents as! CGImage).width == 256 && $0.opacity == 1 }, "native tile detail and completed fade")
-expect((root.sublayers![1].contents as! CGImage).width == 3840, "Retina overlay raster matches high detail viewport")
+expect((root.sublayers![2].contents as! CGImage).width == 3840, "Retina overlay raster matches high detail viewport")
 root.contentsScale = 1
 _ = crisp.updateLayer(root, size: logical, time: 3, date: fixed)
-expect((root.sublayers![1].contents as! CGImage).width == 2560, "backing scale change rebuilds overlay")
+expect((root.sublayers![2].contents as! CGImage).width == 2560, "backing scale change rebuilds overlay")
 CATransaction.commit(); crisp.stop()
+
+// Dark styles preserve solid strokes and antialiasing instead of extracting their outlines.
+let glyph = bitmap(width: 256, height: 256)!
+glyph.setFillColor(NSColor.white.cgColor); glyph.fill(CGRect(x: 0, y: 0, width: 256, height: 256))
+glyph.setFillColor(NSColor.black.cgColor); glyph.fill(CGRect(x: 64, y: 64, width: 128, height: 128))
+for palette in [MapPalette.blueprint, .night, .terminal] {
+    let scene = CityDriftScene(store: b, networkEnabled: false, city: MapCity.all[0])
+    scene.useFixture(glyph.makeImage()!); scene.start()
+    var settings = SaverSettings(); settings.palette = palette; settings.intensity = 1; settings.speed = 0
+    scene.apply(settings)
+    let layer = CALayer(); layer.contentsScale = 2
+    CATransaction.begin(); CATransaction.setDisableActions(true)
+    _ = scene.updateLayer(layer, size: CGSize(width: 300, height: 200), time: 0, date: fixed)
+    let rep = NSBitmapImageRep(cgImage: layer.sublayers![1].sublayers![0].contents as! CGImage)
+    let center = rep.colorAt(x: 128, y: 128)!.usingColorSpace(.sRGB)!
+    let outside = rep.colorAt(x: 16, y: 16)!.usingColorSpace(.sRGB)!
+    expect(center.redComponent + center.greenComponent + center.blueComponent > outside.redComponent + outside.greenComponent + outside.blueComponent + 0.8, "\(palette): filled lettering stays filled, not hollow outlines")
+    CATransaction.commit(); scene.stop()
+}
+
+// Cutting one image into tiles must not alter its tone, including pixels at the cuts.
+let toneSource = bitmap(width: 512, height: 512)!
+for x in 0..<512 {
+    toneSource.setFillColor(NSColor(white: CGFloat(x % 256) / 255, alpha: 1).cgColor)
+    toneSource.fill(CGRect(x: x, y: 0, width: 1, height: 512))
+}
+line(toneSource, from: CGPoint(x: 0, y: 17), to: CGPoint(x: 512, y: 489), width: 3.5, color: NSColor.black.cgColor)
+let unstyled = Array(UnsafeBufferPointer(start: toneSource.data!.assumingMemoryBound(to: UInt8.self), count: toneSource.bytesPerRow * 512))
+let tintBackground = RGB(0.065, 0.16, 0.25), tintInk = RGB(0.68, 0.85, 0.89)
+DarkMapTint.apply(to: toneSource, background: tintBackground, ink: tintInk, intensity: 0.85)
+let whole = toneSource.data!.assumingMemoryBound(to: UInt8.self)
+var identicalCuts = true
+for tileY in 0..<2 {
+    for tileX in 0..<2 {
+        let piece = bitmap(width: 256, height: 256)!
+        unstyled.withUnsafeBytes { bytes in
+            for row in 0..<256 {
+                piece.data!.advanced(by: row * piece.bytesPerRow).copyMemory(from: bytes.baseAddress!.advanced(by: (tileY * 256 + row) * toneSource.bytesPerRow + tileX * 256 * 4), byteCount: 256 * 4)
+            }
+        }
+        DarkMapTint.apply(to: piece, background: tintBackground, ink: tintInk, intensity: 0.85)
+        let pixels = piece.data!.assumingMemoryBound(to: UInt8.self)
+        for row in 0..<256 {
+            for byte in 0..<(256 * 4) {
+                identicalCuts = identicalCuts && pixels[row * piece.bytesPerRow + byte] == whole[(tileY * 256 + row) * toneSource.bytesPerRow + tileX * 256 * 4 + byte]
+            }
+        }
+    }
+}
+expect(identicalCuts, "dark tint is pixel-identical across tile cuts, including antialiased lines")
+
+// Actual layer composition: flat map areas must stay flat across the tile grid at
+// Retina and non-integer scales, after loading and while moving subpixel distances.
+let flat = bitmap(width: 256, height: 256)!
+flat.setFillColor(NSColor(white: 0.8, alpha: 1).cgColor); flat.fill(CGRect(x: 0, y: 0, width: 256, height: 256))
+for palette in MapPalette.allCases {
+    for scale in [CGFloat(1), 1.5, 2] {
+        let scene = CityDriftScene(store: b, networkEnabled: false, city: MapCity.all[0])
+        scene.useFixture(flat.makeImage()!); scene.start()
+        var settings = SaverSettings(); settings.palette = palette; settings.labels = false; settings.vignette = false
+        scene.apply(settings)
+        let size = CGSize(width: 641, height: 385)
+        let layer = CALayer(); layer.bounds = CGRect(origin: .zero, size: size); layer.contentsScale = scale
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        _ = scene.updateLayer(layer, size: size, time: 0, date: fixed)
+        _ = scene.updateLayer(layer, size: size, time: 2, date: fixed)
+        _ = scene.updateLayer(layer, size: size, time: 2.033, date: fixed)
+        let frame = bitmap(width: Int(size.width * scale), height: Int(size.height * scale))!
+        frame.scaleBy(x: scale, y: scale); layer.render(in: frame)
+        let pixels = frame.data!.assumingMemoryBound(to: UInt8.self)
+        var low = [255, 255, 255], high = [0, 0, 0]
+        // Exclude the fixed attribution plaque and the viewport's entering edge tiles.
+        for y in (frame.height / 3)..<(frame.height * 2 / 3) {
+            for x in 32..<(frame.width - 32) {
+                for channel in 0..<3 {
+                    let value = Int(pixels[y * frame.bytesPerRow + x * 4 + channel])
+                    low[channel] = min(low[channel], value); high[channel] = max(high[channel], value)
+                }
+            }
+        }
+        expect(zip(low, high).allSatisfy { $1 - $0 <= 2 }, "\(palette) at \(scale)x: no persistent tile grid (\(low)...\(high))")
+        CATransaction.commit(); scene.stop()
+    }
+}
 
 // HTTP cache semantics and invalid data.
 let now = Date(timeIntervalSince1970: 1700000000), png = tilePNG()
@@ -216,6 +300,94 @@ let cache = TileCache(directory: temp)
 cache.write(fresh, id: tile); expect(cache.read(tile)?.data == png, "atomic disk cache roundtrip")
 try! Data("broken".utf8).write(to: temp.appendingPathComponent(tile.key + ".json"))
 expect(cache.read(tile) == nil, "corrupt cache recovers")
+
+// Bundled maps cover fresh installs without contacting any tile server.
+let starterMaps = StarterMaps.load(url: URL(fileURLWithPath: "Assets/StarterMaps/streets.json"))
+expect(Set(starterMaps.catalog.map(\.name)) == Set(["Paris", "Boston", "Tokyo"]), "three bundled starter cities")
+expect(starterMaps.cities.allSatisfy { $0.extent >= 2080 && !$0.roads.isEmpty && !$0.sourceDate.isEmpty }, "starter data covers capped viewport plus motion")
+expect(starterMaps.cities.allSatisfy { $0.roads.allSatisfy { $0.points.count >= 2 && $0.points.allSatisfy { $0.count == 2 && $0.allSatisfy(\.isFinite) } } }, "valid starter geometry")
+let paris = MapCity.all.first { $0.name == "Paris" }!
+let smallViewport = CGSize(width: 641, height: 385)
+let visitTiles = CityVisitCache.initialTiles(city: paris, viewport: smallViewport)
+let visitDisk = TileCache(directory: temp.appendingPathComponent("city-visits"))
+let usable = CachePolicy.entry(data: png, response: response(200, ["Cache-Control": "max-age=3600"]), now: Date())!
+for id in visitTiles { visitDisk.write(usable, id: id) }
+let visitCache = CityVisitCache(cache: visitDisk)
+var visitDone = false, cachedVisit: CachedCityVisit?
+visitCache.prepare(candidates: [MapCity.all[0], paris], viewport: smallViewport) { cachedVisit = $0; visitDone = true }
+waitUntil { visitDone }
+expect(cachedVisit?.city == paris && cachedVisit?.images.count == visitTiles.count, "startup may reuse any complete cached city")
+var forbiddenStale = usable; forbiddenStale.expires = .distantPast; forbiddenStale.mustRevalidate = true
+visitDisk.write(forbiddenStale, id: visitTiles[0]); visitDone = false; cachedVisit = nil
+visitCache.prepare(candidates: [paris], viewport: smallViewport) { cachedVisit = $0; visitDone = true }
+waitUntil { visitDone }
+expect(visitDone && cachedVisit == nil, "preloading never bypasses mandatory revalidation")
+visitDisk.write(usable, id: visitTiles[0])
+try! Data("broken".utf8).write(to: visitDisk.directory.appendingPathComponent(visitTiles[0].key + ".json"))
+visitDone = false
+visitCache.prepare(candidates: [paris], viewport: smallViewport) { cachedVisit = $0; visitDone = true }
+waitUntil { visitDone }
+expect(visitDone && cachedVisit == nil, "corrupt cached city is not presented as complete")
+visitDisk.write(usable, id: visitTiles[0])
+
+let cachedStart = CityDriftScene(store: b, networkEnabled: false, starterMaps: starterMaps, visitCache: visitCache)
+let startupRoot = CALayer(); startupRoot.bounds = CGRect(origin: .zero, size: smallViewport)
+cachedStart.start()
+CATransaction.begin(); CATransaction.setDisableActions(true)
+_ = cachedStart.updateLayer(startupRoot, size: smallViewport, time: 0, date: fixed)
+expect(!(startupRoot.sublayers![0].sublayers ?? []).isEmpty, "fresh startup immediately displays bundled vector streets")
+waitUntil {
+    _ = cachedStart.updateLayer(startupRoot, size: smallViewport, time: 0.01, date: fixed)
+    return cachedStart.city == paris && !(startupRoot.sublayers![1].sublayers ?? []).isEmpty
+}
+expect(cachedStart.city == paris && !(startupRoot.sublayers![1].sublayers ?? []).isEmpty, "cached startup replaces initial map without network")
+CATransaction.commit(); cachedStart.stop()
+
+// Queued cache reads must not change a stopped or resized scene.
+let onlyTokyo = StarterMaps(cities: starterMaps.cities.filter { $0.name == "Tokyo" })
+let cancelledStartup = CityDriftScene(store: b, networkEnabled: false, starterMaps: onlyTokyo, visitCache: visitCache)
+let cancelledRoot = CALayer(); cancelledRoot.bounds = CGRect(origin: .zero, size: smallViewport)
+cancelledStartup.start()
+_ = cancelledStartup.updateLayer(cancelledRoot, size: smallViewport, time: 0, date: fixed)
+cancelledStartup.stop()
+var drained = false
+visitCache.prepare(candidates: [], viewport: smallViewport) { _ in drained = true }
+waitUntil { drained }
+expect(cancelledStartup.city.name == "Tokyo", "stopped scene rejects queued startup-cache selection")
+let resizedStartup = CityDriftScene(store: b, networkEnabled: false, starterMaps: onlyTokyo, visitCache: visitCache)
+resizedStartup.start()
+_ = resizedStartup.updateLayer(cancelledRoot, size: smallViewport, time: 0, date: fixed)
+_ = resizedStartup.updateLayer(cancelledRoot, size: CGSize(width: 1000, height: 800), time: 0.01, date: fixed)
+drained = false
+visitCache.prepare(candidates: [], viewport: smallViewport) { _ in drained = true }
+waitUntil { drained }
+expect(resizedStartup.city.name == "Tokyo", "resize rejects a cached city that only covered the old viewport")
+resizedStartup.stop()
+
+// Crossfade the complete outgoing scene instead of fading to an empty tile grid.
+let crossfade = CityDriftScene(store: b, networkEnabled: false, starterMaps: .empty)
+crossfade.useFixture(flat.makeImage()!); crossfade.start()
+let transitionRoot = CALayer(); transitionRoot.bounds = CGRect(origin: .zero, size: smallViewport)
+CATransaction.begin(); CATransaction.setDisableActions(true)
+_ = crossfade.updateLayer(transitionRoot, size: smallViewport, time: 0, date: fixed)
+_ = crossfade.updateLayer(transitionRoot, size: smallViewport, time: 2, date: fixed)
+let outgoing = crossfade.city
+_ = crossfade.updateLayer(transitionRoot, size: smallViewport, time: 241.5, date: fixed)
+expect(crossfade.city != outgoing && transitionRoot.sublayers?.count == 4 && transitionRoot.sublayers?.last?.opacity == 1, "outgoing scene remains opaque until incoming scene is ready")
+_ = crossfade.updateLayer(transitionRoot, size: smallViewport, time: 243, date: fixed)
+expect(transitionRoot.sublayers?.count == 3, "completed crossfade releases outgoing map memory")
+CATransaction.commit(); crossfade.stop()
+
+let offlineTour = CityDriftScene(store: b, networkEnabled: false, starterMaps: starterMaps)
+let offlineRoot = CALayer(); offlineRoot.bounds = CGRect(origin: .zero, size: smallViewport)
+offlineTour.start()
+CATransaction.begin(); CATransaction.setDisableActions(true)
+_ = offlineTour.updateLayer(offlineRoot, size: smallViewport, time: 0, date: fixed)
+_ = offlineTour.updateLayer(offlineRoot, size: smallViewport, time: 241.5, date: fixed)
+_ = offlineTour.updateLayer(offlineRoot, size: smallViewport, time: 263, date: fixed)
+_ = offlineTour.updateLayer(offlineRoot, size: smallViewport, time: 265, date: fixed)
+expect(starterMaps[offlineTour.city] != nil && offlineRoot.sublayers?.count == 3, "unavailable city falls back to a moving bundled map, not a frozen cover")
+CATransaction.commit(); offlineTour.stop()
 
 // Mocked network integration: concurrency, validators, 304, offline, cancellation, throttling.
 let first = TileID(z: 2, x: 0, y: 0)!, second = TileID(z: 2, x: 1, y: 0)!, third = TileID(z: 2, x: 2, y: 0)!

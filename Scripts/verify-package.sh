@@ -25,6 +25,11 @@ for location in "$work/zip" "$work/mount"; do
         ids+=("$id")
         exe=$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$bundle/Contents/Info.plist")
         [[ "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$bundle/Contents/Info.plist")" == "$VERSION" ]]
+        if [[ "$name" == 'City Drift' ]]; then
+            [[ -s "$bundle/Contents/Resources/StarterMaps/streets.json" ]]
+            [[ -s "$bundle/Contents/Resources/StarterMaps/ODbL-1.0.txt" ]]
+            [[ -s "$bundle/Contents/Resources/StarterMaps/README.md" ]]
+        fi
         file "$bundle/Contents/MacOS/$exe"
         lipo "$bundle/Contents/MacOS/$exe" -verify_arch "$ARCH"
         codesign --verify --strict "$bundle"

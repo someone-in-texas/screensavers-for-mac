@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.2
+
+- City Drift: fix persistent tile-grid seams during fractional-pixel movement, most visible in dark palettes.
+- Blueprint, Night and Terminal now preserve filled, antialiased lettering with a pointwise color treatment instead of noisy edge detection.
+- Start from any complete, eligible cached city; otherwise immediately show a bundled vector street map of Paris, Boston or Tokyo.
+- Preload the next city's existing cache records off the animation thread. Keep the outgoing scene visible until its replacement is ready; use a moving bundled map if a destination remains unavailable.
+- Include attributed ODbL starter data and its source/refresh instructions. No speculative network tile prefetching.
+- Add pixel-level palette/seam checks, cache-readiness and crossfade tests, and bundled-map smoke renders.
+
 ## 0.1.1
 
 - Both savers: camera speed now spans 0–16, with a default of 6. Existing speed preferences migrate to the faster range; paused cameras stay paused.
