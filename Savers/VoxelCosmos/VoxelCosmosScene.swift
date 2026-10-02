@@ -37,7 +37,7 @@ final class VoxelCosmosScene: SaverScene {
         settings = next; captionKey = ""
     }
     static func renderSize(_ size: CGSize, pixelSize: Double) -> CGSize {
-        let scale = min(1 / pixelSize, 800 / max(1, size.width), 600 / max(1, size.height))
+        let scale: CGFloat = min(1 / CGFloat(pixelSize), 800 / max(1, size.width), 600 / max(1, size.height))
         return CGSize(width: max(1, ceil(size.width * scale)), height: max(1, ceil(size.height * scale)))
     }
     private func advance(_ time: Double) {
@@ -187,8 +187,8 @@ final class VoxelCosmosScene: SaverScene {
         if let sky { c.draw(sky, in: CGRect(origin: .zero, size: size)) }
         // Common design coordinates preserve compositions on portrait and ultrawide screens.
         let isSystem = [.solarSystem, .innerPlanets, .outerPlanets].contains(activeView)
-        let designHeight = isSystem ? max(420, 2 * (280 * sin(elevation) + 45)) : 420
-        let scale = min(size.width / 640, size.height / designHeight) * (compact && settings.labels ? 0.68 : 1)
+        let designHeight = CGFloat(isSystem ? max(420, 2 * (280 * sin(elevation) + 45)) : 420)
+        let scale: CGFloat = min(size.width / 640, size.height / designHeight) * (compact && settings.labels ? 0.68 : 1)
         c.saveGState(); c.translateBy(x: size.width / 2, y: size.height * 0.54); c.scaleBy(x: scale, y: scale)
         let t = motion.elapsed
         let zoom = 1 + 0.025 * sin(t * 0.035)
