@@ -48,22 +48,19 @@ jobs:
       - name: Publish verified assets
         run: |
           cat > build/release-notes.md <<'NOTES'
-          Four native screen savers that turn idle displays into imaginative, ever-changing worlds. For Apple Silicon Macs running macOS 14.6 or later.
+          Five native screen savers that turn idle displays into imaginative, ever-changing worlds. For Apple Silicon Macs running macOS 14.6 or later.
 
+          - **Dapple** — tactile, procedurally textured circles with invisible hills, gentle collisions, four motion modes, eight palettes, four materials, and repeatable seeds. Entirely offline.
           - **Paper Sky** — procedural paper-airplane flight above sculpted clouds and synthwave sunsets, with three camera styles, evolving colors and companion planes. Entirely offline.
           - **Voxel Cosmos** — a glowing pixel/voxel solar system with isometric viewpoints, planet closeups, deep-space scenes and configurable backgrounds. Entirely offline.
           - **World Clock Room** — an isometric clock installation with real local times, smooth hands and configurable colors.
           - **City Drift** — online vector maps across 64 world cities, with solid roads and optional street labels, water, parks and points of interest. Bundled offline maps and traditional imagery remain available.
 
-          Paper Sky keeps clouds in a shared 3D field as the camera turns, with soft atmospheric edges, a slowly drifting sun, subtle reflected light and individually shaped paper aircraft. Companions approach and peel away along varied flight paths.
-
-          This update also gives Voxel Cosmos centered and four-quadrant compositions. Cosmos keeps each shot at a stable pixel scale and moves sprites as complete pixel-aligned images, removing the sweeping edge shimmer from the previous slow zoom. Existing appearance preferences are preserved. Bundled map data is © OpenStreetMap contributors, ODbL 1.0; editable data and the license accompany the saver.
-
-          Real preview artwork is included, but recent macOS versions may still show the default blue swirl in the picker: Apple provides no supported thumbnail replacement API. The saver itself is unaffected.
+          This update adds Dapple, refreshes City Drift’s featured image with a live online San Francisco view, and simplifies the README. Existing saver preferences are preserved. Dapple has been refined through five art-review rounds, with fixed-step simulation tests and cached procedural textures.
 
           Download the DMG, open it, and double-click each `.saver` to install for the current user. Select the saver in System Settings → Wallpaper → Screen Saver (or Screen Saver on older macOS), then open its options. The ZIP contains the same bundles. Verify downloads with `shasum -a 256 -c SHA256SUMS` from the directory containing both downloads.
 
-          City Drift’s online vector and traditional modes request tiles for the selected public city. Its explicit offline mode uses only bundled maps. Paper Sky, Voxel Cosmos and World Clock Room make no network requests. No location access, analytics or telemetry. Map data © OpenStreetMap contributors.
+          City Drift’s online vector and traditional modes request tiles for the selected public city. Its explicit offline mode uses only bundled maps. Dapple, Paper Sky, Voxel Cosmos and World Clock Room make no network requests. No location access, analytics or telemetry. Map data © OpenStreetMap contributors.
 
           NOTES
           cat dist/SIGNING.txt >> build/release-notes.md

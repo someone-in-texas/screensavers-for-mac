@@ -85,10 +85,11 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
         if CommandLine.arguments.contains("--map") { picker.selectItem(at: 1) }
         if CommandLine.arguments.contains("--cosmos") || CommandLine.arguments.contains("--cosmos-review") { picker.selectItem(at: 2) }
         if CommandLine.arguments.contains("--paper") || CommandLine.arguments.contains("--paper-review") { picker.selectItem(at: 3) }
+        if CommandLine.arguments.contains("--dapple") || CommandLine.arguments.contains("--dapple-review") { picker.selectItem(at: 4) }
         switchScene(); window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
         if let i = CommandLine.arguments.firstIndex(of: "--capture-after"), i + 1 < CommandLine.arguments.count,
            let seconds = Double(CommandLine.arguments[i + 1]), seconds.isFinite {
-            DispatchQueue.main.asyncAfter(deadline: .now() + min(60, max(1, seconds))) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + min(600, max(1, seconds))) {
                 self.saveFrame()
                 if CommandLine.arguments.contains("--capture-and-quit") { self.view?.stopAnimation(); NSApp.terminate(nil) }
             }
@@ -123,16 +124,18 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
     @objc func switchScene() {
         view?.reportPerformance(); view?.stopAnimation(); view?.removeFromSuperview()
         let kind = SaverKind.allCases[picker.indexOfSelectedItem]
-        let review = CommandLine.arguments.contains("--online-vector") || CommandLine.arguments.contains("--cosmos-review") || CommandLine.arguments.contains("--paper-review")
+        let review = CommandLine.arguments.contains("--online-vector") || CommandLine.arguments.contains("--cosmos-review") || CommandLine.arguments.contains("--paper-review") || CommandLine.arguments.contains("--dapple-review")
         let store = SettingsStore(kind, defaults: (CommandLine.arguments.contains("--launch-smoke") || review) ? UserDefaults(suiteName: smokeSuite + kind.rawValue) : nil)
         if review {
             var settings = SaverSettings(); settings.cosmos.secondsPerView = 15; settings.paperSky.secondsPerView = 20; settings.mapStyle = .online; settings.palette = .blueprint
             if CommandLine.arguments.contains("--details") { settings.streetLabels = true; settings.water = true; settings.parks = true; settings.pointsOfInterest = true }
+            if let i = CommandLine.arguments.firstIndex(of: "--map-palette"), i+1 < CommandLine.arguments.count, let palette = MapPalette(rawValue: CommandLine.arguments[i+1]) { settings.palette = palette }
+            if CommandLine.arguments.contains("--dapple-review") { settings.dapple.seedBehavior = .fixed }
             store.value = settings
         }
         let noNetwork = CommandLine.arguments.contains("--offline") || CommandLine.arguments.contains("--launch-smoke")
         let fixed = CommandLine.arguments.firstIndex(of: "--city").flatMap { i in i + 1 < CommandLine.arguments.count ? CommandLine.arguments[i + 1] : nil }
-        let scene: SaverScene = kind == .worldClockRoom ? WorldClockScene() : kind == .voxelCosmos ? VoxelCosmosScene() as SaverScene : kind == .paperSky ? PaperSkyScene() as SaverScene : CityDriftScene(store: store, networkEnabled: !noNetwork, city: MapCity.all.first { $0.name == fixed }, visitCache: noNetwork && !CommandLine.arguments.contains("--launch-smoke") ? CityVisitCache() : nil)
+        let scene: SaverScene = kind == .worldClockRoom ? WorldClockScene() : kind == .voxelCosmos ? VoxelCosmosScene() as SaverScene : kind == .paperSky ? PaperSkyScene() as SaverScene : kind == .dapple ? DappleScene() as SaverScene : CityDriftScene(store: store, networkEnabled: !noNetwork, city: MapCity.all.first { $0.name == fixed }, visitCache: noNetwork && !CommandLine.arguments.contains("--launch-smoke") ? CityVisitCache() : nil)
         let frame = NSRect(x: 0, y: 0, width: window.contentView!.bounds.width, height: window.contentView!.bounds.height - 48)
         view = PreviewSaverView(frame: frame, isPreview: false, kind: kind, scene: scene, settingsStore: store)
         window.contentView?.addSubview(view!, positioned: .below, relativeTo: picker)
@@ -146,7 +149,7 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
         c.scaleBy(x: size.width / view.bounds.width, y: size.height / view.bounds.height)
         layer.render(in: c)
         guard let image = c.makeImage() else { return }
-        let filename = ["world-clock-room.png", "city-drift.png", "voxel-cosmos.png", "paper-sky.png"][picker.indexOfSelectedItem]
+        let filename = ["world-clock-room.png", "city-drift.png", "voxel-cosmos.png", "paper-sky.png", "dapple.png"][picker.indexOfSelectedItem]
         if let i = CommandLine.arguments.firstIndex(of: "--capture-dir"), i + 1 < CommandLine.arguments.count {
             let directory = CommandLine.arguments[i + 1]
             try? FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
@@ -161,7 +164,7 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
     @objc func fullScreen() { window.toggleFullScreen(nil) }
     func applicationWillTerminate(_ notification: Notification) {
         view?.reportPerformance(); view?.stopAnimation()
-        if CommandLine.arguments.contains("--launch-smoke") || CommandLine.arguments.contains("--online-vector") || CommandLine.arguments.contains("--cosmos-review") || CommandLine.arguments.contains("--paper-review") {
+        if CommandLine.arguments.contains("--launch-smoke") || CommandLine.arguments.contains("--online-vector") || CommandLine.arguments.contains("--cosmos-review") || CommandLine.arguments.contains("--paper-review") || CommandLine.arguments.contains("--dapple-review") {
             for kind in SaverKind.allCases { UserDefaults.standard.removePersistentDomain(forName: smokeSuite + kind.rawValue) }
         }
     }
@@ -170,7 +173,63 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
 
 let app = NSApplication.shared
 app.setActivationPolicy(.regular)
-if CommandLine.arguments.contains("--smoke") {
+if CommandLine.arguments.contains("--dapple-gallery") {
+    let folder = CommandLine.arguments.firstIndex(of: "--output").flatMap { i in i+1 < CommandLine.arguments.count ? CommandLine.arguments[i+1] : nil } ?? "build/dapple-gallery"
+    try FileManager.default.createDirectory(atPath:folder,withIntermediateDirectories:true)
+    let gallerySeed = CommandLine.arguments.firstIndex(of: "--seed").flatMap { i in i+1 < CommandLine.arguments.count ? UInt64(CommandLine.arguments[i+1]) : nil } ?? 42
+    let looks: [(DapplePalette,DappleMaterial,DappleMotion)] = [(.meadow,.paper,.hills),(.dusk,.soft,.float),(.nightGarden,.ink,.zen),(.bauhaus,.paper,.playground),(.seaside,.ceramic,.hills),(.autumn,.paper,.hills)]
+    for (palette,material,motion) in looks {
+        let scene = DappleScene(seed:gallerySeed), root = CALayer(), size = CGSize(width:1600,height:1000)
+        var s = SaverSettings(); s.dapple.palette=palette; s.dapple.material=material; s.dapple.motion=motion
+        scene.apply(s); scene.start()
+        for frame in 0...9000 {
+            _ = scene.updateLayer(root,size:size,time:Double(frame)/30,date:Date(timeIntervalSince1970:0))
+            if [0,300,900,1800,3600,5400,9000].contains(frame) {
+                let c = bitmap(width:1600,height:1000)!
+                root.render(in:c); try savePNG(c.makeImage()!, "\(folder)/\(palette.rawValue)-\(frame).png")
+                if palette == .meadow && frame == 3600 {
+                    for comparison in DappleMaterial.allCases {
+                        var samePose = s; samePose.dapple.material = comparison; scene.apply(samePose)
+                        _ = scene.updateLayer(root,size:size,time:Double(frame)/30,date:Date())
+                        root.render(in:c); try savePNG(c.makeImage()!, "\(folder)/material-\(comparison.rawValue).png")
+                    }
+                    scene.apply(s)
+                }
+            }
+        }
+        scene.stop()
+    }
+    let stress: [(Int,Int,DappleDensity,UInt64)] = [(280,180,.balanced,42),(800,1200,.balanced,91),(1600,1000,.sparse,91),(1600,1000,.full,17),(1600,1000,.balanced,91),(1600,1000,.balanced,807)]
+    for (width,height,density,seed) in stress {
+        let scene = DappleScene(seed:seed), root = CALayer(), size = CGSize(width:width,height:height)
+        var s = SaverSettings(); s.dapple.density=density
+        scene.apply(s); scene.start()
+        for frame in 0...9000 {
+            _ = scene.updateLayer(root,size:size,time:Double(frame)/30,date:Date(timeIntervalSince1970:0))
+            if [3600,9000].contains(frame) {
+                let c = bitmap(width:width,height:height)!; root.render(in:c)
+                try savePNG(c.makeImage()!, "\(folder)/stress-\(seed)-\(density.rawValue)-\(width)x\(height)-\(frame).png")
+            }
+        }
+        scene.stop()
+    }
+    for size in [CGSize(width:1920,height:1080),CGSize(width:2560,height:1440),CGSize(width:5120,height:2880),CGSize(width:800,height:1200)] {
+        let scenes = [DappleScene(seed:gallerySeed),DappleScene(seed:91)], roots = [CALayer(),CALayer()]
+        var timings: [Double] = []
+        for scene in scenes { scene.start() }
+        for frame in 0..<900 {
+            let t = ProcessInfo.processInfo.systemUptime
+            for i in 0..<2 { _ = scenes[i].updateLayer(roots[i],size:size,time:Double(frame)/30,date:Date()) }
+            if frame > 0 { timings.append((ProcessInfo.processInfo.systemUptime-t)*1000) }
+        }
+        timings.sort(); print("Dapple two displays \(Int(size.width))x\(Int(size.height)): CPU p50 \(timings[timings.count/2]) ms, p95 \(timings[Int(Double(timings.count)*0.95)]) ms")
+        if size.width <= 2560 {
+            let c = bitmap(width:Int(size.width),height:Int(size.height))!; roots[0].render(in:c)
+            try savePNG(c.makeImage()!, "\(folder)/size-\(Int(size.width))x\(Int(size.height)).png")
+        }
+        for scene in scenes { scene.stop() }
+    }
+} else if CommandLine.arguments.contains("--smoke") {
     let folder = CommandLine.arguments.firstIndex(of: "--output").flatMap { i in i + 1 < CommandLine.arguments.count ? CommandLine.arguments[i + 1] : nil } ?? "build/smoke"
     try FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: true)
     let suiteName = "screensavers.smoke.\(UUID().uuidString)"
@@ -180,7 +239,7 @@ if CommandLine.arguments.contains("--smoke") {
     let map = CityDriftScene(store: store, networkEnabled: false, city: MapCity.all[0]); map.useFixture(fixtureTile())
     let clock = WorldClockScene()
     let sizes = [CGSize(width: 1600, height: 1000), CGSize(width: 1920, height: 1080), CGSize(width: 2560, height: 1080), CGSize(width: 280, height: 180), CGSize(width: 800, height: 1200)]
-    for (name, scene) in [("world-clock-room", clock as SaverScene), ("city-drift-fixture", map as SaverScene), ("voxel-cosmos", VoxelCosmosScene() as SaverScene), ("paper-sky", PaperSkyScene(seed: 42) as SaverScene)] {
+    for (name, scene) in [("world-clock-room", clock as SaverScene), ("city-drift-fixture", map as SaverScene), ("voxel-cosmos", VoxelCosmosScene() as SaverScene), ("paper-sky", PaperSkyScene(seed: 42) as SaverScene), ("dapple", DappleScene(seed: 42) as SaverScene)] {
         scene.start()
         for size in sizes {
             let c = bitmap(width: Int(size.width), height: Int(size.height))!
@@ -307,7 +366,7 @@ if CommandLine.arguments.contains("--smoke") {
         if name != "City Drift" { view.startAnimation(); view.animateOneFrame(); view.stopAnimation() }
         print("Loaded \(name).saver and its configuration sheet")
     }
-    print("Rendered all four savers, five aspect ratios, six map palettes and every cosmos view offline.")
+    print("Rendered all five savers, five aspect ratios, six map palettes and every cosmos view offline.")
 } else {
     let delegate = PreviewDelegate(); app.delegate = delegate; app.run()
 }

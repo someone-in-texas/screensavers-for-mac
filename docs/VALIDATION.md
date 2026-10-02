@@ -1,5 +1,35 @@
 # Validation
 
+## v0.6.0 change validation
+
+- `make release-check` passed: 18,366 offline checks, zero failures, all five actual
+  bundles loaded, 30 Options open/Done/reopen cycles with native callbacks and
+  another 30 with the fallback timer. The mounted DMG and expanded ZIP passed
+  checksum, architecture, metadata, thumbnail, unique-identifier, and signature
+  verification. Builds are ad-hoc signed, not notarized.
+
+- Dapple deterministic coverage includes seeded generation and pixels, palette roles,
+  settings migration/bounds/round-trip, daily restart behavior, 30/60 Hz equivalence,
+  ten-minute dense portrait runs in every motion mode, unequal-mass contact separation
+  and energy, terrain continuity/derivatives, material differences, cached textures,
+  bounded layers, toggles, and suspended-time exclusion.
+- Five sequential art-critic rounds refined long queues into temporary neighborhoods,
+  separated rotating grain from stationary light/shadows, fixed texture scale,
+  decoupled colors from lanes, and softened ceramic edges. Final evidence covers
+  two- and five-minute poses across seeds 17, 42, 91, and 807, small (280×180), portrait,
+  sparse/full populations, and four materials at an identical pose. Hero screenshots
+  come from the actual renderer, with Meadow/Paper/Hills and Night Garden/Ink/Zen.
+- A 200-second native Retina preview produced 5,983 frames: CPU update p50 0.244 ms,
+  p95 0.465 ms, maximum 0.692 ms. The native Dapple options sheet was visually checked.
+  Final paired-renderer measurements at 1920×1080, 2560×1440, and 5120×2880 stayed
+  below 0.083 ms CPU p95 per pair after initialization; portrait was below 0.046 ms.
+  These timings measure CPU simulation/layer publication, not GPU cost, energy,
+  physical scanout, or performance on every supported Mac/macOS release.
+- City Drift’s featured image is a native capture of online San Francisco vector
+  data, with water, parks, street labels, points of interest, and OSM attribution.
+  No downloaded tile archive is included in the repository or release.
+
+
 ## v0.5.0 change validation
 
 - `Scripts/release-check.sh` passed locally: 15,449 checks, zero failures, both

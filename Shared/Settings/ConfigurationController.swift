@@ -18,7 +18,7 @@ final class ConfigurationController: NSWindowController {
     private var controls: [String: NSControl] = [:]
     init(store: SettingsStore, changed: @escaping (SaverSettings) -> Void) {
         self.store = store; self.changed = changed
-        super.init(window: NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: store.kind == .worldClockRoom ? 400 : store.kind == .voxelCosmos ? 650 : 610), styleMask: [.titled], backing: .buffered, defer: false))
+        super.init(window: NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: store.kind == .worldClockRoom ? 400 : store.kind == .dapple ? 700 : store.kind == .voxelCosmos ? 650 : 610), styleMask: [.titled], backing: .buffered, defer: false))
         window?.title = store.kind.title
         window?.isReleasedWhenClosed = false
         build()
@@ -77,6 +77,28 @@ final class ConfigurationController: NSWindowController {
             let note = NSTextField(wrappingLabelWithString: "A miniature imagined cosmos. Distances and sizes are artistic. Entirely offline. Zero motion holds drift; timed view changes continue.")
             note.font = .systemFont(ofSize: 11); note.textColor = .secondaryLabelColor
             note.frame = NSRect(x: 28, y: 61, width: 424, height: 38); content.addSubview(note)
+        } else if store.kind == .dapple {
+            func popup(_ titles: [String], _ index: Int) -> NSPopUpButton {
+                let p = NSPopUpButton(); p.addItems(withTitles: titles); p.selectItem(at: index); return p
+            }
+            let v = s.dapple
+            row("Palette", "dapplePalette", popup(DapplePalette.allCases.map { $0.title }, DapplePalette.allCases.firstIndex(of: v.palette)!))
+            row("Material", "dappleMaterial", popup(DappleMaterial.allCases.map { $0.rawValue.capitalized }, DappleMaterial.allCases.firstIndex(of: v.material)!))
+            row("Motion", "dappleMotion", popup(DappleMotion.allCases.map { $0.rawValue.capitalized }, DappleMotion.allCases.firstIndex(of: v.motion)!))
+            row("Dot count", "dappleDensity", popup(DappleDensity.allCases.map { $0.rawValue.capitalized }, DappleDensity.allCases.firstIndex(of: v.density)!))
+            row("Dot size", "dappleSize", popup(DappleSize.allCases.map { $0.rawValue.capitalized }, DappleSize.allCases.firstIndex(of: v.size)!))
+            row("Scene seed", "dappleSeedBehavior", popup(DappleSeed.allCases.map { $0.title }, DappleSeed.allCases.firstIndex(of: v.seedBehavior)!))
+            let seed = NSTextField(string: String(v.seed))
+            row("Fixed seed", "dappleSeed", seed)
+            row("Motion speed", "dappleSpeed", slider(v.speed, 0.35, 1.7))
+            row("Surface texture", "dappleTexture", slider(v.texture, 0, 1))
+            row("Soft shadows", "dappleShadows", check(v.shadows))
+            row("Paper background", "dappleBackground", check(v.backgroundTexture))
+            row("Occasional events", "dappleEvents", check(v.events))
+            let note = NSTextField(wrappingLabelWithString: "Tactile circles, invisible hills, unhurried surprises. Daily scenes use the UTC date; a fixed seed repeats the same starting composition. Entirely offline.")
+            note.font = .systemFont(ofSize: 11); note.textColor = .secondaryLabelColor
+            note.frame = NSRect(x: 28, y: 72, width: 424, height: 65); content.addSubview(note)
+            updateAvailability(s)
         } else if store.kind == .paperSky {
             func popup(_ titles: [String], _ index: Int) -> NSPopUpButton {
                 let p = NSPopUpButton(); p.addItems(withTitles: titles); p.selectItem(at: index); return p
@@ -171,9 +193,25 @@ final class ConfigurationController: NSWindowController {
         if let c = controls["paperTrails"] as? NSButton { value.paperSky.trails = c.state == .on }
         if let c = controls["paperSun"] as? NSButton { value.paperSky.sun = c.state == .on }
         controls["paperDurationValue"]?.stringValue = "\(Int(value.paperSky.secondsPerView)) s"
+        if let c = controls["dapplePalette"] as? NSPopUpButton { value.dapple.palette = DapplePalette.allCases[c.indexOfSelectedItem] }
+        if let c = controls["dappleMaterial"] as? NSPopUpButton { value.dapple.material = DappleMaterial.allCases[c.indexOfSelectedItem] }
+        if let c = controls["dappleMotion"] as? NSPopUpButton { value.dapple.motion = DappleMotion.allCases[c.indexOfSelectedItem] }
+        if let c = controls["dappleDensity"] as? NSPopUpButton { value.dapple.density = DappleDensity.allCases[c.indexOfSelectedItem] }
+        if let c = controls["dappleSize"] as? NSPopUpButton { value.dapple.size = DappleSize.allCases[c.indexOfSelectedItem] }
+        if let c = controls["dappleSeedBehavior"] as? NSPopUpButton { value.dapple.seedBehavior = DappleSeed.allCases[c.indexOfSelectedItem] }
+        if let c = controls["dappleSpeed"] { value.dapple.speed = c.doubleValue }
+        if let c = controls["dappleTexture"] { value.dapple.texture = c.doubleValue }
+        if let c = controls["dappleShadows"] as? NSButton { value.dapple.shadows = c.state == .on }
+        if let c = controls["dappleBackground"] as? NSButton { value.dapple.backgroundTexture = c.state == .on }
+        if let c = controls["dappleEvents"] as? NSButton { value.dapple.events = c.state == .on }
+        if let c = controls["dappleSeed"] {
+            if let seed = UInt64(c.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)) { value.dapple.seed = seed }
+            else { c.stringValue = String(value.dapple.seed) }
+        }
         store.value = value; changed(value); updateAvailability(value)
     }
     private func updateAvailability(_ value: SaverSettings) {
+        controls["dappleSeed"]?.isEnabled = value.dapple.seedBehavior == .fixed
         for key in ["streetLabels", "water", "parks", "pointsOfInterest"] { controls[key]?.isEnabled = value.mapStyle != .traditional }
         for key in ["grain", "intensity"] { controls[key]?.isEnabled = value.mapStyle == .traditional }
     }

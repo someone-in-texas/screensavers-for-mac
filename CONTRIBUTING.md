@@ -13,7 +13,7 @@ Edit Swift files directly, then rebuild. The preview app uses the same scenes,
 settings and ScreenSaverView wrapper as the installed modules. Its controls switch
 scenes, open native configuration sheets and enter full screen. Quit the old preview
 before rebuilding. `make install` installs only for your user; `make uninstall`
-removes the three bundles and preserves preferences/cache.
+removes the five bundles and preserves preferences/cache.
 
 Keep PRs focused. Describe visible behavior and validation. Include screenshots for
 visual changes, test boundary cases for time/map/cache changes, and keep automated

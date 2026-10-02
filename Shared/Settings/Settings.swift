@@ -2,9 +2,9 @@ import AppKit
 import ScreenSaver
 
 enum SaverKind: String, CaseIterable {
-    case worldClockRoom, cityDrift, voxelCosmos, paperSky
+    case worldClockRoom, cityDrift, voxelCosmos, paperSky, dapple
     var title: String {
-        switch self { case .worldClockRoom: return "World Clock Room"; case .cityDrift: return "City Drift"; case .voxelCosmos: return "Voxel Cosmos"; case .paperSky: return "Paper Sky" }
+        switch self { case .worldClockRoom: return "World Clock Room"; case .cityDrift: return "City Drift"; case .voxelCosmos: return "Voxel Cosmos"; case .paperSky: return "Paper Sky"; case .dapple: return "Dapple" }
     }
     var identifier: String { "com.someoneintexas.screensavers.\(rawValue.lowercased())" }
 }
@@ -24,6 +24,7 @@ enum MapPalette: String, CaseIterable, Codable { case original, ink, blueprint, 
 enum MapStyle: String, CaseIterable, Codable { case online, lines, traditional }
 
 struct SaverSettings: Codable, Equatable {
+    var dapple = DappleSettings()
     var cosmos = CosmosSettings()
     var paperSky = PaperSkySettings()
     var floor = RGB(0.16, 0.20, 0.22)
@@ -45,13 +46,14 @@ struct SaverSettings: Codable, Equatable {
     var pointsOfInterest = false
     init() {}
     private enum CodingKeys: String, CodingKey {
-        case cosmos, paperSky
+        case cosmos, paperSky, dapple
         case floor, face, speed, density, smoothSeconds, labels, palette, intensity, grain, vignette
         case mapSourceVersion, mapStyle, streetLabels, water, parks, pointsOfInterest
     }
     init(from decoder: Decoder) throws {
         self.init()
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        dapple = try c.decodeIfPresent(DappleSettings.self, forKey: .dapple) ?? dapple
         paperSky = try c.decodeIfPresent(PaperSkySettings.self, forKey: .paperSky) ?? paperSky
         cosmos = try c.decodeIfPresent(CosmosSettings.self, forKey: .cosmos) ?? cosmos
         floor = try c.decodeIfPresent(RGB.self, forKey: .floor) ?? floor
@@ -73,6 +75,7 @@ struct SaverSettings: Codable, Equatable {
     }
     func sanitized() -> Self {
         var copy = self
+        copy.dapple = dapple.sanitized()
         copy.cosmos = cosmos.sanitized()
         copy.paperSky = paperSky.sanitized()
         if !copy.floor.valid { copy.floor = Self().floor }

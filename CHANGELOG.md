@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.6.0
+
+- Add **Dapple**, an entirely offline piece of generative kinetic art: tactile circles,
+  invisible rolling hills, soft contacts, occasional hops, and slow moments of stillness.
+- Four motion modes (Hills, Float, Playground, Zen), eight palettes, and Paper, Ink,
+  Ceramic, and Soft materials; native controls for population, size, speed, textures,
+  shadows, events, and fresh/daily/fixed seeds.
+- Integrate Dapple into PreviewHost, bundle loading, install/uninstall, DMG/ZIP packaging,
+  and verification. Cache procedural textures; advance a separate seeded simulation
+  at fixed timesteps and publish complete 30 FPS Core Animation updates.
+- Replace City Drift’s featured offline Paris image with an actual online San Francisco
+  capture. Streamline the README and move picker/Options details into troubleshooting.
+
+
 ## 0.5.0
 
 - Add **Paper Sky**, an offline procedural paper-airplane flight through synthwave sunsets, with isometric, follow and side-on cameras, evolving palettes, layered clouds and arriving/departing companion planes.

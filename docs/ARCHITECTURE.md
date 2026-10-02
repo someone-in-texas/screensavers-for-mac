@@ -144,7 +144,7 @@ universal release using the same source and bundle metadata.
 The build makes optimized binaries, then ad-hoc signs them. Packaging stages copies,
 optionally re-signs with Developer ID, creates a DMG, optionally notarizes/staples it,
 creates a ZIP and hashes the deliverables. Verification mounts the DMG, expands the
-ZIP and checks all three bundles. Release Actions build the exact version tag and publish
+ZIP and checks all five bundles. Release Actions build the exact version tag and publish
 only after tests and package verification pass. Ordinary CI needs no signing secrets.
 
 ## Configuration lifecycle
@@ -251,3 +251,28 @@ is published inside a disabled-animation transaction. The outgoing snapshot rema
 immutable throughout the shot dissolve. Composition anchors cycle through center
 and four quadrants; the fit scale reserves space around each anchor in either aspect
 ratio. A new optional stored composition preserves decoding of v0.4 preferences.
+
+
+## Dapple (0.6)
+
+Dapple separates typed settings/palettes, SplitMix64 generation, a 900-unit simulation,
+procedural texture generation, and Core Animation presentation. The simulation uses
+120 Hz fixed substeps with an accumulator, delta caps, bounded velocities, inverse-mass
+contact response, and two soft position-correction passes. The view publishes at 30 Hz.
+Three broad invisible contours support Hills and Playground; individual contour offsets,
+slow migrations, and anticipatory spacing prevent permanent queues. Float and Zen follow
+low-frequency flow fields. Events introduce occasional stronger hops and a smooth lull.
+
+Dot counts adapt to aspect ratio and remain bounded at 48. Position/velocity, contact
+compression, phase, radius, and rolling angle live in simulation state. No randomness is
+consumed during integration or rendering. A fixed seed, viewport, settings, and timestep
+sequence reproduce a scene; daily seeds use the UTC date at scene creation. Fresh seeds
+are independent for each scene instance. Resizing recreates the composition from its seed.
+
+Each dot has a cached pigment/fiber image that rotates beneath a stationary light overlay.
+Unrotated parents hold soft shadows and contact deformation. Texture generation and shadow
+paths are refreshed only when appearance or scale changes. A fine tiled background image
+is cached at a bounded backing size; there is no per-frame noise generation or networking.
+`PreviewHost --dapple-gallery --output <folder>` renders the review palettes and profiles
+two simultaneous scenes at 1080p, 1440p, 5K, and portrait sizes. `--dapple-review --profile`
+uses temporary preferences and a repeatable seed for live motion review.
