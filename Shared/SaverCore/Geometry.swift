@@ -54,8 +54,8 @@ enum Iso {
 struct MotionClock {
     private(set) var elapsed = 0.0
     private var previous: Double?
-    mutating func step(now: Double, speed: Double) {
-        if let previous { elapsed += max(0, min(now - previous, 0.25)) * speed }
+    mutating func step(now: Double, speed: Double, maximumStep: Double = 0.25) {
+        if let previous { elapsed += max(0, min(now - previous, maximumStep)) * speed }
         previous = now
     }
     mutating func pause() { previous = nil }

@@ -144,10 +144,12 @@ final class TileLoader {
     private let transport: TileTransport
     private let provider: TileProvider
     private var pending: [TileID] = []
+    private var visibleIDs = Set<TileID>()
     private var active: [TileID: TileCancellation] = [:]
     private var completed = Set<TileID>()
     private var failed = Set<TileID>()
     private var requestCount = 0
+    private var generation = 0
     private var stopped = false
     private var cooldown = Date.distantPast
     private let deliver: (TileID, CGImage) -> Void
@@ -162,10 +164,22 @@ final class TileLoader {
             guard let self, !self.stopped else { return }
             // Replace the queue on resize: never finish fetching an obsolete viewport.
             let visible = Set(ids)
+            self.visibleIDs = visible
+            self.completed.formIntersection(visible)
             for (id, task) in self.active where !visible.contains(id) { task.cancel() }
             self.pending = Array(Set(ids)).filter { !self.completed.contains($0) && !self.failed.contains($0) && self.active[$0] == nil }
                 .sorted { $0.key < $1.key }
             self.pump()
+        }
+    }
+    /// A new displayed city gets a fresh budget, but server backoff survives the transition.
+    func beginVisit() {
+        queue.async { [weak self] in
+            guard let self, !self.stopped else { return }
+            self.generation += 1
+            self.active.values.forEach { $0.cancel() }; self.active.removeAll()
+            self.pending.removeAll(); self.visibleIDs.removeAll(); self.completed.removeAll(); self.failed.removeAll()
+            self.requestCount = 0
         }
     }
     func stop() {
@@ -187,18 +201,23 @@ final class TileLoader {
             let cached = cache.read(id)
             if let cached, cached.expires > Date(), let image = TileCache.decode(cached.data) { emit(id, image); continue }
             if let cached, !cached.mustRevalidate, let image = TileCache.decode(cached.data) { emit(id, image) }
-            guard requestCount < 96, Date() >= cooldown, let url = provider.url(id) else { continue }
+            guard requestCount < 256, Date() >= cooldown, let url = provider.url(id) else { continue }
             requestCount += 1
             var request = URLRequest(url: url)
             request.setValue("ScreensaversForMac/\(BuildVersion.value) (+https://github.com/someone-in-texas/screensavers-for-mac)", forHTTPHeaderField: "User-Agent")
             if let etag = cached?.etag { request.setValue(etag, forHTTPHeaderField: "If-None-Match") }
             if let modified = cached?.modified { request.setValue(modified, forHTTPHeaderField: "If-Modified-Since") }
+            let visit = generation
             active[id] = transport.fetch(request) { [weak self] data, response, error in
                 guard let self else { return }
                 self.queue.async {
+                    guard !self.stopped, self.generation == visit else { return }
                     self.active.removeValue(forKey: id)
-                    guard !self.stopped else { return }
                     defer { self.pump() }
+                    if let error = error as? URLError, error.code == .cancelled {
+                        if self.visibleIDs.contains(id) { self.pending.append(id) }
+                        return
+                    }
                     guard error == nil, let response else { self.failed.insert(id); return }
                     if response.statusCode == 429 || response.statusCode == 503 {
                         let delay = Double(response.value(forHTTPHeaderField: "Retry-After") ?? "") ?? 300

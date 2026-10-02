@@ -12,8 +12,10 @@ or dynamic package is required. No private entitlements, web content or runtime 
 and starts the scene; `stopAnimation` cancels work. The development app uses the same
 wrapper and macOS timer. Scenes present a cached Core Animation layer tree, updating
 transforms at 30 Hz; reference Core Graphics rendering also supports offline snapshots.
-The map viewport preserves aspect ratio and caps at 1792 × 1120 pixels, then scales on
-Retina / 5K screens. Clock floor textures are rendered at twice that working resolution
+The map viewport follows the window backing scale, preserves aspect ratio and caps
+at 3840 × 2560 pixels in either orientation. Individual 256-pixel tile layers retain
+native detail up to 4K; larger displays scale within the cap. Clock floor textures
+use a separate 1792 × 1120 working viewport, rendered at twice that resolution
 once per layout/settings change, with vector hand layers. This bounds rendering and
 bandwidth without continuously repainting the surface. There is no fixed screen aspect ratio.
 
@@ -40,7 +42,9 @@ Only vector hand transforms and the gently moving camera change per frame. Floor
 - `com.someoneintexas.screensavers.worldclockroom`
 - `com.someoneintexas.screensavers.citydrift`
 
-A versioned Codable record validates values and falls back to defaults when corrupt.
+The v2 settings record expands camera speed from 0–2 to 0–16, defaulting to 6.
+Legacy speeds are multiplied by six once, preserving zero and other appearance
+preferences. Reset clears both versions. A versioned Codable record validates values and falls back to defaults when corrupt.
 AppKit color wells, sliders, checkboxes and a palette popup save immediately and
 update the open preview. Reset removes only appearance settings, preserving recent
 cities. Each saver instance owns its scene and settings UI. Cross-process changes
@@ -50,14 +54,20 @@ are picked up at the next animation start; they are not broadcast during a sessi
 
 The editable 64-city source catalog contains names, regions, coordinates and zoom.
 The previous eight cities are excluded from the next random choice. Each instance
-stays in one city, at one zoom. The camera follows a smooth bounded path within
-±80 / ±55 map pixels, preventing endless tile churn. A view requests only the tiles
+changes cities after four minutes of active elapsed time, fading out over 1.5 seconds
+before selecting the next city. A fixed PreviewHost city stays fixed. The camera
+follows a rotated 160 × 120 pixel ellipse whose speed never falls to zero, with
+a different route bearing per city. Camera speed zero pauses travel but not city
+changes. A separate uncapped monotonic timer keeps the city deadline accurate even
+when frames are delayed; camera deltas remain capped to avoid jumps.
+A view requests only the tiles
 intersecting its current capped viewport, with no extra prefetch margin.
 
 A background serial queue owns tile scheduling and cache access. Up to two requests
-run per scene; each scene has a hard limit of 96 network requests per session.
-Failures are attempted once per session, while 429/503 responses halt the pending
-queue and impose a cooldown. Stopping cancels requests, invalidates the session, and
+run per scene; each city visit has a hard limit of 256 network requests.
+Failures are attempted once per visit, while 429/503 responses halt the pending
+queue and impose a cooldown that survives city transitions. No next-city tiles
+are requested until that city is displayed. Stopping cancels requests, invalidates the session, and
 rejects late callbacks by a scene generation number. Multiple instances have independent
 motion and request state; atomic cache records are safe to share across processes.
 
@@ -76,12 +86,13 @@ records are ignored. Files live below the user's caches directory at
 Pruning targets 192 MiB but preserves unexpired records and a minimum seven-day
 retention window, so it is a soft disk limit. There is no offline download feature.
 
-Available tiles are composed into a bounded atlas, then graded with Core Image only
-when imagery/settings change, batched at most four times per second during loading.
-Animation translates a cached image layer; vignette and typography live in a separate
-cached overlay. Downloads are cancelled if their response exceeds 512 KB; decoding
-accepts only single-frame 256 × 256 images. Atlas changes
-cross-fade, and static optional grain does not shimmer. Opaque overlay backgrounds
+Available tiles are graded individually with Core Image only when imagery/settings
+change. Animation moves cached tile layers; vignette and typography live in a
+separate overlay rasterized at the display detail level. Offscreen decoded tiles
+and layers are discarded; revisits reload from the HTTP-aware disk cache. New tile
+layers fade in over 1.2 seconds. Downloads are cancelled if their response exceeds
+512 KB; decoding accepts only single-frame 256 × 256 images. Static optional grain
+does not shimmer. Opaque overlay backgrounds
 preserve contrast for city names and permanent attribution across all six palettes.
 Offline with no cached tiles shows the palette background and city/attribution.
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.1
+
+- Both savers: camera speed now spans 0–16, with a default of 6. Existing speed preferences migrate to the faster range; paused cameras stay paused.
+- City Drift: smoothly changing horizontal, vertical and diagonal travel without stationary turns, plus a new city every four minutes while running.
+- Retina-aware map rendering uses individual native tiles and sharp overlays, capped at 3840 × 2560 pixels (orientation independent), instead of enlarging a 1792 × 1120 map image.
+- Per-city tile budgets, cancellation, cache revisits and server backoff remain bounded across transitions. No city preloading.
+- Added long-session, direction, migration, Retina and transition/network regression checks.
+
 ## 0.1.0
 
 - World Clock Room: isometric clock floor, 20 IANA time zones, smooth hands, configurable colors and motion.

@@ -53,6 +53,8 @@ jobs:
           - **World Clock Room** — an isometric clock installation with real local times, smooth hands and configurable colors.
           - **City Drift** — slow journeys through 64 world cities, with six cartographic palettes and conservative cached OpenStreetMap tiles.
 
+          This update increases camera speeds in both savers, adds varied map travel and automatic city changes every four minutes, and improves Retina map detail up to a bounded 4K-class viewport. Existing appearance preferences migrate automatically; paused cameras stay paused.
+
           Download the DMG, open it, and double-click each `.saver` to install for the current user. Select the saver in System Settings → Wallpaper → Screen Saver (or Screen Saver on older macOS), then open its options. The ZIP contains the same bundles. Verify downloads with `shasum -a 256 -c SHA256SUMS` from the directory containing both downloads.
 
           City Drift requests tiles for the displayed public city. No location access, analytics or telemetry. Map data © OpenStreetMap contributors.

@@ -48,9 +48,20 @@ expect(SettingsStore(.worldClockRoom, defaults: UserDefaults(suiteName: suiteA)!
 expect(b.value == SaverSettings(), "settings are isolated")
 expect(SaverKind.worldClockRoom.identifier != SaverKind.cityDrift.identifier, "unique production domains")
 value.speed = .infinity; value.density = -500; value.floor = RGB(-1, 8, 3)
-expect(value.sanitized().speed == 1 && value.sanitized().density == 0.7 && value.sanitized().floor == SaverSettings().floor, "sanitize invalid settings")
-defaultsA.set(Data("invalid".utf8), forKey: "settings.v1"); expect(a.value == SaverSettings(), "corrupt settings fallback")
+expect(value.sanitized().speed == 6 && value.sanitized().density == 0.7 && value.sanitized().floor == SaverSettings().floor, "sanitize invalid settings")
+defaultsA.set(Data("invalid".utf8), forKey: "settings.v2"); expect(a.value == SaverSettings(), "corrupt settings fallback")
 a.value = value.sanitized(); a.reset(); expect(a.value == SaverSettings(), "reset defaults")
+
+// Upgrade existing appearance preferences once, including an explicitly paused camera.
+var legacy = SaverSettings(); legacy.speed = 1.5; legacy.palette = .terminal
+try! defaultsA.set(JSONEncoder().encode(legacy), forKey: "settings.v1")
+expect(a.value.speed == 9 && a.value.palette == .terminal, "legacy motion upgrade preserves appearance")
+expect(a.value.speed == 9, "migration is not applied twice")
+a.reset(); legacy.speed = 0
+try! defaultsA.set(JSONEncoder().encode(legacy), forKey: "settings.v1")
+expect(a.value.speed == 0, "migration preserves pause")
+a.reset()
+expect(SaverSettings().speed == 6 && SaverSettings.maximumSpeed == 16, "new motion defaults and range")
 
 // Wall time and DST use Calendar + IANA zones, not a table of offsets.
 expect(ClockCity.all.count == 20, "clock catalog size")
@@ -95,18 +106,33 @@ expect(exact.count == 1 && exact[0].id == TileID(z: 2, x: 1, y: 1), "no unnecess
 let wrapped = Mercator.viewport(center: CGPoint(x: 0, y: 256), size: CGSize(width: 512, height: 256), zoom: 2)
 expect(Set(wrapped.map { $0.id.x }) == Set([0, 3]), "viewport antimeridian wrap")
 for dimensions in [CGSize(width: 5120, height: 2880), CGSize(width: 3440, height: 1440), CGSize(width: 200, height: 300), CGSize(width: 1000, height: 5000)] {
-    let capped = Mercator.renderSize(dimensions)
-    expect(capped.width <= 1792 && capped.height <= 1120, "render cap")
+    let capped = Mercator.mapRenderSize(dimensions)
+    expect(max(capped.width, capped.height) <= 3840 && min(capped.width, capped.height) <= 2560, "map render cap")
     near(capped.width / capped.height, dimensions.width / dimensions.height, "cap preserves aspect")
     var union = Set<TileID>()
     for time in stride(from: 0.0, through: 20000, by: 13) {
         let drift = Mercator.drift(time)
-        expect(abs(drift.x) <= 80 && abs(drift.y) <= 55, "bounded movement")
+        expect(abs(drift.x) <= 160 && abs(drift.y) <= 120, "bounded movement")
         let visible = Mercator.viewport(center: CGPoint(x: 180032 + drift.x, y: 220035 + drift.y), size: capped, zoom: 14)
         union.formUnion(visible.map(\.id))
-        expect(visible.count <= 48, "bounded visible tile count")
+        expect(visible.count <= 176, "bounded visible tile count")
     }
-    expect(union.count <= 63, "long sessions use bounded neighborhood")
+    expect(union.count <= 256, "long sessions use bounded neighborhood")
+}
+let retina = Mercator.mapRenderSize(CGSize(width: 1920, height: 1080), backingScale: 2)
+expect(retina == CGSize(width: 3840, height: 2160), "4K display uses native pixels")
+let fiveK = Mercator.mapRenderSize(CGSize(width: 2560, height: 1440), backingScale: 2)
+expect(fiveK == CGSize(width: 3840, height: 2160), "5K display retains 4K detail within budget")
+for bearing in [0.0, 0.7, 1.8, 3.0] {
+    var horizontal = false, vertical = false, left = false, right = false, up = false, down = false
+    for t in stride(from: 0.0, through: 630, by: 1) {
+        let p = Mercator.drift(t, bearing: bearing), q = Mercator.drift(t + 0.01, bearing: bearing)
+        let dx = (q.x - p.x) / 0.01, dy = (q.y - p.y) / 0.01
+        expect(hypot(dx, dy) >= 1.19 && hypot(dx, dy) <= 1.61, "camera never stalls or accelerates abruptly")
+        horizontal = horizontal || abs(dx) > abs(dy) * 2; vertical = vertical || abs(dy) > abs(dx) * 2
+        left = left || dx < -0.5; right = right || dx > 0.5; up = up || dy > 0.5; down = down || dy < -0.5
+    }
+    expect(horizontal && vertical && left && right && up && down, "route varies direction in every city")
 }
 expect((50...100).contains(MapCity.all.count), "curated catalog size")
 expect(Set(MapCity.all.map(\.name)).count == MapCity.all.count, "unique cities")
@@ -123,6 +149,48 @@ let fixedScene = CityDriftScene(store: b, networkEnabled: false, city: MapCity.a
 fixedScene.start(); fixedScene.stop(); fixedScene.start()
 expect(fixedScene.city == MapCity.all[0], "explicit preview city stays fixed")
 fixedScene.stop()
+
+// Simulate twelve minutes without rendering or live network; include slow/paused camera.
+let touring = CityDriftScene(store: b, networkEnabled: false)
+var paused = SaverSettings(); paused.speed = 0; touring.apply(paused); touring.start()
+var visited = [touring.city.name]
+for frame in 0...2884 {
+    touring.advance(time: Double(frame) / 4)
+    if touring.city.name != visited.last { visited.append(touring.city.name) }
+}
+expect(visited.count == 3 && Set(visited).count == 3, "automatic city changes without restart or camera motion")
+touring.stop(); let stoppedCity = touring.city
+touring.advance(time: 90000)
+expect(touring.city == stoppedCity, "stopped saver does not tour")
+fixedScene.start()
+for frame in 0...2000 { fixedScene.advance(time: Double(frame) / 4) }
+expect(fixedScene.city == MapCity.all[0], "explicit preview city does not auto-cycle")
+fixedScene.stop()
+let delayed = CityDriftScene(store: b, networkEnabled: false)
+delayed.start(); let delayedCity = delayed.city
+delayed.advance(time: 0); delayed.advance(time: 240.75)
+near(delayed.transitionOpacity, 0.5, "city fades before transition even after delayed frames")
+delayed.advance(time: 241.5)
+expect(delayed.city != delayedCity && delayed.transitionOpacity == 1, "city deadline follows elapsed time rather than frame count")
+delayed.stop()
+
+// The real layer renderer consumes backing pixels, retaining 256-pixel tile detail.
+let crisp = CityDriftScene(store: b, networkEnabled: false, city: MapCity.all[0])
+crisp.useFixture(TileCache.decode(tilePNG())!); crisp.start()
+let root = CALayer(); root.contentsScale = 2
+let logical = CGSize(width: 2560, height: 1440)
+root.bounds = CGRect(origin: .zero, size: logical)
+CATransaction.begin(); CATransaction.setDisableActions(true)
+expect(crisp.updateLayer(root, size: logical, time: 0, date: fixed), "Retina map layer render")
+_ = crisp.updateLayer(root, size: logical, time: 2, date: fixed)
+let mapLayers = root.sublayers![0].sublayers!
+expect(!mapLayers.isEmpty && mapLayers.count <= 176, "bounded Retina tile layers")
+expect(mapLayers.allSatisfy { ($0.contents as! CGImage).width == 256 && $0.opacity == 1 }, "native tile detail and completed fade")
+expect((root.sublayers![1].contents as! CGImage).width == 3840, "Retina overlay raster matches high detail viewport")
+root.contentsScale = 1
+_ = crisp.updateLayer(root, size: logical, time: 3, date: fixed)
+expect((root.sublayers![1].contents as! CGImage).width == 2560, "backing scale change rebuilds overlay")
+CATransaction.commit(); crisp.stop()
 
 // HTTP cache semantics and invalid data.
 let now = Date(timeIntervalSince1970: 1700000000), png = tilePNG()
@@ -184,10 +252,13 @@ limited.calls[0].completion(nil, response(429, ["Retry-After": "120"]), nil)
 limited.calls[1].completion(nil, response(500), nil)
 RunLoop.main.run(until: Date().addingTimeInterval(0.05))
 expect(limited.calls.count == 2, "429 clears pending queue and backs off")
+limitedLoader.beginVisit()
+limitedLoader.request([third]); RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+expect(limited.calls.count == 2, "server backoff survives city change")
 limitedLoader.stop()
 let budgetTransport = MockTransport()
 let budgetLoader = TileLoader(cache: TileCache(directory: temp.appendingPathComponent("budget")), transport: budgetTransport) { _, _ in }
-let many = (0..<110).map { TileID(z: 8, x: $0, y: 0)! }
+let many = (0..<280).map { TileID(z: 8, x: $0 % 256, y: $0 / 256)! }
 budgetLoader.request(many)
 var finished = 0
 waitUntil({
@@ -196,16 +267,33 @@ waitUntil({
         current[finished].completion(nil, response(404), nil)
         finished += 1
     }
-    return finished == 96
+    return finished == 256
 })
 RunLoop.main.run(until: Date().addingTimeInterval(0.05))
-expect(budgetTransport.calls.count == 96, "hard session budget under repeated failures")
+expect(budgetTransport.calls.count == 256, "hard city budget under repeated failures")
+budgetLoader.beginVisit(); budgetLoader.request([first, second])
+waitUntil { budgetTransport.calls.count == 258 }
+expect(budgetTransport.calls.count == 258, "new city resets the bounded request allowance")
 budgetLoader.stop()
+let visitsTransport = MockTransport(); var visitsDelivered = 0
+let visitsLoader = TileLoader(cache: TileCache(directory: temp.appendingPathComponent("visits")), transport: visitsTransport) { _, _ in visitsDelivered += 1 }
+visitsLoader.request([first]); waitUntil { visitsTransport.calls.count == 1 }
+let abandoned = visitsTransport.calls[0]
+visitsLoader.beginVisit(); visitsLoader.request([first, second, third])
+waitUntil { visitsTransport.calls.count == 3 }
+expect(abandoned.token.cancelled, "city change cancels previous tile tasks")
+abandoned.completion(png, response(200, ["Content-Type": "image/png"]), nil)
+RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+expect(visitsDelivered == 0 && visitsTransport.calls.count == 3, "late old-city response cannot deliver or free a new request slot")
+visitsLoader.stop()
 let cachedTransport = MockTransport(); var cachedDelivered = false
 cache.write(CachePolicy.entry(data: png, response: response(200, ["Cache-Control": "max-age=3600"]), now: Date()), id: third)
 let cachedLoader = TileLoader(cache: cache, transport: cachedTransport) { _, _ in cachedDelivered = true }
 cachedLoader.request([third]); waitUntil { cachedDelivered }
 expect(cachedDelivered && cachedTransport.calls.isEmpty, "fresh cache requires no network")
+cachedLoader.request([])
+cachedLoader.request([third]); cachedDelivered = false; waitUntil { cachedDelivered }
+expect(cachedDelivered && cachedTransport.calls.isEmpty, "revisited tile returns from cache after leaving viewport")
 cachedLoader.stop()
 print("\(checks) checks, \(failures) failures (no live network requests).")
 exit(failures == 0 ? 0 : 1)

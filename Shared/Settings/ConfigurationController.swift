@@ -44,7 +44,7 @@ final class ConfigurationController: NSWindowController {
             let floor = PickerColorWell(); floor.color = s.floor.color
             let face = PickerColorWell(); face.color = s.face.color
             row("Floor color", "floor", floor); row("Clock color", "face", face)
-            row("Camera speed", "speed", slider(s.speed, 0, 2))
+            row("Camera speed", "speed", slider(s.speed, 0, SaverSettings.maximumSpeed))
             row("Clock density", "density", slider(s.density, 0.7, 1.4))
             row("Smooth seconds", "smooth", check(s.smoothSeconds))
             row("City labels", "labels", check(s.labels))
@@ -52,7 +52,7 @@ final class ConfigurationController: NSWindowController {
             let palette = NSPopUpButton(); palette.addItems(withTitles: MapPalette.allCases.map { $0.rawValue.capitalized })
             palette.selectItem(at: MapPalette.allCases.firstIndex(of: s.palette)!)
             row("Color scheme", "palette", palette)
-            row("Movement speed", "speed", slider(s.speed, 0, 2))
+            row("Movement speed", "speed", slider(s.speed, 0, SaverSettings.maximumSpeed))
             row("Effect intensity", "intensity", slider(s.intensity, 0, 1))
             row("Paper grain", "grain", check(s.grain))
             row("Soft vignette", "vignette", check(s.vignette))

@@ -1,4 +1,18 @@
-# v0.1.0 validation
+# Validation
+
+## v0.1.1 change validation
+
+- Offline regression coverage includes one-time preference migration, zero-speed
+  preservation, continuous movement through turns, all travel directions, twelve
+  simulated minutes of city changes, delayed animation callbacks, and fixed-city previews.
+- The actual layer renderer is exercised at 2× backing scale with a 2560 × 1440
+  logical viewport, verifying native 256-pixel tiles, a 3840-pixel overlay, bounded
+  layer counts, completed tile fades and backing-scale changes.
+- Mocked networking checks that city changes cancel old tasks, reject late responses,
+  renew the request budget, retain server backoff and retrieve revisited tiles from cache.
+- Manual native PreviewHost review confirms crisp map details and attribution in a
+  full-screen Retina preview. This is separate from macOS's own screen saver host;
+  the System Settings activation limitation below remains applicable.
 
 ## Local release candidate
 
@@ -14,7 +28,7 @@ every intervening OS release.
   spring and autumn DST, fractional hand angles; projection; monotonic motion; Mercator
   wrapping and viewport bounds; recent-city avoidance; HTTP freshness/validators,
   corrupt cache records, offline fallback, two-request concurrency, cancellation,
-  rate limiting, and the 96-request session cap. No test requests reach OSM.
+  rate limiting, and the 256-request city-visit cap. No test requests reach OSM.
 - Smoke rendering covers 16:10, 16:9, ultrawide and small 280 × 180 preview sizes,
   both reference drawing and live layer rendering, plus all six map palettes.
 - The actual saver principal classes load dynamically and provide configuration sheets.
@@ -33,12 +47,12 @@ every intervening OS release.
 
 ## Performance observations
 
-A 1200 × 742 live preview on the local M5 showed approximately **0.3% CPU for City
+The v0.1.0 1200 × 742 live preview on the local M5 showed approximately **0.3% CPU for City
 Drift** after loading and **1.6% for World Clock Room**, using `ps` samples. These are
 spot observations, not a standardized benchmark or a guarantee for all monitors.
-The initial CPU-redrawn map used around 28%; the final renderer moves cached layers.
+The initial CPU-redrawn map used around 28%; both released renderers move cached layers.
 Resident memory in these preview samples was roughly 150–200 MiB. Tile image payloads,
-in-memory tiles, atlas dimensions, concurrent requests and per-session requests are
+in-memory tiles, viewport dimensions, concurrent requests and per-city requests are
 bounded. Disk cache pruning preserves fresh/seven-day records, so its 192 MiB target
 is intentionally soft. GPU energy and multi-hour thermal behavior are not benchmarked.
 
@@ -49,7 +63,7 @@ is intentionally soft. GPU energy and multi-hour thermal behavior are not benchm
   secrets were available. The optional credentialed workflow is prepared but cannot
   be end-to-end notarization-tested without those credentials.
 - OpenStreetMap is a best-effort public service. Empty caches need connectivity;
-  failures remain quiet and retry on a later session rather than repeatedly nagging
+  failures remain quiet and retry on a later city visit rather than repeatedly nagging
   or polling. Each saver instance chooses its own city on multi-display systems.
 - The minimum supported OS has not been manually exercised on local hardware.
   CI and downloadable artifacts should be reviewed alongside these notes.

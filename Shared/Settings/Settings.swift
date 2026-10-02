@@ -23,7 +23,8 @@ enum MapPalette: String, CaseIterable, Codable { case original, ink, blueprint, 
 struct SaverSettings: Codable, Equatable {
     var floor = RGB(0.16, 0.20, 0.22)
     var face = RGB(0.89, 0.86, 0.76)
-    var speed = 1.0
+    static let maximumSpeed = 16.0
+    var speed = 6.0
     var density = 1.0
     var smoothSeconds = true
     var labels = true
@@ -35,7 +36,7 @@ struct SaverSettings: Codable, Equatable {
         var copy = self
         if !copy.floor.valid { copy.floor = Self().floor }
         if !copy.face.valid { copy.face = Self().face }
-        copy.speed = speed.isFinite ? min(2, max(0, speed)) : 1
+        copy.speed = speed.isFinite ? min(Self.maximumSpeed, max(0, speed)) : Self().speed
         copy.density = density.isFinite ? min(1.4, max(0.7, density)) : 1
         copy.intensity = intensity.isFinite ? min(1, max(0, intensity)) : 0.85
         return copy
@@ -51,16 +52,25 @@ final class SettingsStore {
     }
     var value: SaverSettings {
         get {
+            if let data = defaults.data(forKey: "settings.v2"),
+               let value = try? JSONDecoder().decode(SaverSettings.self, from: data) { return value.sanitized() }
             guard let data = defaults.data(forKey: "settings.v1"),
-                  let value = try? JSONDecoder().decode(SaverSettings.self, from: data) else { return .init() }
-            return value.sanitized()
+                  var value = try? JSONDecoder().decode(SaverSettings.self, from: data) else { return .init() }
+            // Preserve a paused camera and the relative preference while upgrading the old range.
+            value.speed = value.speed.isFinite ? min(2, max(0, value.speed)) * 6 : SaverSettings().speed
+            let migrated = value.sanitized()
+            if let encoded = try? JSONEncoder().encode(migrated) { defaults.set(encoded, forKey: "settings.v2") }
+            return migrated
         }
         set {
             if let data = try? JSONEncoder().encode(newValue.sanitized()) {
-                defaults.set(data, forKey: "settings.v1")
+                defaults.set(data, forKey: "settings.v2")
                 defaults.synchronize()
             }
         }
     }
-    func reset() { defaults.removeObject(forKey: "settings.v1"); defaults.synchronize() }
+    func reset() {
+        defaults.removeObject(forKey: "settings.v1"); defaults.removeObject(forKey: "settings.v2")
+        defaults.synchronize()
+    }
 }

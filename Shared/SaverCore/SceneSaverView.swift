@@ -24,10 +24,15 @@ class SceneSaverView: ScreenSaverView {
     override func animateOneFrame() {
         if !presentLayers() { needsDisplay = true }
     }
+    override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        if !presentLayers() { needsDisplay = true }
+    }
     override func layout() { super.layout(); if !presentLayers() { needsDisplay = true } }
     private func presentLayers() -> Bool {
         guard bounds.width > 0, bounds.height > 0, let layer else { return false }
         CATransaction.begin(); CATransaction.setDisableActions(true)
+        layer.contentsScale = window?.backingScaleFactor ?? 1
         let presented = scene.updateLayer(layer, size: bounds.size, time: ProcessInfo.processInfo.systemUptime, date: Date())
         CATransaction.commit()
         return presented

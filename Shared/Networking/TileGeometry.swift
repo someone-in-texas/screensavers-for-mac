@@ -8,7 +8,7 @@ struct TileID: Hashable, Codable {
     }
     var key: String { "\(z)-\(x)-\(y)" }
 }
-struct TilePlacement: Equatable {
+struct TilePlacement: Hashable {
     let id: TileID
     let x: Int; let y: Int
 }
@@ -20,7 +20,7 @@ enum Mercator {
         return CGPoint(x: lon / 360 * n * 256, y: (1 - asinh(tan(lat)) / .pi) / 2 * n * 256)
     }
     static func viewport(center: CGPoint, size: CGSize, zoom: Int) -> [TilePlacement] {
-        guard size.width > 0, size.height > 0, size.width <= 2048, size.height <= 1280 else { return [] }
+        guard size.width > 0, size.height > 0, size.width <= 3840, size.height <= 3840 else { return [] }
         let left = Int(floor((center.x - size.width / 2) / 256))
         let right = Int(floor((center.x + size.width / 2 - 0.001) / 256))
         let top = Int(floor((center.y - size.height / 2) / 256))
@@ -33,8 +33,16 @@ enum Mercator {
         let scale = min(1, 1792 / max(1, size.width), 1120 / max(1, size.height))
         return CGSize(width: max(1, size.width * scale), height: max(1, size.height * scale))
     }
-    static func drift(_ time: Double) -> CGPoint {
-        CGPoint(x: 80 * sin(time / 110), y: 55 * sin(time / 143))
+    /// Map pixels follow the backing display, capped at 4K-class detail in either orientation.
+    static func mapRenderSize(_ size: CGSize, backingScale: CGFloat = 1) -> CGSize {
+        let width = max(1, size.width * backingScale), height = max(1, size.height * backingScale)
+        let scale = min(1, 3840 / max(width, height), 2560 / min(width, height))
+        return CGSize(width: width * scale, height: height * scale)
+    }
+    /// An ellipse has no stationary turns; rotate the route for each city.
+    static func drift(_ time: Double, bearing: Double = 0) -> CGPoint {
+        let x = 160 * sin(time / 100), y = 120 * cos(time / 100)
+        return CGPoint(x: x * cos(bearing) - y * sin(bearing), y: x * sin(bearing) + y * cos(bearing))
     }
 }
 

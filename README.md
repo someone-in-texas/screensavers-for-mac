@@ -4,7 +4,7 @@ Two quiet, native screen savers for people who like clocks, cities and the geome
 of everyday things. Written in Swift, AppKit, Core Graphics and Core Animation.
 No browser runtime. No dependencies.
 
-**[Download v0.1.0](https://github.com/someone-in-texas/screensavers-for-mac/releases/latest)** ·
+**[Download v0.1.1](https://github.com/someone-in-texas/screensavers-for-mac/releases/latest)** ·
 Apple Silicon · macOS 14.6 or later
 
 ## World Clock Room
@@ -19,9 +19,12 @@ motion, second hands and labels.
 ## City Drift
 
 A slow cartographic study of one of 64 cities around the world. The camera stays
-within a neighborhood; the previous eight cities are avoided on the next selection.
+within a neighborhood, curving through horizontal, vertical and diagonal directions.
+Every four minutes it fades into another city, avoiding the previous eight selections.
 Choose Original, Ink, Blueprint, Night, Paper or Terminal, with restrained grain,
-vignette and motion controls. Paper is the default.
+vignette and motion controls. Paper is the default. Both savers now offer a much
+wider speed range; zero pauses camera movement. City changes continue every four
+minutes independently of camera speed.
 
 ![City Drift: Paris in the Paper palette, © OpenStreetMap contributors](docs/images/city-drift.png)
 
@@ -38,7 +41,7 @@ vignette and motion controls. Paper is the default.
 The ZIP contains the same two bundles. For checksums, download the DMG, ZIP and
 `SHA256SUMS` into one directory and run `shasum -a 256 -c SHA256SUMS` there.
 
-**v0.1.0 is ad-hoc signed, not Apple-notarized.** If macOS blocks opening a downloaded
+**v0.1.1 is ad-hoc signed, not Apple-notarized.** If macOS blocks opening a downloaded
 saver, check the source/checksum, attempt to open that saver, then use **System Settings
 → Privacy & Security → Open Anyway** for that item if offered. Never disable Gatekeeper
 globally. Managed Macs may prohibit third-party savers; a local source build is another
@@ -77,14 +80,16 @@ analytics, telemetry, location permission, updater or configuration upload.
 
 Tiles are cached using HTTP freshness headers and conditional requests, with a
 seven-day fallback. Only the visible viewport is requested, at one zoom, with two
-requests at a time and a bounded session budget. No regions are downloaded in advance.
+requests at a time and a bounded budget of 256 requests per city visit. No regions are downloaded in advance.
 Without connectivity, eligible cached tiles remain visible; otherwise the saver
 shows a quiet palette background with the city name and attribution. OSM service
 availability is best-effort.
 
-Animation is capped at 30 FPS. Static clock faces and map compositions are cached;
-Core Animation moves layers and clock hands. The map viewport caps at 1792 × 1120
-pixels to reduce tile traffic on large Retina displays. Tile tasks stop with the saver.
+Animation is capped at 30 FPS. Static clock faces and graded map tiles are cached;
+Core Animation moves layers and clock hands. Maps use the display’s backing pixels
+for sharper detail, capped at 3840 × 2560 pixels (rotated for portrait displays).
+A 4K display renders at native resolution; 5K and larger displays scale from this
+bounded detail level. Tile tasks stop with the saver.
 
 ## Contribute
 

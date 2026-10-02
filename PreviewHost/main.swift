@@ -64,7 +64,7 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
     @objc func configure() { if let sheet = view?.configureSheet { window.beginSheet(sheet) } }
     @objc func saveFrame() {
         guard let view, let layer = view.layer else { return }
-        let size = Mercator.renderSize(view.bounds.size)
+        let size = Mercator.mapRenderSize(view.bounds.size, backingScale: window.backingScaleFactor)
         guard let c = bitmap(width: Int(size.width), height: Int(size.height)) else { return }
         c.scaleBy(x: size.width / view.bounds.width, y: size.height / view.bounds.height)
         layer.render(in: c)
