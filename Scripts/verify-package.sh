@@ -20,6 +20,9 @@ for location in "$work/zip" "$work/mount"; do
     for name in 'World Clock Room' 'City Drift'; do
         bundle="$location/$name.saver"
         [[ -d "$bundle" ]]
+        for image in thumbnail.png thumbnail@2x.png thumbnail.tiff; do
+            [[ -s "$bundle/Contents/Resources/$image" ]]
+        done
         plutil -lint "$bundle/Contents/Info.plist"
         id=$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$bundle/Contents/Info.plist")
         ids+=("$id")

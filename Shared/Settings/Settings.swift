@@ -19,6 +19,7 @@ struct RGB: Codable, Equatable {
 }
 
 enum MapPalette: String, CaseIterable, Codable { case original, ink, blueprint, night, paper, terminal }
+enum MapStyle: String, CaseIterable, Codable { case lines, traditional }
 
 struct SaverSettings: Codable, Equatable {
     var floor = RGB(0.16, 0.20, 0.22)
@@ -31,7 +32,36 @@ struct SaverSettings: Codable, Equatable {
     var palette = MapPalette.paper
     var intensity = 0.85
     var grain = false
-    var vignette = true
+    var vignette = false
+    var mapStyle = MapStyle.lines
+    var streetLabels = false
+    var water = false
+    var parks = false
+    var pointsOfInterest = false
+    init() {}
+    private enum CodingKeys: String, CodingKey {
+        case floor, face, speed, density, smoothSeconds, labels, palette, intensity, grain, vignette
+        case mapStyle, streetLabels, water, parks, pointsOfInterest
+    }
+    init(from decoder: Decoder) throws {
+        self.init()
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        floor = try c.decodeIfPresent(RGB.self, forKey: .floor) ?? floor
+        face = try c.decodeIfPresent(RGB.self, forKey: .face) ?? face
+        speed = try c.decodeIfPresent(Double.self, forKey: .speed) ?? speed
+        density = try c.decodeIfPresent(Double.self, forKey: .density) ?? density
+        smoothSeconds = try c.decodeIfPresent(Bool.self, forKey: .smoothSeconds) ?? smoothSeconds
+        labels = try c.decodeIfPresent(Bool.self, forKey: .labels) ?? labels
+        palette = try c.decodeIfPresent(MapPalette.self, forKey: .palette) ?? palette
+        intensity = try c.decodeIfPresent(Double.self, forKey: .intensity) ?? intensity
+        grain = try c.decodeIfPresent(Bool.self, forKey: .grain) ?? grain
+        vignette = try c.decodeIfPresent(Bool.self, forKey: .vignette) ?? vignette
+        mapStyle = try c.decodeIfPresent(MapStyle.self, forKey: .mapStyle) ?? mapStyle
+        streetLabels = try c.decodeIfPresent(Bool.self, forKey: .streetLabels) ?? streetLabels
+        water = try c.decodeIfPresent(Bool.self, forKey: .water) ?? water
+        parks = try c.decodeIfPresent(Bool.self, forKey: .parks) ?? parks
+        pointsOfInterest = try c.decodeIfPresent(Bool.self, forKey: .pointsOfInterest) ?? pointsOfInterest
+    }
     func sanitized() -> Self {
         var copy = self
         if !copy.floor.valid { copy.floor = Self().floor }

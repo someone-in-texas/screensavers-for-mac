@@ -94,10 +94,13 @@ edge antialiasing so fractional camera positions do not expose the background as
 a persistent grid. Animation moves cached tile layers; vignette and typography live in a
 separate overlay rasterized at the display detail level. Offscreen decoded tiles
 and layers are discarded; revisits reload from the HTTP-aware disk cache. New tile
-layers fade in over 1.2 seconds. Downloads are cancelled if their response exceeds
+viewports fade in together over 1.2 seconds; a partial initial tile set is never revealed. Downloads are cancelled if their response exceeds
 512 KB; decoding accepts only single-frame 256 × 256 images. Static optional grain
 does not shimmer. Opaque overlay backgrounds
 preserve contrast for city names and permanent attribution across all six palettes.
+A fullscreen resize keeps a complete outgoing view while the larger viewport loads.
+Startup camera motion waits for cache selection so cached time-zero tile sets do
+not become incomplete during the asynchronous read.
 `CityVisitCache` searches the existing disk cache for complete viewports at startup,
 and reads the planned next city's cache records 20 seconds before its transition.
 It never creates a network transport. Expired records requiring revalidation and
@@ -105,8 +108,17 @@ corrupt/incomplete cities are rejected. Generation and viewport checks discard s
 asynchronous results after stopping, restarting or resizing. At most one future
 city's decoded tiles and one outgoing scene are retained.
 
-`StarterMaps` loads the three bundled ODbL street extracts from the saver resource
-bundle. Cached city views can be used at startup regardless of recent-city history.
+`StarterMaps` loads three bundled ODbL vector extracts from the saver resource
+bundle. The default `.lines` style renders these for the entire session and selects
+only their three cities. It constructs no tile loader or cache-selection request.
+Five opaque road-path layers use one ink color; optional water/park paths use at
+most three additional layers. Ring winding preserves holes without one layer per
+polygon. Street names and named places have deterministic collision avoidance and
+a shared 350-label budget. Geometry and labels rebuild on city/style/detail/scale
+changes, not on every frame or speed adjustment. Native vectors remain crisp above
+the raster viewport cap. The `.traditional` mode retains the 64-city tile renderer.
+
+The following startup cache behavior applies to traditional maps: Cached city views can be used at startup regardless of recent-city history.
 When there is no complete cached city, vector street outlines provide an immediate,
 resolution-independent map while currently selected tiles load. Starter paths are
 cached and translated with the camera; incoming raster tiles remain hidden until
@@ -128,3 +140,18 @@ optionally re-signs with Developer ID, creates a DMG, optionally notarizes/stapl
 creates a ZIP and hashes the deliverables. Verification mounts the DMG, expands the
 ZIP and checks both bundles. Release Actions build the exact version tag and publish
 only after tests and package verification pass. Ordinary CI needs no signing secrets.
+
+## Configuration lifecycle
+
+`SceneSaverView.configureSheet` retains a single controller/window. Repeated host
+property queries, including while a sheet is open, return the same window. Controls
+refresh from persistence only when hidden and detached. Done deactivates color wells,
+ends the parent sheet (or standalone modal session), and orders the window out.
+New optional settings decode with defaults so older records keep color/speed choices.
+PreviewHost’s launch smoke test performs 12 real open/Done/reopen cycles across both
+savers and asserts window identity and dismissal. Actual System Settings behavior
+still requires a manual check on each supported macOS version.
+
+Legacy picker artwork is generated in 90×58 / 180×116 PNGs plus multi-resolution
+TIFF. These are best-effort resources: current System Settings has no supported
+custom thumbnail API, as documented in the README.

@@ -1,5 +1,28 @@
 # Validation
 
+## v0.2.0 change validation
+
+- 15,247 offline checks pass, including older-settings decoding and all 16 combinations
+  of street-label/water/park/point-of-interest toggles for each bundled city.
+- Empty-cache default startup is checked after pre-start layout, at small preview,
+  Retina fullscreen and portrait sizes, plus same-instance stop/restart. Every first
+  frame has five solid vector road layers; mocked transport confirms zero requests
+  across startup and multiple city transitions.
+- A deliberately slow mocked transport proves individual initial tiles stay hidden
+  until the viewport is complete. Expanding the preview to 2560×1440 logical points
+  at 2× retains a whole outgoing cover while the larger map is incomplete.
+- Native PreviewHost completes 12 open/Done/reopen configuration cycles across both
+  savers, asserting stable window identity during repeated property reads and full
+  sheet detachment/hiding on Done. This exercises the real AppKit modal lifecycle.
+- Actual offline layer PNGs for all three cities, minimal Paper/Blueprint maps and
+  optional details were inspected. README map screenshots were updated from those
+  renders. Detail geometry is batched into three layers; labels are bounded at 350.
+- Native UI automation could not connect to System Settings on this machine.
+  These checks do not prove the intermittent host-specific Options failure is gone.
+- Legacy PNG/TIFF thumbnails are generated and verified in both release bundles.
+  Apple confirms current System Settings has no supported custom-thumbnail API;
+  the blue swirl may remain despite valid resources (README links Apple’s response).
+
 ## v0.1.2 change validation
 
 - Uniform map fixtures exposed a persistent grid in the actual layer renderer.
@@ -83,7 +106,8 @@ is intentionally soft. GPU energy and multi-hour thermal behavior are not benchm
 - Ad-hoc signed, not notarized. No valid Developer ID identity or repository signing
   secrets were available. The optional credentialed workflow is prepared but cannot
   be end-to-end notarization-tested without those credentials.
-- OpenStreetMap is a best-effort public service. Empty caches need connectivity;
+- Traditional map mode uses OpenStreetMap, a best-effort public service. Empty tile
+  caches need connectivity for detailed imagery; the default three-city vector mode is offline;
   failures remain quiet and retry on a later city visit rather than repeatedly nagging
   or polling. Each saver instance chooses its own city on multi-display systems.
 - The minimum supported OS has not been manually exercised on local hardware.

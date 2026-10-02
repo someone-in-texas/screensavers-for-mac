@@ -51,13 +51,15 @@ jobs:
           Two quiet native screen savers for Apple Silicon Macs running macOS 14.6 or later.
 
           - **World Clock Room** — an isometric clock installation with real local times, smooth hands and configurable colors.
-          - **City Drift** — slow journeys through 64 world cities, with six cartographic palettes and conservative cached OpenStreetMap tiles.
+          - **City Drift** — crisp offline vector roads in Paris, Boston and Tokyo, with optional street labels, water, parks and points of interest. The traditional detailed map remains available for 64 world cities.
 
-          This update fixes dark-palette grain and tile-grid seams, starts from complete cached maps, and bundles vector street maps of Paris, Boston and Tokyo for instant startup. Future scenes are warmed from the local cache; the outgoing map remains visible until its replacement is ready. No speculative network tile prefetching. Bundled map data is © OpenStreetMap contributors, ODbL 1.0; its editable source and license accompany the saver.
+          This update makes solid road lines the default, preserves older color/speed preferences, fixes configuration-window lifecycle issues, and prevents partial map reveals during startup and fullscreen resizing. Bundled map data is © OpenStreetMap contributors, ODbL 1.0; editable data and the license accompany the saver.
+
+          Real preview artwork is included, but recent macOS versions may still show the default blue swirl in the picker: Apple provides no supported thumbnail replacement API. The saver itself is unaffected.
 
           Download the DMG, open it, and double-click each `.saver` to install for the current user. Select the saver in System Settings → Wallpaper → Screen Saver (or Screen Saver on older macOS), then open its options. The ZIP contains the same bundles. Verify downloads with `shasum -a 256 -c SHA256SUMS` from the directory containing both downloads.
 
-          City Drift requests tiles for the displayed public city. No location access, analytics or telemetry. Map data © OpenStreetMap contributors.
+          City Drift’s default line map is offline. Its traditional mode requests tiles for the displayed public city. No location access, analytics or telemetry. Map data © OpenStreetMap contributors.
 
           NOTES
           cat dist/SIGNING.txt >> build/release-notes.md

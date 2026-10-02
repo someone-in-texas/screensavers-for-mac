@@ -15,7 +15,6 @@ final class CityDriftScene: SaverScene {
     private var tiles: [TileID: CGImage] = [:]
     private var graded: [TileID: CGImage] = [:]
     private var tileLayers: [TilePlacement: CALayer] = [:]
-    private var arrivals: [TileID: Double] = [:]
     private var placements: [TilePlacement] = []
     private var fixture: CGImage?
     private var motion = MotionClock()
@@ -30,7 +29,9 @@ final class CityDriftScene: SaverScene {
     private var coverSize = CGSize.zero
     private var coverFadeStart: Double?
     private var rasterFadeStart: Double?
+    private var rasterReadyAtStart = false
     private var starterDirty = true
+    private var starterScale: CGFloat = 0
     private var starterPathCity: String?
     private var starterPaths: [String: CGPath] = [:]
     private var lastSize = CGSize.zero
@@ -49,21 +50,35 @@ final class CityDriftScene: SaverScene {
     private var overlayPixels = CGSize.zero
     private var overlayDirty = true
     private let provider: TileProvider
-    init(store: SettingsStore, networkEnabled: Bool = true, city: MapCity? = nil, provider: TileProvider = .osm, starterMaps: StarterMaps = .bundled, visitCache: CityVisitCache? = nil) {
+    private let tileCache: TileCache?
+    private let tileTransport: TileTransport?
+    init(store: SettingsStore, networkEnabled: Bool = true, city: MapCity? = nil, provider: TileProvider = .osm, starterMaps: StarterMaps = .bundled, visitCache: CityVisitCache? = nil, tileCache: TileCache? = nil, tileTransport: TileTransport? = nil) {
         self.store = store; self.networkEnabled = networkEnabled; self.provider = provider; self.fixedCity = city != nil
         self.starterMaps = provider.cacheNamespace == TileProvider.osm.cacheNamespace ? starterMaps : .empty
-        self.visitCache = visitCache ?? CityVisitCache(cache: TileCache(namespace: provider.cacheNamespace))
+        self.tileCache = tileCache; self.tileTransport = tileTransport
+        self.visitCache = visitCache ?? CityVisitCache(cache: tileCache ?? TileCache(namespace: provider.cacheNamespace))
         self.reuseCache = networkEnabled || visitCache != nil
+        self.settings = store.value
         self.city = city ?? self.starterMaps.catalog.randomElement() ?? MapCity.choose(recent: store.defaults.stringArray(forKey: "recentCities") ?? [])
         setCenter()
     }
     private func setCenter() {
         baseCenter = Mercator.point(latitude: city.latitude, longitude: city.longitude, zoom: city.zoom)
     }
-    private func beginCity(preloaded: [TileID: CGImage] = [:]) {
+    private var usesVectorMap: Bool {
+        settings.mapStyle == .lines && !starterMaps.cities.isEmpty && fixture == nil && (!fixedCity || starterMaps[city] != nil)
+    }
+    private func chooseDestination() -> MapCity {
+        guard usesVectorMap else { return MapCity.choose(recent: store.defaults.stringArray(forKey: "recentCities") ?? []) }
+        let recent = store.defaults.stringArray(forKey: "recentCities") ?? []
+        let alternatives = starterMaps.catalog.filter { $0 != city }
+        return alternatives.min { (recent.lastIndex(of: $0.name) ?? -1) < (recent.lastIndex(of: $1.name) ?? -1) } ?? city
+    }
+    private func beginCity(preloaded: [TileID: CGImage] = [:], keepOutgoing: Bool = true) {
         // Keep the complete outgoing scene until the next scene is ready. Retain one
         // layer tree rather than taking a giant screenshot or prefetching network tiles.
-        if let root = mapLayer.superlayer, coverLayer == nil {
+        if !keepOutgoing { coverLayer?.removeFromSuperlayer(); coverLayer = nil }
+        if keepOutgoing, let root = mapLayer.superlayer, coverLayer == nil {
             let cover = CALayer(); cover.frame = CGRect(origin: .zero, size: lastSize)
             cover.backgroundColor = background.cgColor; cover.masksToBounds = true
             cover.addSublayer(starterLayer); cover.addSublayer(mapLayer); cover.addSublayer(overlayLayer)
@@ -75,14 +90,15 @@ final class CityDriftScene: SaverScene {
         coverFadeStart = nil; rasterFadeStart = nil; starterDirty = true
         cacheRead?.cancel(); cacheRead = nil
         loader?.beginVisit()
-        tiles = preloaded; graded.removeAll(); arrivals.removeAll(); placements.removeAll()
+        tiles = preloaded; rasterReadyAtStart = !preloaded.isEmpty
+        graded.removeAll(); placements.removeAll()
         tileLayers.removeAll()
         motion = MotionClock(); tour = MotionClock(); overlayDirty = true; nextCity = nil; preparedVisit = nil; visitRequest += 1; setCenter()
         var recent = store.defaults.stringArray(forKey: "recentCities") ?? []
         recent.append(city.name); store.defaults.set(Array(recent.suffix(8)), forKey: "recentCities")
         let session = generation
-        if networkEnabled && loader == nil {
-            loader = TileLoader(provider: provider) { [weak self] id, image in
+        if networkEnabled && !usesVectorMap && loader == nil {
+            loader = TileLoader(provider: provider, cache: tileCache, transport: tileTransport) { [weak self] id, image in
                 guard let self, self.running, self.generation == session, self.placements.contains(where: { $0.id == id }) else { return }
                 self.tiles[id] = image; self.graded.removeValue(forKey: id)
                 // A stale cache refresh replaces its image without repeatedly fading the tile out.
@@ -94,8 +110,8 @@ final class CityDriftScene: SaverScene {
         if hasStarted && !fixedCity {
             city = starterMaps.catalog.filter { $0 != city }.randomElement() ?? MapCity.choose(recent: store.defaults.stringArray(forKey: "recentCities") ?? [])
         }
-        startupCachePending = reuseCache; startupCacheRequested = false
-        hasStarted = true; running = true; generation += 1; beginCity()
+        startupCachePending = reuseCache && !usesVectorMap; startupCacheRequested = false
+        hasStarted = true; running = true; generation += 1; beginCity(keepOutgoing: false)
     }
     func stop() {
         running = false; generation += 1; loader?.stop(); loader = nil
@@ -104,12 +120,21 @@ final class CityDriftScene: SaverScene {
         coverLayer?.removeFromSuperlayer(); coverLayer = nil
     }
     func apply(_ settings: SaverSettings) {
+        let changedStyle = self.settings.mapStyle != settings.mapStyle
         if self.settings.palette != settings.palette || self.settings.intensity != settings.intensity || self.settings.grain != settings.grain {
             graded.removeAll()
         }
-        starterDirty = starterDirty || self.settings.palette != settings.palette || self.settings.intensity != settings.intensity
+        starterDirty = starterDirty || changedStyle || self.settings.palette != settings.palette ||
+            self.settings.streetLabels != settings.streetLabels || self.settings.water != settings.water ||
+            self.settings.parks != settings.parks || self.settings.pointsOfInterest != settings.pointsOfInterest
         overlayDirty = overlayDirty || self.settings != settings
         self.settings = settings
+        if changedStyle && running {
+            loader?.stop(); loader = nil
+            if usesVectorMap && starterMaps[city] == nil { city = starterMaps.catalog.randomElement()! }
+            startupCachePending = reuseCache && !usesVectorMap; startupCacheRequested = false
+            beginCity()
+        }
     }
     /// Deterministic synthetic cartography for automated smoke tests; never contacts OSM.
     func useFixture(_ image: CGImage) { fixture = image; graded.removeAll() }
@@ -119,7 +144,7 @@ final class CityDriftScene: SaverScene {
         guard running else { return }
         tour.step(now: time, speed: 1, maximumStep: .infinity)
         if !fixedCity && tour.elapsed >= Self.cityDuration + Self.transitionDuration {
-            city = nextCity ?? MapCity.choose(recent: store.defaults.stringArray(forKey: "recentCities") ?? [])
+            city = nextCity ?? chooseDestination()
             let cached = preparedVisit?.isUsable == true && preparedVisit?.city == city && preparedVisit?.viewport == lastViewport ? preparedVisit?.images ?? [:] : [:]
             beginCity(preloaded: cached)
             tour.step(now: time, speed: 1, maximumStep: .infinity)
@@ -129,7 +154,10 @@ final class CityDriftScene: SaverScene {
            starterMaps[city] == nil, let fallback = starterMaps.catalog.filter({ $0 != city }).randomElement() {
             city = fallback; beginCity(); tour.step(now: time, speed: 1, maximumStep: .infinity)
         }
-        motion.step(now: time, speed: settings.speed)
+        // Cache selection was built for time zero. Letting the camera move while
+        // disk reads ran could immediately expose uncached tiles upon presentation.
+        if startupCachePending { motion.pause() }
+        else { motion.step(now: time, speed: settings.speed) }
     }
     private var background: NSColor {
         switch settings.palette {
@@ -182,6 +210,9 @@ final class CityDriftScene: SaverScene {
     private func prepare(size: CGSize, backingScale: CGFloat, time: Double) -> (CGPoint, CGSize) {
         let viewport = Mercator.mapRenderSize(size, backingScale: backingScale)
         if lastViewport != viewport {
+            // A cache sufficient for a settings preview is not a complete fullscreen
+            // map. Preserve the entire outgoing view while filling the larger one.
+            if lastViewport != .zero && !usesVectorMap && !placements.isEmpty { beginCity(preloaded: tiles) }
             cacheRead?.cancel(); cacheRead = nil
             lastViewport = viewport; visitRequest += 1; preparedVisit = nil; nextCity = nil
             if startupCachePending { startupCacheRequested = false }
@@ -193,7 +224,7 @@ final class CityDriftScene: SaverScene {
         let visible = Mercator.viewport(center: center, size: viewport, zoom: city.zoom)
         if visible != placements {
             placements = visible
-            if running && !startupCachePending { loader?.request(visible.map(\.id)) }
+            if running && !startupCachePending && !usesVectorMap { loader?.request(visible.map(\.id)) }
             let current = Set(visible)
             for key in Array(tileLayers.keys) where !current.contains(key) {
                 tileLayers.removeValue(forKey: key)?.removeFromSuperlayer()
@@ -202,12 +233,11 @@ final class CityDriftScene: SaverScene {
             let retained = Set(visible.map(\.id))
             tiles = tiles.filter { retained.contains($0.key) }
             graded = graded.filter { retained.contains($0.key) }
-            arrivals = arrivals.filter { retained.contains($0.key) }
         }
         return (center, viewport)
     }
     private func prepareCachedVisits(viewport: CGSize) {
-        guard running, reuseCache else { return }
+        guard running, reuseCache, !usesVectorMap else { return }
         if startupCachePending && !startupCacheRequested {
             startupCacheRequested = true
             let request = visitRequest, session = generation
@@ -228,7 +258,8 @@ final class CityDriftScene: SaverScene {
             }
         }
     }
-    private func updateStarter() {
+    private func updateStarter(scale: CGFloat) {
+        if starterScale != scale { starterScale = scale; starterDirty = true }
         guard starterDirty else { return }
         starterLayer.sublayers?.forEach { $0.removeFromSuperlayer() }
         if let starter = starterMaps[city] {
@@ -236,22 +267,24 @@ final class CityDriftScene: SaverScene {
                 starterPaths = starter.paths(); starterPathCity = city.name
             }
             let paths = starterPaths
-            for (kind, width, alpha) in [("tertiary", 1.2, 0.32), ("secondary", 1.8, 0.45), ("primary", 2.4, 0.62), ("trunk", 3.0, 0.8), ("motorway", 3.5, 0.9)] {
+            if usesVectorMap {
+                for layer in starter.detailLayers(settings: settings, ink: ink) { starterLayer.addSublayer(layer) }
+            }
+            for (kind, width) in [("tertiary", 1.0), ("secondary", 1.4), ("primary", 1.8), ("trunk", 2.2), ("motorway", 2.6)] {
                 guard let path = paths[kind] else { continue }
-                let road = CAShapeLayer(); road.path = path; road.fillColor = nil
-                road.strokeColor = ink.withAlphaComponent(alpha * (0.4 + 0.6 * settings.intensity)).cgColor
+                let road = CAShapeLayer(); road.name = "road"; road.path = path; road.fillColor = nil
+                road.strokeColor = ink.cgColor
                 road.lineWidth = width; road.lineCap = .round; road.lineJoin = .round
                 starterLayer.addSublayer(road)
+            }
+            if usesVectorMap {
+                for layer in starter.labelLayers(settings: settings, ink: ink, scale: scale) { starterLayer.addSublayer(layer) }
             }
         }
         starterDirty = false
     }
     private var completeViewport: Bool {
         !placements.isEmpty && placements.allSatisfy { tiles[$0.id] != nil || fixture != nil }
-    }
-    private func opacity(for id: TileID, time: Double) -> Float {
-        if arrivals[id] == nil { arrivals[id] = time }
-        return Float(min(1, max(0, (time - arrivals[id]!) / 1.2)))
     }
     func updateLayer(_ root: CALayer, size: CGSize, time: Double, date: Date) -> Bool {
         let (center, viewport) = prepare(size: size, backingScale: root.contentsScale, time: time)
@@ -266,13 +299,15 @@ final class CityDriftScene: SaverScene {
         mapLayer.bounds = CGRect(origin: .zero, size: viewport)
         mapLayer.setAffineTransform(CGAffineTransform(scaleX: size.width / viewport.width, y: size.height / viewport.height))
         lastSize = size
-        updateStarter()
+        updateStarter(scale: root.contentsScale * size.width / viewport.width)
         starterLayer.anchorPoint = .zero; starterLayer.bounds = mapLayer.bounds
         starterLayer.position = mapLayer.position; starterLayer.setAffineTransform(mapLayer.affineTransform())
-        if completeViewport && rasterFadeStart == nil { rasterFadeStart = time }
+        if completeViewport && rasterFadeStart == nil { rasterFadeStart = rasterReadyAtStart ? time - 1.2 : time }
         // Bundled maps stay visible until the whole raster viewport is available.
-        mapLayer.opacity = starterMaps[city] == nil ? 1 : Float(rasterFadeStart.map { min(1, max(0, (time - $0) / 1.2)) } ?? 0)
-        for tile in placements {
+        // Never reveal an incomplete raster, even if only one tile is missing.
+        // Keep an already visible map opaque as it moves; new visits start hidden.
+        mapLayer.opacity = usesVectorMap ? 0 : Float(rasterFadeStart.map { min(1, max(0, (time - $0) / 1.2)) } ?? 0)
+        for tile in usesVectorMap ? [] : placements {
             guard let image = image(for: tile.id) else { continue }
             let layer: CALayer
             if let existing = tileLayers[tile] { layer = existing }
@@ -284,8 +319,7 @@ final class CityDriftScene: SaverScene {
                 tileLayers[tile] = layer; mapLayer.addSublayer(layer)
             }
             if layer.contents as AnyObject? !== image { layer.contents = image }
-            let alpha: Float = coverLayer != nil || starterMaps[city] != nil ? 1 : opacity(for: tile.id, time: time)
-            if layer.opacity != alpha { layer.opacity = alpha }
+            layer.opacity = 1
         }
         if overlaySize != size || overlayPixels != viewport || overlayDirty {
             if let c = bitmap(width: Int(ceil(viewport.width)), height: Int(ceil(viewport.height))) {

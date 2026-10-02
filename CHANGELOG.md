@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.0
+
+- Default City Drift to solid, fully offline vector roads in Paris, Boston and Tokyo.
+  Add independent street-label, water, park and point-of-interest controls. Keep the
+  64-city traditional map as an explicit option; preserve older appearance preferences.
+- Retain configuration-window identity across host queries and explicitly hide sheets
+  on Done. Exercise 12 real open/close/reopen cycles across both savers.
+- Hold startup motion until cached-city selection completes. Hide incomplete raster
+  viewports and preserve the outgoing scene during preview-to-fullscreen resizing.
+- Include correctly sized legacy preview PNGs and multi-resolution TIFF artwork.
+  Document the current macOS limitation that may leave the default picker swirl.
+- Add cold-start, resize, restart, slow-network, zero-network vector-mode, settings
+  migration and all 16 detail-toggle combination tests for every bundled city.
+
+
 ## 0.1.2
 
 - City Drift: fix persistent tile-grid seams during fractional-pixel movement, most visible in dark palettes.

@@ -1,6 +1,7 @@
 # Bundled starter street maps
 
-`streets.json` contains simplified major-road centerlines for Paris, Boston and
+`streets.json` contains simplified major-road centerlines, street names, water and park geometry,
+and named places for Paris, Boston and
 Tokyo, derived from **© OpenStreetMap contributors** via the Overpass API.
 It is a derivative database licensed under **ODbL 1.0**, separately from this
 repository's MIT-licensed software. The complete derivative database is provided
@@ -15,7 +16,15 @@ Coordinates are Web Mercator pixel offsets from the corresponding CityCatalog
 center at zoom 14; x points east and y points south. The query covers a square
 with a 2,304-pixel half-width. Roads include motorway, trunk, primary, secondary
 and tertiary classes and their links. Geometry is simplified with a 0.6-pixel
-Douglas–Peucker tolerance. These are street outlines, not navigation maps.
+Douglas–Peucker tolerance. Water includes closed water polygons (with multipolygon island holes), rivers,
+canals and coastlines; coastlines are strokes, not ocean-fill polygons. Park areas
+and named museum, attraction, viewpoint and railway-station nodes are optional.
+Ring windings are normalized so holes remain holes with batched nonzero fills.
+Road and detail extracts have separate timestamps. These are simplified display
+maps, not navigation maps. Individual features may be incomplete in OSM.
+
+Line maps remain entirely offline; the three cities are their complete catalog.
+The traditional 64-city tile mode uses these streets as a temporary startup map.
 
 Refresh manually with `python3 Scripts/refresh-starter-maps.py` from the repo root.
 The script reuses raw responses in `build/starter-source` unless explicitly removed.

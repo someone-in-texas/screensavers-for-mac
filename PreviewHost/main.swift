@@ -42,10 +42,24 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
         if CommandLine.arguments.contains("--map") { picker.selectItem(at: 1) }
         switchScene(); window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
         if CommandLine.arguments.contains("--launch-smoke") {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                self.picker.selectItem(at: 1); self.switchScene()
-                if let sheet = self.view?.configureSheet { self.window.beginSheet(sheet); self.window.endSheet(sheet) }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.view?.stopAnimation(); NSApp.terminate(nil) }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.checkConfigurationCycle(0) }
+        }
+    }
+    private func checkConfigurationCycle(_ index: Int) {
+        if index == 12 { print("Passed 12 configuration open/Done/reopen cycles across both savers."); view?.stopAnimation(); NSApp.terminate(nil); return }
+        if index == 6 { picker.selectItem(at: 1); switchScene() }
+        guard let sheet = view?.configureSheet else { fatalError("Missing configuration sheet") }
+        precondition(view?.configureSheet === sheet, "Host property queries must return the same window")
+        window.beginSheet(sheet)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            precondition(self.view?.configureSheet === sheet && sheet.sheetParent === self.window, "Live sheet cannot be replaced")
+            let done = sheet.contentView?.subviews.compactMap { $0 as? NSButton }.first { $0.title == "Done" }
+            precondition(done != nil)
+            done?.performClick(nil) // Exercise our dismissal handler, not a host-side shortcut.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                precondition(sheet.sheetParent == nil && !sheet.isVisible, "Done must detach and hide the sheet")
+                precondition(self.view?.configureSheet === sheet, "Reopening reuses the retained window")
+                self.checkConfigurationCycle(index + 1)
             }
         }
     }
@@ -61,7 +75,7 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
         window.contentView?.addSubview(view!, positioned: .below, relativeTo: picker)
         view?.startAnimation()
     }
-    @objc func configure() { if let sheet = view?.configureSheet { window.beginSheet(sheet) } }
+    @objc func configure() { if window.attachedSheet == nil, let sheet = view?.configureSheet { window.beginSheet(sheet) } }
     @objc func saveFrame() {
         guard let view, let layer = view.layer else { return }
         let size = Mercator.mapRenderSize(view.bounds.size, backingScale: window.backingScaleFactor)
@@ -139,7 +153,24 @@ if CommandLine.arguments.contains("--smoke") {
         let c = bitmap(width: 1600, height: 1000)!
         starter.draw(in: c, size: CGSize(width: 1600, height: 1000), time: 0, date: Date())
         try savePNG(c.makeImage()!, "\(folder)/starter-\(city.name.lowercased()).png")
+        if city.name == "Paris" {
+            settings.palette = .paper; starter.apply(settings)
+            starter.draw(in: c, size: CGSize(width: 1600, height: 1000), time: 0, date: Date())
+            try savePNG(c.makeImage()!, "\(folder)/line-paris-paper.png")
+            settings.palette = .blueprint
+        }
+        settings.streetLabels = true; settings.water = true; settings.parks = true; settings.pointsOfInterest = true
+        starter.apply(settings)
+        starter.draw(in: c, size: CGSize(width: 1600, height: 1000), time: 1, date: Date())
+        try savePNG(c.makeImage()!, "\(folder)/details-\(city.name.lowercased()).png")
         starter.stop()
+    }
+    for kind in SaverKind.allCases {
+        let panel = ConfigurationController(store: SettingsStore(kind, defaults: defaults)) { _ in }
+        if let content = panel.window?.contentView, let rep = content.bitmapImageRepForCachingDisplay(in: content.bounds) {
+            content.cacheDisplay(in: content.bounds, to: rep)
+            try rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: "\(folder)/options-\(kind.rawValue).png"))
+        }
     }
     // Load the actual bundles and invoke their principal classes, not just the shared scenes.
     let products = Bundle.main.bundleURL.deletingLastPathComponent()

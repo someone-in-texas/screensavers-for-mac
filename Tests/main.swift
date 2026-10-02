@@ -63,6 +63,17 @@ expect(a.value.speed == 0, "migration preserves pause")
 a.reset()
 expect(SaverSettings().speed == 6 && SaverSettings.maximumSpeed == 16, "new motion defaults and range")
 
+// Adding map detail settings must not erase an older installation's preferences.
+let olderJSON = Data(#"{"speed":8.5,"palette":"blueprint","vignette":true,"labels":false}"#.utf8)
+defaultsA.set(olderJSON, forKey: "settings.v2")
+expect(a.value.speed == 8.5 && a.value.palette == .blueprint && a.value.vignette && !a.value.labels, "old appearance settings survive added detail fields")
+expect(a.value.mapStyle == .lines && !a.value.streetLabels && !a.value.water && !a.value.pointsOfInterest && !a.value.parks, "existing users get minimal map default without losing appearance")
+var details = a.value; details.streetLabels = true; details.water = true; details.pointsOfInterest = true; details.parks = true; details.mapStyle = .traditional
+a.value = details
+expect(a.value == details, "all map detail preferences persist")
+a.reset()
+expect(!a.value.vignette && a.value.mapStyle == .lines, "reset returns to solid roads-only appearance")
+
 // Wall time and DST use Calendar + IANA zones, not a table of offsets.
 expect(ClockCity.all.count == 20, "clock catalog size")
 expect(ClockCity.all.allSatisfy { TimeZone(identifier: $0.identifier) != nil }, "valid IANA identifiers")
@@ -330,9 +341,10 @@ waitUntil { visitDone }
 expect(visitDone && cachedVisit == nil, "corrupt cached city is not presented as complete")
 visitDisk.write(usable, id: visitTiles[0])
 
+var traditionalSettings = SaverSettings(); traditionalSettings.mapStyle = .traditional
 let cachedStart = CityDriftScene(store: b, networkEnabled: false, starterMaps: starterMaps, visitCache: visitCache)
 let startupRoot = CALayer(); startupRoot.bounds = CGRect(origin: .zero, size: smallViewport)
-cachedStart.start()
+cachedStart.apply(traditionalSettings); cachedStart.start()
 CATransaction.begin(); CATransaction.setDisableActions(true)
 _ = cachedStart.updateLayer(startupRoot, size: smallViewport, time: 0, date: fixed)
 expect(!(startupRoot.sublayers![0].sublayers ?? []).isEmpty, "fresh startup immediately displays bundled vector streets")
@@ -347,7 +359,7 @@ CATransaction.commit(); cachedStart.stop()
 let onlyTokyo = StarterMaps(cities: starterMaps.cities.filter { $0.name == "Tokyo" })
 let cancelledStartup = CityDriftScene(store: b, networkEnabled: false, starterMaps: onlyTokyo, visitCache: visitCache)
 let cancelledRoot = CALayer(); cancelledRoot.bounds = CGRect(origin: .zero, size: smallViewport)
-cancelledStartup.start()
+cancelledStartup.apply(traditionalSettings); cancelledStartup.start()
 _ = cancelledStartup.updateLayer(cancelledRoot, size: smallViewport, time: 0, date: fixed)
 cancelledStartup.stop()
 var drained = false
@@ -355,7 +367,7 @@ visitCache.prepare(candidates: [], viewport: smallViewport) { _ in drained = tru
 waitUntil { drained }
 expect(cancelledStartup.city.name == "Tokyo", "stopped scene rejects queued startup-cache selection")
 let resizedStartup = CityDriftScene(store: b, networkEnabled: false, starterMaps: onlyTokyo, visitCache: visitCache)
-resizedStartup.start()
+resizedStartup.apply(traditionalSettings); resizedStartup.start()
 _ = resizedStartup.updateLayer(cancelledRoot, size: smallViewport, time: 0, date: fixed)
 _ = resizedStartup.updateLayer(cancelledRoot, size: CGSize(width: 1000, height: 800), time: 0.01, date: fixed)
 drained = false
@@ -380,7 +392,7 @@ CATransaction.commit(); crossfade.stop()
 
 let offlineTour = CityDriftScene(store: b, networkEnabled: false, starterMaps: starterMaps)
 let offlineRoot = CALayer(); offlineRoot.bounds = CGRect(origin: .zero, size: smallViewport)
-offlineTour.start()
+offlineTour.apply(traditionalSettings); offlineTour.start()
 CATransaction.begin(); CATransaction.setDisableActions(true)
 _ = offlineTour.updateLayer(offlineRoot, size: smallViewport, time: 0, date: fixed)
 _ = offlineTour.updateLayer(offlineRoot, size: smallViewport, time: 241.5, date: fixed)
@@ -388,6 +400,101 @@ _ = offlineTour.updateLayer(offlineRoot, size: smallViewport, time: 263, date: f
 _ = offlineTour.updateLayer(offlineRoot, size: smallViewport, time: 265, date: fixed)
 expect(starterMaps[offlineTour.city] != nil && offlineRoot.sublayers?.count == 3, "unavailable city falls back to a moving bundled map, not a frozen cover")
 CATransaction.commit(); offlineTour.stop()
+
+// Test the actual default, empty-cache first frame across host lifecycle and
+// backing-scale changes, not just a fixed 641-pixel fixture viewport.
+for scale in [CGFloat(1), 2] {
+    let scene = CityDriftScene(store: b, networkEnabled: false, starterMaps: starterMaps, visitCache: CityVisitCache(cache: TileCache(directory: temp.appendingPathComponent("empty-start"))))
+    let root = CALayer(); root.contentsScale = scale
+    let previewSize = CGSize(width: 280, height: 180)
+    _ = scene.updateLayer(root, size: previewSize, time: 0, date: fixed) // host lays out before start
+    scene.start()
+    for (index, size) in [previewSize, CGSize(width: 2560, height: 1440), CGSize(width: 1440, height: 2560)].enumerated() {
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        _ = scene.updateLayer(root, size: size, time: Double(index), date: fixed)
+        let streets = root.sublayers![0].sublayers ?? []
+        expect(root.sublayers?.count == 3 && streets.count == 5 && streets.allSatisfy { $0.name == "road" && $0.opacity == 1 }, "default first frame is a complete vector scene at \(size), \(scale)x")
+        expect(root.sublayers![1].sublayers?.isEmpty != false && root.sublayers![1].opacity == 0, "default never exposes partial raster tiles")
+        expect(streets.compactMap { ($0 as? CAShapeLayer)?.strokeColor?.alpha }.allSatisfy { $0 == 1 }, "road strokes use a solid opaque color")
+        CATransaction.commit()
+    }
+    scene.stop(); scene.start()
+    _ = scene.updateLayer(root, size: previewSize, time: 10, date: fixed)
+    expect(root.sublayers?.count == 3 && !(root.sublayers![0].sublayers ?? []).isEmpty, "same-instance restart has no stale cover or empty opening")
+    let firstCity = scene.city
+    _ = scene.updateLayer(root, size: previewSize, time: 252, date: fixed)
+    expect(scene.city != firstCity && starterMaps[scene.city] != nil, "line-map tour only selects fully bundled destinations")
+    scene.stop()
+}
+
+// Full scene + mocked slow network: a single completed tile must not leak into
+// the displayed map; fullscreen resize must keep a whole outgoing image covered.
+let slowTransport = MockTransport()
+let slowDisk = TileCache(directory: temp.appendingPathComponent("slow-scene"))
+let slowScene = CityDriftScene(store: b, city: paris, starterMaps: starterMaps, tileCache: slowDisk, tileTransport: slowTransport)
+slowScene.apply(traditionalSettings); slowScene.start()
+let slowRoot = CALayer(); slowRoot.contentsScale = 2
+let tinySize = CGSize(width: 128, height: 100)
+_ = slowScene.updateLayer(slowRoot, size: tinySize, time: 0, date: fixed)
+waitUntil {
+    _ = slowScene.updateLayer(slowRoot, size: tinySize, time: 0.1, date: fixed)
+    return slowTransport.calls.count == 2
+}
+expect(slowTransport.calls.count == 2, "scene uses bounded mocked transport after a cold cache miss")
+if let firstCall = slowTransport.calls.first { firstCall.completion(png, response(200, ["Content-Type": "image/png", "Cache-Control": "max-age=3600"]), nil) }
+waitUntil { slowTransport.calls.count > 2 }
+_ = slowScene.updateLayer(slowRoot, size: tinySize, time: 0.2, date: fixed)
+expect(slowRoot.sublayers![1].opacity == 0 && !(slowRoot.sublayers![0].sublayers ?? []).isEmpty, "one loaded tile stays hidden behind complete bundled map")
+var sceneFinished = 1
+waitUntil {
+    let calls = slowTransport.calls
+    while sceneFinished < calls.count {
+        calls[sceneFinished].completion(png, response(200, ["Content-Type": "image/png", "Cache-Control": "max-age=3600"]), nil)
+        sceneFinished += 1
+    }
+    _ = slowScene.updateLayer(slowRoot, size: tinySize, time: 0.3, date: fixed)
+    return slowRoot.sublayers![1].sublayers?.count == CityVisitCache.initialTiles(city: paris, viewport: CGSize(width: 256, height: 200)).count
+}
+_ = slowScene.updateLayer(slowRoot, size: tinySize, time: 2, date: fixed)
+expect(slowRoot.sublayers![1].opacity == 1, "complete network viewport is revealed together")
+_ = slowScene.updateLayer(slowRoot, size: CGSize(width: 2560, height: 1440), time: 2.01, date: fixed)
+expect(slowRoot.sublayers?.count == 4 && slowRoot.sublayers?.last?.opacity == 1 && slowRoot.sublayers![1].opacity == 0, "Retina fullscreen expansion keeps whole outgoing view over incomplete larger raster")
+slowScene.stop()
+
+let vectorTransport = MockTransport()
+let vectorScene = CityDriftScene(store: b, starterMaps: starterMaps, tileCache: slowDisk, tileTransport: vectorTransport)
+vectorScene.start(); let vectorRoot = CALayer()
+for time in [0.0, 2, 241.5, 244, 484, 487] { _ = vectorScene.updateLayer(vectorRoot, size: smallViewport, time: time, date: fixed) }
+RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+expect(vectorTransport.calls.isEmpty, "line map startup, motion and scene changes make zero network requests")
+vectorScene.stop()
+
+// Every combination of independent detail controls is honored by actual layers.
+for city in starterMaps.catalog {
+    let scene = CityDriftScene(store: b, networkEnabled: false, city: city, starterMaps: starterMaps)
+    let root = CALayer(); root.contentsScale = 2; scene.start()
+    for mask in 0..<16 {
+        var options = SaverSettings()
+        options.streetLabels = mask & 1 != 0; options.water = mask & 2 != 0
+        options.parks = mask & 4 != 0; options.pointsOfInterest = mask & 8 != 0
+        scene.apply(options)
+        _ = scene.updateLayer(root, size: smallViewport, time: Double(mask), date: fixed)
+        let layers = root.sublayers![0].sublayers ?? []
+        let names = Set(layers.compactMap(\.name))
+        expect(names.contains("street-label") == options.streetLabels, "\(city.name): street labels toggle independently (\(mask))")
+        expect(names.contains("water") == options.water, "\(city.name): water toggle independently (\(mask))")
+        expect(names.contains("park") == options.parks, "\(city.name): parks toggle independently (\(mask))")
+        expect(names.contains("poi") == options.pointsOfInterest, "\(city.name): points of interest toggle independently (\(mask))")
+        expect(layers.count <= 358, "detail layer count bounded even for dense cities")
+    }
+    var options = SaverSettings(); options.mapStyle = .traditional; scene.apply(options)
+    _ = scene.updateLayer(root, size: smallViewport, time: 20, date: fixed)
+    options.mapStyle = .lines; scene.apply(options)
+    _ = scene.updateLayer(root, size: smallViewport, time: 21, date: fixed)
+    _ = scene.updateLayer(root, size: smallViewport, time: 23, date: fixed)
+    expect(root.sublayers?.count == 3 && root.sublayers![0].sublayers?.count == 5, "changing map style returns to complete minimal scene")
+    scene.stop()
+}
 
 // Mocked network integration: concurrency, validators, 304, offline, cancellation, throttling.
 let first = TileID(z: 2, x: 0, y: 0)!, second = TileID(z: 2, x: 1, y: 0)!, third = TileID(z: 2, x: 2, y: 0)!

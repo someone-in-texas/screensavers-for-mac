@@ -4,7 +4,7 @@ Two quiet, native screen savers for people who like clocks, cities and the geome
 of everyday things. Written in Swift, AppKit, Core Graphics and Core Animation.
 No browser runtime. No dependencies.
 
-**[Download v0.1.2](https://github.com/someone-in-texas/screensavers-for-mac/releases/latest)** ·
+**[Download v0.2.0](https://github.com/someone-in-texas/screensavers-for-mac/releases/latest)** ·
 Apple Silicon · macOS 14.6 or later
 
 ## World Clock Room
@@ -18,20 +18,28 @@ motion, second hands and labels.
 
 ## City Drift
 
-A slow cartographic study of one of 64 cities around the world. The camera stays
-within a neighborhood, curving through horizontal, vertical and diagonal directions.
-Every four minutes it prepares another city, avoiding the previous eight selections
-where possible. Startup can reuse any complete cached city. Fresh installs include
-instant vector street maps of Paris, Boston and Tokyo; detailed tiles replace the
-street outlines once the viewport is ready.
-Choose Original, Ink, Blueprint, Night, Paper or Terminal, with restrained grain,
-vignette and motion controls. Paper is the default. Both savers now offer a much
-wider speed range; zero pauses camera movement. City changes continue every four
-minutes independently of camera speed.
+City Drift defaults to **solid road lines**, drawn as crisp vectors with no tile
+loading and no network requests. Paris, Boston and Tokyo are included in the bundle.
+In Options, enable **Street labels**, **Water**, **Parks**, and **Points of interest**
+independently. These are simplified major-road maps, not navigation maps; coastal
+water coverage and points of interest follow the bundled extracts.
+
+Choose **Traditional map · Worldwide** for the original detailed map and its
+64-city catalog. This mode uses OpenStreetMap imagery, so its street labels and
+other features are part of the image and cannot be switched off independently.
+It starts with a bundled map, reuses complete eligible cached cities when available,
+and keeps the outgoing scene visible while preparing the next one.
+
+Both styles offer Original, Ink, Blueprint, Night, Paper and Terminal palettes.
+Paper is the default. Vignette is optional; grain and tint intensity apply to the
+traditional map. The camera curves through horizontal, vertical and diagonal
+movement, changing city about every four minutes. Zero speed pauses the camera,
+while city changes continue. Existing color/speed preferences survive the update;
+Reset to Defaults selects the minimal line map.
 
 ![City Drift: Paris in the Paper palette, © OpenStreetMap contributors](docs/images/city-drift.png)
 
-[See Blueprint](docs/images/city-drift-blueprint.png). Map data and imagery
+[See Blueprint](docs/images/city-drift-blueprint.png) · [Optional map details](docs/images/city-drift-details.png). Map data and imagery
 © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright).
 
 ## Install
@@ -44,7 +52,7 @@ minutes independently of camera speed.
 The ZIP contains the same two bundles. For checksums, download the DMG, ZIP and
 `SHA256SUMS` into one directory and run `shasum -a 256 -c SHA256SUMS` there.
 
-**v0.1.2 is ad-hoc signed, not Apple-notarized.** If macOS blocks opening a downloaded
+**v0.2.0 is ad-hoc signed, not Apple-notarized.** If macOS blocks opening a downloaded
 saver, check the source/checksum, attempt to open that saver, then use **System Settings
 → Privacy & Security → Open Anyway** for that item if offered. Never disable Gatekeeper
 globally. Managed Macs may prohibit third-party savers; a local source build is another
@@ -52,6 +60,18 @@ option. Future releases can use Developer ID signing and notarization without so
 
 To remove a saver, delete its bundle from `~/Library/Screen Savers/`, or run
 `make uninstall` from this repository. Preferences and cached maps are retained.
+
+### Picker thumbnails and reopening Options
+
+The bundles include real preview artwork in legacy PNG and TIFF formats. Recent
+System Settings versions may still show the blue swirl: Apple confirms there is
+[no supported API to replace this thumbnail](https://developer.apple.com/forums/thread/806641).
+This does not affect the actual saver. We do not modify System Settings’ private caches.
+
+Options now retains one configuration window per saver instance, explicitly detaches
+and hides it on Done, and refreshes controls when reopened. If macOS is still running
+a previously loaded bundle after an update, quit System Settings with ⌘Q and reopen
+it. Logging out and back in reloads the legacy saver host too.
 
 ## Build and preview
 
@@ -75,7 +95,8 @@ module. If it persists, log out and back in. The scripts do not kill system proc
 
 ## Privacy and power
 
-World Clock Room is entirely offline. City Drift requests HTTPS street tiles from
+World Clock Room and City Drift’s default line-map style are entirely offline.
+City Drift’s optional traditional style requests HTTPS street tiles from
 OpenStreetMap for the **displayed public city**, never your location. OSM receives the
 IP address and requested tile coordinates as with any tile client; its
 [privacy policy](https://osmfoundation.org/wiki/Privacy_Policy) applies. There is no
@@ -92,7 +113,8 @@ bundled maps also work without connectivity. No future city is downloaded in
 advance from OSM’s public tile server; its service availability is best-effort.
 
 Animation is capped at 30 FPS. Static clock faces and graded map tiles are cached;
-Core Animation moves layers and clock hands. Maps use the display’s backing pixels
+Core Animation moves layers and clock hands. Line maps stay vector-based at any
+display resolution. Traditional maps use the display’s backing pixels
 for sharper detail, capped at 3840 × 2560 pixels (rotated for portrait displays).
 A 4K display renders at native resolution; 5K and larger displays scale from this
 bounded detail level. Tile tasks stop with the saver.

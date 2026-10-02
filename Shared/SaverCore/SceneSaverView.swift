@@ -51,10 +51,14 @@ class SceneSaverView: ScreenSaverView {
     }
     override var hasConfigureSheet: Bool { true }
     override var configureSheet: NSWindow? {
-        // Rebuild controls from persistent values each time Settings opens a sheet.
-        configuration = ConfigurationController(store: store) { [weak self] settings in
-            self?.scene.apply(settings); self?.needsDisplay = true
+        // Hosts may query this property repeatedly before/during presentation.
+        // Replacing a live controller leaves a stale sheet/modal session behind.
+        if configuration == nil {
+            configuration = ConfigurationController(store: store) { [weak self] settings in
+                self?.scene.apply(settings); self?.needsDisplay = true
+            }
         }
+        configuration?.prepareForPresentation()
         return configuration?.window
     }
     deinit { scene.stop() }
