@@ -1,7 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-[[ "$(uname -m)" == arm64 ]] || { echo 'Security analysis requires Apple Silicon.' >&2; exit 1; }
+# CodeQL can launch build commands through Rosetta, so uname may report x86_64
+# on the arm64 runner. The explicit Swift target below selects the shipped code.
 mkdir -p build/security/native build/generated
 printf 'enum BuildVersion { static let value = "%s" }\n' "$(cat VERSION)" > build/generated/BuildVersion.swift
 SDK=$(xcrun --sdk macosx --show-sdk-path)
