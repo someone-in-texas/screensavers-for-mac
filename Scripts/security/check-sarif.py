@@ -12,7 +12,10 @@ def check(path):
     findings = 0
     for run in report["runs"]:
         driver = run["tool"]["driver"]
-        if driver["name"] != "CodeQL" or not driver.get("rules"):
+        # CodeQL query packs put their rules in SARIF tool extensions. Older
+        # reports can put them directly on the driver; both are valid SARIF.
+        components = [driver, *run["tool"].get("extensions", [])]
+        if driver["name"] != "CodeQL" or not any(c.get("rules") for c in components):
             raise ValueError("missing CodeQL rules")
         invocations = run.get("invocations", [])
         if not invocations or any(i.get("executionSuccessful") is not True for i in invocations):
