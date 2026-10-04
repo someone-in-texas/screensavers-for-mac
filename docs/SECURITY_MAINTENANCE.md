@@ -7,8 +7,11 @@ releases. It does not enable Dependabot, scheduled scans or automatic update PRs
 
 ## What blocks publication
 
-- **CodeQL security-extended** analyzes Swift from the native build (all savers,
-  PreviewHost and the separate AI helper) and Python maintenance scripts. Analysis
+- **CodeQL security-extended** analyzes Swift (all saver entry points and shared
+  scenes, PreviewHost, the thumbnail tool and separate AI helper) and Python
+  maintenance scripts. Its dedicated build compiles the shared saver code once,
+  rather than repeating it for every bundle; CI and packaging still perform the
+  ordinary production builds and regression tests independently. Analysis
   uploads to GitHub code scanning and produces SARIF artifacts. The SARIF gate
   rejects every finding, including previously dismissed/baselined findings, and
   rejects missing/malformed reports or failed analysis. Uploading alerts alone
