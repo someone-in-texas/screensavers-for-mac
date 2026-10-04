@@ -67,12 +67,14 @@ expect(SaverSettings().speed == 6 && SaverSettings.maximumSpeed == 16, "new moti
 let olderJSON = Data(#"{"speed":8.5,"palette":"blueprint","vignette":true,"labels":false}"#.utf8)
 defaultsA.set(olderJSON, forKey: "settings.v2")
 expect(a.value.speed == 8.5 && a.value.palette == .blueprint && a.value.vignette && !a.value.labels, "old appearance settings survive added detail fields")
-expect(a.value.mapStyle == .online && !a.value.streetLabels && !a.value.water && !a.value.pointsOfInterest && !a.value.parks, "existing users get minimal map default without losing appearance")
+expect(a.value.mapStyle == .online && !a.value.streetLabels && a.value.water && !a.value.pointsOfInterest && !a.value.parks, "missing water preference gets the new default without losing appearance")
+var savedWater = a.value; savedWater.water = false; a.value = savedWater
+expect(!a.value.water, "explicit disabled water preference survives upgrade")
 var details = a.value; details.streetLabels = true; details.water = true; details.pointsOfInterest = true; details.parks = true; details.mapStyle = .traditional
 a.value = details
 expect(a.value == details, "all map detail preferences persist")
 a.reset()
-expect(!a.value.vignette && a.value.mapStyle == .online, "reset returns to solid roads-only appearance")
+expect(!a.value.vignette && a.value.mapStyle == .online, "reset returns to default map appearance")
 
 // Wall time and DST use Calendar + IANA zones, not a table of offsets.
 expect(ClockCity.all.count == 20, "clock catalog size")
@@ -315,6 +317,7 @@ expect(cache.read(tile) == nil, "corrupt cache recovers")
 // Bundled maps cover fresh installs without contacting any tile server.
 let starterMaps = StarterMaps.load(url: URL(fileURLWithPath: "Assets/StarterMaps/streets.json"))
 expect(Set(starterMaps.catalog.map(\.name)) == Set(["Paris", "Boston", "Tokyo"]), "three bundled starter cities")
+expect(starterMaps.cities.allSatisfy { $0.roads.contains { $0.kind == "minor" } && ($0.areas ?? []).contains { $0.kind == "water" } }, "every bundled city includes minor roads and water")
 expect(starterMaps.cities.allSatisfy { $0.extent >= 2080 && !$0.roads.isEmpty && !$0.sourceDate.isEmpty }, "starter data covers capped viewport plus motion")
 expect(starterMaps.cities.allSatisfy { $0.roads.allSatisfy { $0.points.count >= 2 && $0.points.allSatisfy { $0.count == 2 && $0.allSatisfy(\.isFinite) } } }, "valid starter geometry")
 let paris = MapCity.all.first { $0.name == "Paris" }!
@@ -347,12 +350,15 @@ let startupRoot = CALayer(); startupRoot.bounds = CGRect(origin: .zero, size: sm
 cachedStart.apply(traditionalSettings); cachedStart.start()
 CATransaction.begin(); CATransaction.setDisableActions(true)
 _ = cachedStart.updateLayer(startupRoot, size: smallViewport, time: 0, date: fixed)
-expect(!(startupRoot.sublayers![0].sublayers ?? []).isEmpty, "fresh startup immediately displays bundled vector streets")
+expect(cachedStart.isAwaitingStartupMap && startupRoot.sublayers!.allSatisfy(\.isHidden), "raster startup hides fallback while cache is checked")
+expect((startupRoot.sublayers![0].sublayers ?? []).isEmpty, "startup does not construct an offline map before cache selection")
 waitUntil {
     _ = cachedStart.updateLayer(startupRoot, size: smallViewport, time: 0.01, date: fixed)
     return cachedStart.city == paris && !(startupRoot.sublayers![1].sublayers ?? []).isEmpty
 }
 expect(cachedStart.city == paris && !(startupRoot.sublayers![1].sublayers ?? []).isEmpty, "cached startup replaces initial map without network")
+expect(!cachedStart.isDisplayingBundledMap && !cachedStart.displayedCityLabel.hasSuffix("*"), "cached Paris raster is not marked offline")
+expect(startupRoot.sublayers?.count == 3, "cached raster startup has no bundled crossfade cover")
 CATransaction.commit(); cachedStart.stop()
 
 // Queued cache reads must not change a stopped or resized scene.
@@ -413,8 +419,8 @@ for scale in [CGFloat(1), 2] {
     for (index, size) in [previewSize, CGSize(width: 2560, height: 1440), CGSize(width: 1440, height: 2560)].enumerated() {
         CATransaction.begin(); CATransaction.setDisableActions(true)
         _ = scene.updateLayer(root, size: size, time: Double(index), date: fixed)
-        let streets = root.sublayers![0].sublayers ?? []
-        expect(root.sublayers?.count == 3 && streets.count == 5 && streets.allSatisfy { $0.name == "road" && $0.opacity == 1 }, "default first frame is a complete vector scene at \(size), \(scale)x")
+        let streets = (root.sublayers![0].sublayers ?? []).filter { $0.name == "road" }
+        expect(root.sublayers?.count == 3 && streets.count == 6 && streets.allSatisfy { $0.name == "road" && $0.opacity == 1 }, "default first frame is a complete vector scene at \(size), \(scale)x")
         expect(root.sublayers![1].sublayers?.isEmpty != false && root.sublayers![1].opacity == 0, "default never exposes partial raster tiles")
         expect(streets.compactMap { ($0 as? CAShapeLayer)?.strokeColor?.alpha }.allSatisfy { $0 == 1 }, "road strokes use a solid opaque color")
         CATransaction.commit()
@@ -422,6 +428,7 @@ for scale in [CGFloat(1), 2] {
     scene.stop(); scene.start()
     _ = scene.updateLayer(root, size: previewSize, time: 10, date: fixed)
     expect(root.sublayers?.count == 3 && !(root.sublayers![0].sublayers ?? []).isEmpty, "same-instance restart has no stale cover or empty opening")
+    expect(scene.isDisplayingBundledMap && scene.displayedCityLabel.hasSuffix("*"), "offline map label has an asterisk")
     let firstCity = scene.city
     _ = scene.updateLayer(root, size: previewSize, time: 252, date: fixed)
     expect(scene.city != firstCity && starterMaps[scene.city] != nil, "line-map tour only selects fully bundled destinations")
@@ -487,14 +494,14 @@ for city in starterMaps.catalog {
         expect(names.contains("water") == options.water, "\(city.name): water toggle independently (\(mask))")
         expect(names.contains("park") == options.parks, "\(city.name): parks toggle independently (\(mask))")
         expect(names.contains("poi") == options.pointsOfInterest, "\(city.name): points of interest toggle independently (\(mask))")
-        expect(layers.count <= 358, "detail layer count bounded even for dense cities")
+        expect(layers.count <= 359, "detail layer count bounded even for dense cities")
     }
     var options = SaverSettings(); options.mapStyle = .traditional; scene.apply(options)
     _ = scene.updateLayer(root, size: smallViewport, time: 20, date: fixed)
     options.mapStyle = .lines; scene.apply(options)
     _ = scene.updateLayer(root, size: smallViewport, time: 21, date: fixed)
     _ = scene.updateLayer(root, size: smallViewport, time: 23, date: fixed)
-    expect(root.sublayers?.count == 3 && root.sublayers![0].sublayers?.count == 5, "changing map style returns to complete minimal scene")
+    expect(root.sublayers?.count == 3 && (root.sublayers![0].sublayers ?? []).filter { $0.name == "road" }.count == 6, "changing map style returns to complete minimal scene")
     scene.stop()
 }
 

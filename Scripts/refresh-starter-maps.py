@@ -5,6 +5,7 @@ Responses are reused from build/starter-source; remove the relevant response
 explicitly to refresh it. Three bounded, sequential detail queries; no tile fetches.
 """
 import gzip
+from coastal_water import coastal_water
 import json
 import math
 import urllib.request
@@ -72,7 +73,7 @@ for name, lat, lon in CITIES:
     cx, cy = point(lat, lon); extent = 2304
     bbox = f'{lat_at(cy + extent)},{lon - extent / (256 * 2**14) * 360},{lat_at(cy - extent)},{lon + extent / (256 * 2**14) * 360}'
     prefix = '[out:json][timeout:90][maxsize:67108864];'
-    roads_data = fetch(SOURCE / (name + '.json'), prefix + f'way["highway"~"^(motorway|trunk|primary|secondary|tertiary)(_link)?$"]({bbox});out geom;')
+    roads_data = fetch(SOURCE / (name + '-roads-v2.json'), prefix + f'way["highway"~"^(motorway|trunk|primary|secondary|tertiary|residential|unclassified|living_street|pedestrian|service|busway)(_link)?$"]({bbox});out geom;')
     details = fetch(SOURCE / (name + '-details.json'), prefix + f'''(
         way["natural"="water"]({bbox});relation["natural"="water"]["type"="multipolygon"]({bbox});
         way["waterway"~"^(river|canal|riverbank)$"]({bbox});relation["waterway"="riverbank"]({bbox});
@@ -93,14 +94,26 @@ for name, lat, lon in CITIES:
         points = geometry(way.get('geometry', []))
         if len(points) < 2:
             continue
-        roads.append({'kind': way['tags']['highway'].split('_')[0], 'points': packed(points), 'name': way['tags'].get('name', '')})
-    areas, waterways, pois = [], [], []
+        kind = way['tags']['highway'].removesuffix('_link')
+        if kind not in ('motorway', 'trunk', 'primary', 'secondary', 'tertiary'):
+            kind = 'minor'
+            # Vector viewports cap at 1920px; 1280px includes the 160px camera
+            # drift and edge margin. Avoid shipping distant minor roads that can
+            # never enter either online/default or explicit offline viewports.
+            if (min(p[0] for p in points) > 1280 or max(p[0] for p in points) < -1280 or
+                    min(p[1] for p in points) > 1280 or max(p[1] for p in points) < -1280):
+                continue
+        roads.append({'kind': kind, 'points': packed(points), 'name': way['tags'].get('name', '')})
+    areas, waterways, pois, coasts = [], [], [], []
     relation_ways = {m['ref'] for e in details['elements'] if e['type'] == 'relation' for m in e.get('members', []) if m['type'] == 'way'}
     for item in details['elements']:
         tags = item.get('tags', {})
         if item['type'] == 'node':
             x, y = point(item['lat'], item['lon'])
             pois.append({'name': tags['name'], 'point': [round(x - cx, 2), round(y - cy, 2)]})
+            continue
+        if tags.get('natural') == 'coastline':
+            coasts.append(geometry(item.get('geometry', [])))
             continue
         kind = 'park' if tags.get('leisure') == 'park' else 'water'
         if item['type'] == 'relation':
@@ -119,6 +132,9 @@ for name, lat, lon in CITIES:
                 areas.append({'kind': kind, 'rings': [oriented(points)]})
             elif kind == 'water':
                 waterways.append(packed(points))
+    for ocean in coastal_water(coasts, extent):
+        areas.append({'kind': 'water', 'rings': [oriented(list(ocean.exterior.coords))] +
+                      [oriented(list(ring.coords), inner=True) for ring in ocean.interiors]})
     result.append({'name': name, 'zoom': 14, 'extent': extent, 'roads': roads, 'areas': areas,
                    'waterways': waterways, 'pointsOfInterest': pois, 'sourceDate': roads_data['osm3s']['timestamp_osm_base'],
                    'detailSourceDate': details['osm3s']['timestamp_osm_base']})

@@ -16,6 +16,13 @@ trap cleanup EXIT
 hdiutil attach -quiet -readonly -nobrowse -mountpoint "$work/mount" "dist/$base.dmg"
 mounted=1
 for location in "$work/zip" "$work/mount"; do
+    helper="$location/Optional/Screensavers AI Helper.app"
+    [[ -s "$location/Optional/AI_HELPER.md" ]]
+    plutil -lint "$helper/Contents/Info.plist"
+    [[ "$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$helper/Contents/Info.plist")" == com.someoneintexas.screensavers.aihelper ]]
+    [[ "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$helper/Contents/Info.plist")" == "$VERSION" ]]
+    codesign --verify --strict "$helper"
+    lipo "$helper/Contents/MacOS/ScreensaversAIHelper" -verify_arch "$ARCH"
     ids=()
     for name in 'World Clock Room' 'City Drift' 'Voxel Cosmos' 'Paper Sky' 'Dapple' 'Flourish' 'Lattice' 'Strawberry Fields Forever' 'Good Research Takes Time'; do
         bundle="$location/$name.saver"

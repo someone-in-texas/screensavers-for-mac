@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.8.0
+
+- Start City Drift directly on a complete cached viewport when available, including
+  recently visited cities, without briefly showing an offline city. Hold the palette
+  background while disk reads and vector composition finish; cold caches still fall
+  back to bundled maps. Later visits continue exploring the full city catalog.
+- Enable Water by default while preserving saved choices. Refresh Paris, Boston and
+  Tokyo with minor roads matching the online renderer's classes and filled coastal
+  water that preserves islands and land. Mark only bundled
+  offline-map city labels with an asterisk; online/cached versions remain unmarked.
+- Add repository agent instructions, portable creation/validation skills and a tested
+  standalone personal-saver scaffold with its own native preview and build script.
+  Personal projects do not need to join the collection or be contributed upstream.
+- Add an optional, isolated AI helper using Codex's managed Continue with ChatGPT
+  flow, cancellation/sign-out and explicit sample-content testing. Ship it separately
+  under Optional; no existing saver launches it or requires an account or Codex.
+- Keep all nine existing savers; no new saver in this release. Expand offline startup,
+  helper protocol and generated-project coverage.
+
 ## 0.7.2.1
 
 - Keep Strawberry Fields Forever and Good Research Takes Time centered across

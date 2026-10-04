@@ -163,7 +163,7 @@ func runVectorTests() {
     let size = CGSize(width: 2560, height: 1440)
     expect(!["Paris", "Boston", "Tokyo"].contains(scene.city.name), "cold online startup selects a fresh worldwide destination")
     scene.start(); _ = scene.updateLayer(root, size: size, time: 0, date: Date())
-    expect(!(root.sublayers![0].sublayers ?? []).isEmpty, "online default starts with complete bundled streets")
+    expect(scene.isAwaitingStartupMap && root.sublayers!.allSatisfy(\.isHidden), "online startup waits for cache before showing any bundled map")
     waitUntil { _ = scene.updateLayer(root, size: size, time: 0.01, date: Date()); return sceneTransport.calls.count == 2 }
     expect(sceneTransport.calls.count == 2, "online default fetches vectors with bounded concurrency")
     let sceneViewport = Mercator.vectorRenderSize(size)
@@ -183,19 +183,39 @@ func runVectorTests() {
     RunLoop.main.run(until: Date().addingTimeInterval(0.05))
     expect(sceneTransport.calls.count == countBefore && starters[scene.city] != nil, "switching to offline cancels online loading and selects bundled city")
     scene.stop()
-    // A small warm cache must not monopolize every short online session.
+    // Even the only cached city, recently shown and also bundled, wins startup.
     for tile in ids { cache.write(freshEntry, id: tile) }
     defaults.set([city.name], forKey: "recentCities")
     let variedTransport = MockTransport()
     let varied = CityDriftScene(store: store, starterMaps: starters, vectorCache: cache, vectorTransport: variedTransport)
-    varied.start(); let variedRoot = CALayer()
+    let variedRoot = CALayer()
+    _ = varied.updateLayer(variedRoot, size: viewport, time: 0, date: Date())
+    expect(variedRoot.sublayers!.allSatisfy(\.isHidden), "host layout before start cannot flash an offline city")
+    varied.start()
     waitUntil {
         _ = varied.updateLayer(variedRoot, size: viewport, time: 0, date: Date())
-        return !variedTransport.calls.isEmpty
+        if varied.isAwaitingStartupMap {
+            expect(variedRoot.sublayers!.allSatisfy(\.isHidden), "cache decoding and geometry composition keep bundled map hidden")
+        }
+        return !varied.isAwaitingStartupMap
     }
-    expect(varied.city != city && !variedTransport.calls.isEmpty, "recent cached city does not prevent a fresh selected destination from loading")
-    expect(!(variedRoot.sublayers?.first?.sublayers ?? []).isEmpty, "fresh worldwide destination retains complete bundled cover")
+    expect(varied.city == city && variedTransport.calls.isEmpty, "recent complete cached city starts without network")
+    expect(variedRoot.sublayers?.count == 3 && !(variedRoot.sublayers![0].sublayers ?? []).isEmpty, "cached vector opening has no offline crossfade")
+    expect(!varied.isDisplayingBundledMap && !varied.displayedCityLabel.hasSuffix("*"), "cached bundled-city name does not get an asterisk")
+    _ = varied.updateLayer(variedRoot, size: viewport, time: 242, date: Date())
+    expect(varied.city != city, "warm startup still tours new destinations")
     varied.stop()
+    let resizing = CityDriftScene(store: store, starterMaps: starters, vectorCache: cache, vectorTransport: MockTransport())
+    let resizingRoot = CALayer(); resizing.start()
+    _ = resizing.updateLayer(resizingRoot, size: viewport, time: 0, date: Date())
+    waitUntil { resizing.city == city }
+    expect(resizing.isAwaitingStartupMap, "warm selection awaits geometry publication")
+    waitUntil {
+        _ = resizing.updateLayer(resizingRoot, size: CGSize(width: 1800, height: 1000), time: 0, date: Date())
+        return !resizing.isAwaitingStartupMap
+    }
+    expect(!resizing.isAwaitingStartupMap && resizing.isDisplayingBundledMap, "resize during warm startup falls back after a larger cache miss")
+    resizing.stop()
     let noResourcesTransport = MockTransport()
     let noResources = CityDriftScene(store: store, starterMaps: .empty, tileTransport: noResourcesTransport, vectorTransport: noResourcesTransport)
     noResources.apply(offline); noResources.start()

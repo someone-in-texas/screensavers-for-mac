@@ -186,3 +186,12 @@ Report map issues at [OpenStreetMap](https://www.openstreetmap.org/fixthemap), a
 project bugs through [GitHub Issues](https://github.com/someone-in-texas/screensavers-for-mac/issues).
 
 Code: [MIT](LICENSE). Map data and imagery: [Third-party notices](THIRD_PARTY_NOTICES.md).
+
+## Agents and personal screen savers
+
+Use [AGENTS.md](AGENTS.md), the [reusable skills](SKILLS.md), and the
+[agent development guide](docs/AGENT_DEVELOPMENT.md) to contribute efficiently or
+create your own standalone saver with `Scripts/new-saver.py`. Personal projects
+need not be contributed back. The [optional AI helper](docs/AI_HELPER.md) provides
+ChatGPT sign-in and content testing for future AI savers; none of today's nine
+savers uses or requires it.

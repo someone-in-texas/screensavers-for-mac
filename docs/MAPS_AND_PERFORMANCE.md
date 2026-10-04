@@ -3,19 +3,21 @@
 ## City Drift
 
 City Drift defaults to **online vector maps across all 64 cities**: solid road
-lines, drawn natively at your display’s resolution. No API key is required.
-In Options, enable **Street labels**, **Water**, **Parks**, and **Points of interest**
+lines with Water enabled, drawn natively at your display’s resolution. No API key is required.
+In Options, toggle **Street labels**, **Water**, **Parks**, and **Points of interest**
 independently. The online source includes local streets as well as major roads.
 
-Bundled maps of Paris, Boston and Tokyo provide an immediate opening scene. Online
-geometry replaces them only after the current viewport is complete; cached vector
-cities can also open the next session. If a new destination cannot load, the saver
-returns to a bundled city. Previously viewed tiles are reused according to their
-HTTP cache policy. New online sessions choose from the full catalog instead of
-repeatedly downloading the three bundled cities. Online cached openings skip the recent history so short sessions can discover new
-cities too; offline previews can still reuse any complete cached city. The bundled map remains correctly labeled while the
-selected destination loads. Future-city preparation reads the local cache only;
-OSM’s public services prohibit speculative downloads of additional cities.
+Startup checks the local cache before presenting a city. A complete cached viewport
+opens directly, including recently visited cities; only the palette background is
+shown while disk reads and vector composition finish. Less recent cached cities
+are preferred, and subsequent tour destinations explore the full catalog.
+On a cache miss, bundled maps of Paris, Boston and Tokyo cover online loading until
+the selected viewport is complete. These maps include minor roads and water, and
+only their city labels carry an asterisk (`PARIS*`, for example). An online/cached
+map of the same city has no asterisk. Saved Water choices are preserved; fresh/reset
+settings enable it. If a destination cannot load, the saver returns to a bundled
+city. HTTP freshness rules still apply. Future-city preparation reads the local
+cache only; there are no speculative network downloads of additional cities.
 
 Choose **Line map · 3 cities · Offline** to use only the bundled maps with no network
 requests. Choose **Traditional map · Worldwide** for raster OpenStreetMap imagery;

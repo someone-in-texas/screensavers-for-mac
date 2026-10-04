@@ -119,7 +119,7 @@ city's decoded tiles and one outgoing scene are retained.
 `StarterMaps` loads three bundled ODbL vector extracts from the saver resource
 bundle. The optional `.lines` style renders these for the entire session and selects
 only their three cities. It constructs no tile loader or cache-selection request.
-Five opaque road-path layers use one ink color; optional water/park paths use at
+Six opaque road-path layers use one ink color; optional water/park paths use at
 most three additional layers. Ring winding preserves holes without one layer per
 polygon. Street names and named places have deterministic collision avoidance and
 a shared 350-label budget. Geometry and labels rebuild on city/style/detail/scale
@@ -127,12 +127,15 @@ changes, not on every frame or speed adjustment. Native vectors remain crisp abo
 the raster viewport cap. The `.traditional` mode retains the 64-city tile renderer.
 
 The following startup cache behavior applies to traditional maps (online vectors use the equivalent disk-only vector visit reader): Startup cache searches prefer cities outside the recent history, then older recent cities.
-A recent cached city remains eligible in offline previews. Online sessions skip
-recent cached cities so short runs do not repeatedly choose the same small cache. Online
+Recent cached cities remain eligible in online sessions and offline previews. Startup
+presentation waits for cache selection and cached vector composition, including host
+layout before start. No offline city is presented or retained as a fade cover on a
+cache hit. Online
 cold starts choose a fresh destination from the full catalog, independently of the
 bundled map that covers loading; the caption identifies the actually displayed map.
-When there is no complete cached city, vector street outlines provide an immediate,
-resolution-independent map while currently selected tiles load. Starter paths are
+When there is no complete cached city, bundled streets and default water provide a
+resolution-independent map after the cache miss while currently selected tiles load.
+Only a bundled-source caption receives an asterisk, independent of the city name. Starter paths are
 cached and translated with the camera; incoming raster tiles remain hidden until
 the whole visible viewport is available. A destination that stays incomplete for
 20 seconds switches to a bundled city so the outgoing cover cannot freeze forever.

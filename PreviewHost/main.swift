@@ -384,6 +384,19 @@ for name in ["strawberry","research"] {
         }
         scene.stop()
     }
+    // Real bundled cartography at the default detail level, never live tiles.
+    for city in StarterMaps.bundled.catalog {
+        let scene = CityDriftScene(store: store, networkEnabled: false, city: city)
+        var settings = SaverSettings(); settings.mapStyle = .lines
+        scene.apply(settings); scene.start()
+        for size in [CGSize(width: 1600, height: 1000), CGSize(width: 280, height: 180), CGSize(width: 800, height: 1200)] {
+            let c = bitmap(width: Int(size.width), height: Int(size.height))!
+            scene.draw(in: c, size: size, time: 0, date: Date(timeIntervalSince1970: 1780315800))
+            precondition(scene.isDisplayingBundledMap && scene.displayedCityLabel.hasSuffix("*"))
+            try savePNG(c.makeImage()!, "\(folder)/city-drift-offline-\(city.name.lowercased())-\(Int(size.width))x\(Int(size.height)).png")
+        }
+        scene.stop()
+    }
     for view in CosmosView.allCases {
         let scene = VoxelCosmosScene(); var settings = SaverSettings(); settings.cosmos.view = view
         scene.apply(settings); scene.start()

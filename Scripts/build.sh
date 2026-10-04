@@ -61,4 +61,5 @@ ditto Assets/StarterMaps "$app/Contents/Resources/StarterMaps"
 xcrun swiftc "${FLAGS[@]}" -module-name PreviewHost "${SOURCES[@]}" PreviewHost/main.swift -o "$app/Contents/MacOS/PreviewHost"
 plist "$app/Contents/Info.plist" PreviewHost com.someoneintexas.screensavers.preview PreviewHost NSApplication APPL
 codesign --force --sign - "$app"
+Scripts/build-ai-helper.sh
 echo "Built all nine savers and PreviewHost ($ARCH, macOS 14.6+)."

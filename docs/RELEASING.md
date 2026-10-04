@@ -1,7 +1,8 @@
 # Releasing
 
 `VERSION` is the canonical collection version. All nine savers use it; generated files
-live only under `build`. Releases target Apple Silicon and macOS 14.6+.
+live only under `build`. The separately built AI helper is packaged in `Optional/`
+and is never installed by the saver installer. It uses the same version/signing path. Releases target Apple Silicon and macOS 14.6+.
 
 ```sh
 # Update VERSION and CHANGELOG.md; review screenshots/docs.

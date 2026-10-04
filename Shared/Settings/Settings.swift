@@ -45,7 +45,7 @@ struct SaverSettings: Codable, Equatable {
     let mapSourceVersion = 1
     var mapStyle = MapStyle.online
     var streetLabels = false
-    var water = false
+    var water = true
     var parks = false
     var pointsOfInterest = false
     init() {}

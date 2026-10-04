@@ -16,6 +16,16 @@ for name in 'World Clock Room' 'City Drift' 'Voxel Cosmos' 'Paper Sky' 'Dapple' 
     fi
     codesign --verify --strict --verbose=2 "$stage/$name.saver"
 done
+mkdir -p "$stage/Optional"
+helper="$stage/Optional/Screensavers AI Helper.app"
+ditto 'build/products/Screensavers AI Helper.app' "$helper"
+if [[ -n "${SIGNING_IDENTITY:-}" ]]; then
+    codesign --force --options runtime --timestamp --sign "$SIGNING_IDENTITY" "$helper"
+else
+    codesign --force --sign - "$helper"
+fi
+codesign --verify --strict "$helper"
+cp docs/AI_HELPER.md "$stage/Optional/AI_HELPER.md"
 cat > "$stage/Install.txt" <<'NOTE'
 Screensavers for Mac
 Apple Silicon · macOS 14.6 or later
@@ -27,6 +37,10 @@ Under Other > Show All, select a saver and use Options / Screen Saver Options to
 If an ad-hoc build is blocked, use System Settings > Privacy & Security > Open Anyway
 for the specific downloaded saver after checking its source and SHA-256 checksum.
 Never disable Gatekeeper globally.
+
+The Optional folder contains an AI helper for future AI-enabled savers and explicit
+developer testing. None of these nine savers needs it; there is nothing to sign in to.
+See Optional/AI_HELPER.md for the developer test workflow.
 
 Source, troubleshooting, signing status and license:
 https://github.com/someone-in-texas/screensavers-for-mac
@@ -57,6 +71,6 @@ else
     echo 'Ad-hoc signed; not notarized. Gatekeeper approval may be required.' > dist/SIGNING.txt
 fi
 # Explicit paths keep ZIP contents at the root and omit staging-only files.
-(cd "$stage" && /usr/bin/zip -q -r "$OLDPWD/dist/$base.zip" 'World Clock Room.saver' 'City Drift.saver' 'Voxel Cosmos.saver' 'Paper Sky.saver' 'Dapple.saver' 'Flourish.saver' 'Lattice.saver' 'Strawberry Fields Forever.saver' 'Good Research Takes Time.saver' Install.txt)
+(cd "$stage" && /usr/bin/zip -q -r "$OLDPWD/dist/$base.zip" 'World Clock Room.saver' 'City Drift.saver' 'Voxel Cosmos.saver' 'Paper Sky.saver' 'Dapple.saver' 'Flourish.saver' 'Lattice.saver' 'Strawberry Fields Forever.saver' 'Good Research Takes Time.saver' Install.txt Optional)
 (cd dist && shasum -a 256 "$base.dmg" "$base.zip" > SHA256SUMS)
 echo "Packaged dist/$base.{dmg,zip} and dist/SHA256SUMS"

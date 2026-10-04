@@ -9,3 +9,6 @@ build/tests
 build/products/PreviewHost.app/Contents/MacOS/PreviewHost --smoke
 build/products/PreviewHost.app/Contents/MacOS/PreviewHost --launch-smoke
 build/products/PreviewHost.app/Contents/MacOS/PreviewHost --launch-smoke --force-preview-timer
+
+Scripts/test-ai-helper.sh
+python3 Scripts/test-scaffold.py

@@ -15,3 +15,9 @@ release-check:
 	./Scripts/release-check.sh
 clean:
 	rm -rf build dist
+
+.PHONY: ai-helper test-ai-helper
+ai-helper:
+	./Scripts/build-ai-helper.sh
+test-ai-helper:
+	./Scripts/test-ai-helper.sh

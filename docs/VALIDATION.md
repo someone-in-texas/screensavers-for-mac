@@ -409,3 +409,24 @@ is intentionally soft. GPU energy and multi-hour thermal behavior are not benchm
   or polling. Each saver instance chooses its own city on multi-display systems.
 - The minimum supported OS has not been manually exercised on local hardware.
   CI and downloadable artifacts should be reviewed alongside these notes.
+
+## 0.8 agent and helper checks
+
+`Scripts/test.sh` also runs the offline AI helper tests and compiles/smoke-tests a
+personal scaffold in a temporary directory. `Scripts/test-ai-helper.sh --protocol-smoke`
+checks a separately installed Codex CLI without credentials or model requests.
+See [AI helper](AI_HELPER.md) for the account-dependent manual acceptance checklist.
+City Drift regressions cover the hidden cache-selection/composition interval,
+recent warm-cache startup, actual source-based asterisks and persisted Water choices.
+
+Local 0.8 preparation also exercised the real helper with Codex CLI 0.160.0:
+browser ChatGPT sign-in, one authenticated sample generation, and signed-in
+persistence after quitting/reopening, sign-out, and signed-out persistence. These checks use the helper's isolated
+profile; the regular developer Codex profile is not used. Offline/expired-account
+and quota outcomes remain deterministic mock coverage rather than claims of live
+account-limit testing.
+
+The maintainer-only coastal-water extractor has a separate offline check:
+`uv run --with shapely==2.0.7 python Tests/CoastalWaterTests.py`. It tests shore
+direction, island holes, incomplete-source rejection, and shipped Boston/Tokyo
+water-versus-land sample locations. Shapely is not required to build or run savers.

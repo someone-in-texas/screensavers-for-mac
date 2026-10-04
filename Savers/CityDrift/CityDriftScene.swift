@@ -44,6 +44,7 @@ final class CityDriftScene: SaverScene {
     private let reuseCache: Bool
     private var startupCachePending = false
     private var startupCacheRequested = false
+    private var awaitingStartupVectors = false
     private var nextCity: MapCity?
     private var preparedVisit: CachedCityVisit?
     private var preparedVectorVisit: CachedVectorVisit?
@@ -126,7 +127,7 @@ final class CityDriftScene: SaverScene {
                 ? starterMaps.catalog.filter { $0 != city }.randomElement() ?? chooseDestination()
                 : chooseDestination()
         }
-        startupCachePending = reuseCache && !usesVectorMap; startupCacheRequested = false
+        startupCachePending = reuseCache && !usesVectorMap; startupCacheRequested = false; awaitingStartupVectors = false
         hasStarted = true; running = true; generation += 1; beginCity(keepOutgoing: false)
     }
     func stop() {
@@ -148,7 +149,7 @@ final class CityDriftScene: SaverScene {
         if changedStyle && running {
             loader?.stop(); loader = nil; vectorSource.stop()
             if usesVectorMap && starterMaps[city] == nil, let fallback = starterMaps.catalog.randomElement() { city = fallback }
-            startupCachePending = reuseCache && !usesVectorMap; startupCacheRequested = false
+            startupCachePending = reuseCache && !usesVectorMap; startupCacheRequested = false; awaitingStartupVectors = false
             beginCity()
         }
     }
@@ -230,6 +231,12 @@ final class CityDriftScene: SaverScene {
         // a Retina display does not quadruple network requests for identical detail.
         let viewport = rendersVectors ? Mercator.vectorRenderSize(size) : Mercator.mapRenderSize(size, backingScale: backingScale)
         if lastViewport != viewport {
+            if awaitingStartupVectors {
+                // A warm preview can resize before its geometry is published.
+                // Recheck coverage instead of waiting forever on missing tiles.
+                awaitingStartupVectors = false; startupCachePending = true; startupCacheRequested = false
+                vectorSource.begin(city: city); starterDirty = true; overlayDirty = true
+            }
             // A cache sufficient for a settings preview is not a complete fullscreen
             // map. Preserve the entire outgoing view while filling the larger one.
             if lastViewport != .zero && !rendersVectors && !placements.isEmpty { beginCity(preloaded: tiles) }
@@ -258,7 +265,9 @@ final class CityDriftScene: SaverScene {
             vectorSource.configure(settings: settings, ink: ink, scale: backingScale * size.width / viewport.width)
             vectorSource.update(visible)
             if !vectorWasReady && vectorSource.map != nil {
-                retainVectorFallbackForFade()
+                if !awaitingStartupVectors { retainVectorFallbackForFade() }
+                awaitingStartupVectors = false
+                overlayDirty = true
                 vectorWasReady = true
             }
             if vectorRevision != vectorSource.revision { vectorRevision = vectorSource.revision; starterDirty = true }
@@ -275,7 +284,7 @@ final class CityDriftScene: SaverScene {
                 guard let self, self.running, self.generation == session, self.visitRequest == request else { return }
                 self.startupCachePending = false
                 if let visit, visit.isUsable {
-                    self.city = visit.city; self.beginCity(preloaded: visit.images)
+                    self.city = visit.city; self.beginCity(preloaded: visit.images, keepOutgoing: false)
                 } else { self.placements = [] }
             }
         } else if !fixedCity && !startupCachePending && tour.elapsed >= Self.cityDuration - 20 && nextCity == nil {
@@ -304,7 +313,10 @@ final class CityDriftScene: SaverScene {
             cacheRead = vectorSource.prepare(candidates: fixedCity ? [city] : startupCandidates(), viewport: viewport) { [weak self] visit in
                 guard let self, self.running, self.generation == session, self.visitRequest == request else { return }
                 self.startupCachePending = false
-                if let visit, visit.isUsable { self.city = visit.city; self.beginCity(vectorTiles: visit.tiles) }
+                if let visit, visit.isUsable {
+                    self.city = visit.city; self.beginCity(keepOutgoing: false, vectorTiles: visit.tiles)
+                    self.awaitingStartupVectors = true
+                }
             }
         } else if !fixedCity && !startupCachePending && tour.elapsed >= Self.cityDuration - 20 && nextCity == nil {
             let destination = chooseDestination(); nextCity = destination
@@ -314,15 +326,22 @@ final class CityDriftScene: SaverScene {
             }
         }
     }
-    /// Online sessions should not be trapped in the same handful of cached cities.
-    /// Offline previews can still reuse any complete recent viewport.
+    /// Prefer less recent cities, but a complete recent cache beats a bundled flash.
+    /// Later tour destinations still explore the full catalog.
     private func startupCandidates() -> [MapCity] {
         let recent = store.defaults.stringArray(forKey: "recentCities") ?? []
-        let candidates = MapCity.startupCandidates(recent: recent)
-        return networkEnabled ? candidates.filter { $0 == city || !recent.contains($0.name) } : candidates
+        return MapCity.startupCandidates(recent: recent)
     }
     private var bundledMap: StarterMap? {
         starterMaps[city] ?? (fallbackCity.flatMap { starterMaps[$0] })
+    }
+    var isDisplayingBundledMap: Bool {
+        !isAwaitingStartupMap && bundledMap != nil && fixture == nil &&
+            (usesVectorMap || (vectorSource.map == nil && rasterFadeStart == nil))
+    }
+    var displayedCityLabel: String { displayedCity.name.uppercased() + (isDisplayingBundledMap ? "*" : "") }
+    var isAwaitingStartupMap: Bool {
+        (reuseCache && !usesVectorMap && !hasStarted) || startupCachePending || awaitingStartupVectors
     }
     private var displayedCity: MapCity {
         if !usesVectorMap && vectorSource.map == nil && rasterFadeStart == nil && starterMaps[city] == nil {
@@ -337,7 +356,7 @@ final class CityDriftScene: SaverScene {
         if usesOnlineVector && vectorSource.map != nil {
             for layer in vectorSource.layers { starterLayer.addSublayer(layer) }
         } else if let starter = bundledMap {
-            let identity = city.name + (usesOnlineVector ? ":\(vectorRevision)" : "")
+            let identity = starter.name + (usesOnlineVector ? ":\(vectorRevision)" : "")
             if starterPathCity != identity {
                 starterPaths = starter.paths(); starterPathCity = identity
             }
@@ -370,6 +389,10 @@ final class CityDriftScene: SaverScene {
             if let coverLayer { root.addSublayer(coverLayer) }
         }
         root.backgroundColor = background.cgColor
+        // Host layout can precede start(). Never attach a visible fallback while
+        // selecting cached tiles or composing their first complete vector map.
+        for layer in [starterLayer, mapLayer, overlayLayer] { layer.isHidden = isAwaitingStartupMap }
+        if isAwaitingStartupMap { return true }
         mapLayer.anchorPoint = .zero
         mapLayer.position = CGPoint(x: (viewport.width / 2 - center.x + baseCenter.x) * size.width / viewport.width,
                                     y: (viewport.height / 2 + center.y - baseCenter.y) * size.height / viewport.height)
@@ -443,7 +466,7 @@ final class CityDriftScene: SaverScene {
             let compact = size.width < 600
             // Opaque quiet plaques preserve contrast through every palette and loading state.
             if settings.labels && size.height > 110 {
-                let name = displayedCity.name.uppercased()
+                let name = displayedCityLabel
                 let fontSize: CGFloat = compact ? 13 : 23
                 let nameWidth = (name as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: fontSize, weight: .medium), .kern: compact ? 1 : 2]).width
                 let regionWidth = (displayedCity.region.uppercased() as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: compact ? 8 : 10), .kern: 1.6]).width

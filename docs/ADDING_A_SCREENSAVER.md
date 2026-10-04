@@ -1,5 +1,8 @@
 # Adding a screen saver
 
+For a private standalone saver, start with [the personal scaffold](AGENT_DEVELOPMENT.md).
+The steps below integrate a new saver into the distributed collection.
+
 1. Create `Savers/YourSaver/YourScene.swift` implementing `SaverScene`: `start()`,
    `stop()`, `apply(_:)`, and `draw(in:size:time:date:)`. Use the monotonic time for
    motion and the Date only for real-world time. Cancel every task when stopped.
