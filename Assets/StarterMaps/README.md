@@ -34,10 +34,10 @@ Online modes use these maps after a cache miss while loading the selected city.
 Water is enabled by default. Only bundled-map city labels carry an asterisk.
 
 Refresh manually from the repo root with
-`uv run --with shapely==2.0.7 python Scripts/refresh-starter-maps.py` (or Python with
+`uv run --python 3.12 --no-project --with-requirements Scripts/security/requirements.txt python Scripts/refresh-starter-maps.py` (or Python with
 Shapely 2.x installed). Shapely is a maintainer-only geometry dependency; builds,
 tests of the savers, and installed apps do not need it. Validate an extractor change
-with `uv run --with shapely==2.0.7 python Tests/CoastalWaterTests.py`.
+with `uv run --python 3.12 --no-project --with-requirements Scripts/security/requirements.txt python Tests/CoastalWaterTests.py`.
 The script reuses raw responses in `build/starter-source` unless explicitly removed.
 It is never invoked by CI, the build, the installed saver, or its preview host.
 

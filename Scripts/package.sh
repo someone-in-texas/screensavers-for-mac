@@ -56,8 +56,7 @@ if [[ -n "${SIGNING_IDENTITY:-}" ]]; then
     if [[ -n "${NOTARY_PROFILE:-}" ]]; then
         xcrun notarytool submit "dist/$base.dmg" --keychain-profile "$NOTARY_PROFILE" --wait
     elif [[ -n "${NOTARY_KEY_ID:-}" && -n "${NOTARY_ISSUER_ID:-}" && -n "${NOTARY_KEY_P8:-}" ]]; then
-        printf '%s' "$NOTARY_KEY_P8" > "$stage/notary.p8"
-        chmod 600 "$stage/notary.p8"
+        (umask 077; printf '%s' "$NOTARY_KEY_P8" > "$stage/notary.p8")
         xcrun notarytool submit "dist/$base.dmg" --key "$stage/notary.p8" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER_ID" --wait
         rm "$stage/notary.p8"
     else

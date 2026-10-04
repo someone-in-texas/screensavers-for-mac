@@ -1,4 +1,4 @@
-"""Offline maintainer tests; run with uv run --with shapely==2.0.7 python ..."""
+"""Offline maintainer tests; run with uv run --python 3.12 --no-project --with-requirements Scripts/security/requirements.txt python ..."""
 import importlib.util
 import math
 import json

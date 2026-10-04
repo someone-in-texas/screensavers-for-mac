@@ -16,6 +16,10 @@ release-check:
 clean:
 	rm -rf build dist
 
+.PHONY: security-check
+security-check:
+	./Scripts/security-check.sh
+
 .PHONY: ai-helper test-ai-helper
 ai-helper:
 	./Scripts/build-ai-helper.sh

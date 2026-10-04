@@ -3,19 +3,24 @@ on:
   push:
     tags: ['v[0-9]*.[0-9]*.[0-9]*']
 permissions:
-  contents: write
+  contents: read
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 jobs:
-  release:
+  security:
+    permissions:
+      contents: read
+      security-events: write # Upload CodeQL analysis; no release-write access.
+    uses: ./.github/workflows/security.yml
+  package:
+    needs: security
     runs-on: macos-15
     timeout-minutes: 30
-    env:
-      GH_TOKEN: ${{ github.token }}
-      GH_REPO: ${{ github.repository }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - name: Validate tag and toolchain
         run: |
           test "$GITHUB_REF_NAME" = "v$(cat VERSION)"
@@ -45,40 +50,58 @@ jobs:
         run: |
           ./Scripts/package.sh
           ./Scripts/verify-package.sh
-      - name: Publish verified assets
+      - name: Prepare release notes
         run: |
-          cat > build/release-notes.md <<'NOTES'
-          Nine native screen savers that turn idle displays into imaginative, ever-changing worlds. For Apple Silicon Macs running macOS 14.6 or later.
-
-          - **City Drift** — crisp online vector maps across 64 cities, with configurable map details and bundled offline alternatives.
-          - **World Clock Room** — an isometric clock installation with real local times, smooth hands, and configurable colors.
-          - **Voxel Cosmos** — a glowing pixel solar system with planet closeups, isometric viewpoints, and deep-space scenes.
-          - **Paper Sky** — procedural paper-airplane flight above sculpted clouds and evolving synthwave sunsets.
-          - **Dapple** — tactile circles rolling over invisible hills, with gentle contacts, curated palettes, and procedural materials.
-          - **Flourish** — growing botanical ink, tapered branching stems, delicate leaves and blossoms, and slowly renewing compositions.
-          - **Lattice** — a luminous cellular ecosystem with four rule families, crisp pixels, subtle glow, and localized events.
-          - **Strawberry Fields Forever** — procedural botanical strawberries and growing roots that become circuit traces.
-          - **Good Research Takes Time** — a solitary blue metal folding chair anchoring an unfinished architectural drawing.
-
-          Version 0.8.0 focuses on agents: reusable contributor skills, repository instructions, and a standalone personal-saver generator. City Drift starts directly on complete cached maps, enables Water by default, includes matching minor roads in its three offline maps, and marks only bundled maps with an asterisk. An optional separate AI helper provides Continue with ChatGPT and explicit developer content tests through local Codex. None of the nine existing savers requires or launches it; no new saver is included.
-
-          Download the DMG, open it, and double-click each `.saver` to install for the current user. Select the saver in System Settings → Wallpaper → Screen Saver (or Screen Saver on older macOS), then open its options. The ZIP contains the same bundles. Verify downloads with `shasum -a 256 -c SHA256SUMS` from the directory containing both downloads.
-
-          City Drift’s online vector and traditional modes request tiles for the selected public city. Its explicit offline mode uses only bundled maps. Strawberry Fields Forever, Good Research Takes Time, Flourish, Lattice, Dapple, Paper Sky, Voxel Cosmos and World Clock Room make no network requests. No location access, analytics or telemetry. Map data © OpenStreetMap contributors.
-
-          NOTES
-          cat dist/SIGNING.txt >> build/release-notes.md
-          printf '\nSee the README for Gatekeeper approval and troubleshooting.\n' >> build/release-notes.md
-          tag="$GITHUB_REF_NAME"
-          if gh release view "$tag" >/dev/null 2>&1; then
-            gh release edit "$tag" --title "Screensavers for Mac $tag" --notes-file build/release-notes.md
-          else
-            gh release create "$tag" --verify-tag --draft --title "Screensavers for Mac $tag" --notes-file build/release-notes.md
-          fi
-          gh release upload "$tag" dist/*.dmg dist/*.zip dist/SHA256SUMS --clobber
-          gh release edit "$tag" --draft=false
+          python3 - <<'PYNOTES'
+          from pathlib import Path
+          version = Path('VERSION').read_text().strip()
+          section = Path('CHANGELOG.md').read_text().split(f'## {version}\n', 1)[1].split('\n## ', 1)[0].strip()
+          notes = f'Screensavers for Mac {version} · Apple Silicon · macOS 14.6+\n\n{section}\n\n'
+          notes += 'Download the DMG or ZIP below. Both contain the same nine savers and separate optional AI helper. Verify downloads with `shasum -a 256 -c SHA256SUMS`.\n\n'
+          notes += Path('dist/SIGNING.txt').read_text()
+          notes += '\nSee the [README](https://github.com/someone-in-texas/screensavers-for-mac#readme) for installation and Gatekeeper approval.\n'
+          Path('dist/release-notes.md').write_text(notes)
+          PYNOTES
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: verified-release
+          path: |
+            dist/*.dmg
+            dist/*.zip
+            dist/SHA256SUMS
+            dist/release-notes.md
+          if-no-files-found: error
+          retention-days: 7
       - name: Remove signing materials
         if: always()
         run: |
           security delete-keychain "$RUNNER_TEMP/screensavers-signing.keychain-db" 2>/dev/null || true
           rm -f "$RUNNER_TEMP/screensavers-certificate.p12"
+  publish:
+    needs: [security, package]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # Only the publisher may create a GitHub release.
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: verified-release
+          path: dist
+      - name: Verify transferred assets and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          cd dist
+          sha256sum -c SHA256SUMS
+          tag="$GITHUB_REF_NAME"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            # Never replace assets that users may already have downloaded.
+            test "$(gh release view "$tag" --json isDraft --jq .isDraft)" = true
+            gh release edit "$tag" --title "Screensavers for Mac $tag" --notes-file release-notes.md
+          else
+            gh release create "$tag" --verify-tag --draft --title "Screensavers for Mac $tag" --notes-file release-notes.md
+          fi
+          gh release upload "$tag" ./*.dmg ./*.zip SHA256SUMS --clobber
+          gh release edit "$tag" --draft=false --latest

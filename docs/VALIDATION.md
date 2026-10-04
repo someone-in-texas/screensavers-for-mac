@@ -427,6 +427,6 @@ and quota outcomes remain deterministic mock coverage rather than claims of live
 account-limit testing.
 
 The maintainer-only coastal-water extractor has a separate offline check:
-`uv run --with shapely==2.0.7 python Tests/CoastalWaterTests.py`. It tests shore
+`uv run --python 3.12 --no-project --with-requirements Scripts/security/requirements.txt python Tests/CoastalWaterTests.py`. It tests shore
 direction, island holes, incomplete-source rejection, and shipped Boston/Tokyo
 water-versus-land sample locations. Shapely is not required to build or run savers.

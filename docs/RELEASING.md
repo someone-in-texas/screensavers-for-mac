@@ -7,21 +7,25 @@ and is never installed by the saver installer. It uses the same version/signing 
 ```sh
 # Update VERSION and CHANGELOG.md; review screenshots/docs.
 make release-check
+make security-check
 git status
 git diff --check
 git add <changed-files>
 git commit -m 'release: prepare v0.x.y'
 git push origin main
+# Wait for all CI/security checks to pass before tagging.
 git tag v0.x.y
 git push origin v0.x.y
 ```
 
 Verify origin is `someone-in-texas/screensavers-for-mac`. Watch `gh run list` /
 `gh run watch <run-id> --exit-status`; inspect logs for failures. The tag must match
-VERSION. The workflow uses the tag checkout, arm64 macOS runner and GitHub's token
-with contents:write. It builds/tests, packages, mounts/extracts/verifies, creates a
-draft release, uploads DMG/ZIP/SHA256SUMS, then publishes it. Rerunning updates the
-same release/assets. Do not move a tag after a release is public; fix with a patch release.
+VERSION. The workflow first runs the required [security gate](SECURITY_MAINTENANCE.md)
+against the tag checkout. Only after it passes does the arm64 macOS package job
+build/test, package and mount/extract/verify. A separate publisher with
+`contents: write` verifies the transferred assets, creates a draft, uploads
+DMG/ZIP/SHA256SUMS, then publishes. Reruns can resume a draft but refuse to overwrite
+a public release. Do not move a tag after a release is public; fix with a patch release.
 
 Expected files in `dist`:
 

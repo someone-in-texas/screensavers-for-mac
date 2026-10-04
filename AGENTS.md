@@ -45,3 +45,8 @@ and `Scripts/new-saver.py`; the standalone route does not change collection targ
 For contribution work, use [adding a saver](docs/ADDING_A_SCREENSAVER.md).
 No new collection saver is planned for 0.8. Release preparation does not imply
 permission to publish, push tags, or overwrite an existing public release.
+
+Before releasing, also run `make security-check` (online; requires uv) and wait for
+CI's CodeQL/security jobs. See [security maintenance](docs/SECURITY_MAINTENANCE.md).
+New dependency ecosystems need locked dependencies and a matching release audit.
+Do not bypass failed scans or add broad vulnerability exclusions.

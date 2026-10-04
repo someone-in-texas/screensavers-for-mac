@@ -1,0 +1,66 @@
+name: Security
+on:
+  workflow_call:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  dependencies-and-secrets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: '0.11.32'
+          enable-cache: false
+      - name: Audit dependencies, workflows and secrets
+        run: make security-check
+      - name: Offline map-tool regression checks
+        run: uv run --python 3.12 --no-project --with-requirements Scripts/security/requirements.txt python Tests/CoastalWaterTests.py
+      - name: Dependency audit report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dependency-audit
+          path: build/security/dependencies.json
+          if-no-files-found: error
+          retention-days: 14
+  codeql:
+    runs-on: macos-15
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      security-events: write # Upload CodeQL analysis; no release-write access.
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          languages: swift,python
+          queries: security-extended
+          tools: linked
+      - name: Trace the native build, including the optional helper
+        run: make build
+      - uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          output: build/security/codeql
+          upload: always
+          upload-database: false
+      - name: Block on findings or incomplete analysis
+        run: python3 Scripts/security/check-sarif.py build/security/codeql/swift.sarif build/security/codeql/python.sarif
+      - name: Analysis reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: codeql-reports
+          path: build/security/codeql/*.sarif
+          if-no-files-found: error
+          retention-days: 14

@@ -180,7 +180,7 @@ target 60 FPS. Geometry, textures, and map tiles are cached. See
 
 [Contributing](CONTRIBUTING.md) · [Architecture](docs/ARCHITECTURE.md) ·
 [Add a saver](docs/ADDING_A_SCREENSAVER.md) · [Releasing](docs/RELEASING.md) ·
-[Validation](docs/VALIDATION.md)
+[Validation](docs/VALIDATION.md) · [Security](SECURITY.md)
 
 Report map issues at [OpenStreetMap](https://www.openstreetmap.org/fixthemap), and
 project bugs through [GitHub Issues](https://github.com/someone-in-texas/screensavers-for-mac/issues).

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.8.1
+
+- Add a security policy and private vulnerability reporting, plus required
+  pre-release Swift/Python CodeQL analysis, dependency auditing, secret scanning
+  and GitHub Actions security checks. Findings or scanner failures block release
+  publication; no Dependabot automation is enabled.
+- Pin workflow Actions to commit hashes, keep release-write permissions out of
+  build jobs, and publish only after security checks and package verification.
+  Create temporary signing credentials with private permissions from the outset
+  and clean up certificate files on failure.
+- Lock and audit the optional map-maintenance Python dependencies. Keep all nine
+  screen savers, map assets, settings and the optional AI helper behavior unchanged.
+
 ## 0.8.0
 
 - Start City Drift directly on a complete cached viewport when available, including
