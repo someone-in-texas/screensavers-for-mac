@@ -1,5 +1,6 @@
 """Shared installation text for README checks and GitHub release notes."""
 import re
+from urllib.parse import urlsplit
 
 REPOSITORY = "someone-in-texas/screensavers-for-mac"
 ROOT_URL = f"https://github.com/{REPOSITORY}"
@@ -47,5 +48,6 @@ def validate_instructions(text, tag=None, ref="main"):
     expected = instructions(tag, ref)
     if text.count(START) != 1 or text.count(END) != 1 or expected not in text:
         raise ValueError("Recommended installation block is missing or stale")
-    if "gist.githubusercontent.com" in text or "gist.github.com" in text:
-        raise ValueError("Temporary gist URL must not appear in installation documentation")
+    for url in re.findall(r"https?://[^\s<>()`]+", text):
+        if urlsplit(url).hostname in {"gist.githubusercontent.com", "gist.github.com"}:
+            raise ValueError("Temporary gist URL must not appear in installation documentation")

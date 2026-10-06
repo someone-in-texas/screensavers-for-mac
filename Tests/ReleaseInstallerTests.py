@@ -150,6 +150,9 @@ esac
             validate_instructions(text.replace("bash /dev/stdin", "bash"))
         with self.assertRaises(ValueError):
             validate_instructions(instructions("v0.8.0", "v0.8.0"), "v0.8.1", "v0.8.1")
+        with self.assertRaises(ValueError):
+            validate_instructions(text + "\nhttps://gist.github.com/example/temporary")
+        validate_instructions(text + "\nhttps://example.org/gist.github.com")
 
     def test_install_and_update(self):
         self.assert_success(self.run_installer(["--version", "v0.8.1"]))
