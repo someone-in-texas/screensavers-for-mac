@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Recommend a curl installer that verifies published release ZIPs and installs or
+  updates savers for the current user without developer tools. Preserve settings
+  and cached maps, and restore previous bundles if replacement fails.
+- Keep README and release-page commands synchronized with shared generation,
+  offline installer tests, package checks and live post-publication verification.
+
 ## 0.8.1
 
 - Add a security policy and private vulnerability reporting, plus required

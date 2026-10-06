@@ -15,6 +15,12 @@ scenes, open native configuration sheets and enter full screen. Quit the old pre
 before rebuilding. `make install` installs only for your user; `make uninstall`
 removes the nine bundles and preserves preferences/cache.
 
+The root `install.sh` instead downloads published releases for end users. For
+installer or installation-documentation changes, run
+`python3 Tests/ReleaseInstallerTests.py` and `python3 Scripts/check-installation.py`.
+Keep the README and generated release-page instructions synchronized through
+`Scripts/release_installation.py`; see [releasing](docs/RELEASING.md).
+
 Keep PRs focused. Describe visible behavior and validation. Include screenshots for
 visual changes, test boundary cases for time/map/cache changes, and keep automated
 tests offline. Check small previews, portrait and wide screens. Preserve low motion,

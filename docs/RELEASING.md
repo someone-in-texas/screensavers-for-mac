@@ -39,6 +39,42 @@ mount the DMG and check all nine savers. Confirm the release notes state the act
 level. For final validation, also build from a clean checkout, launch PreviewHost,
 install the bundles and check System Settings preview/configuration.
 
+## Maintain the recommended curl installer
+
+`install.sh` downloads published ZIPs; `Scripts/install.sh` builds local source.
+Keep the public installer outside packaged DMG/ZIP contents. Its only runtime
+dependencies are tools shipped with macOS, and updates preserve preferences/cache.
+
+Before each release, run `python3 Scripts/check-installation.py` and
+`python3 Tests/ReleaseInstallerTests.py`. Both are part of `Scripts/test.sh` and
+`make release-check`. The former checks the top README block against the canonical
+text in `Scripts/release_installation.py` and checks generated release notes. The
+latter executes the documented curl pipeline with an offline transport and tests
+verification, installation and rollback in temporary directories. Package checks
+also pass the actual release ZIP through the public installer's validation functions.
+Update the installer allowlist whenever saver identities change.
+
+`python3 Scripts/release-notes.py` generates `dist/release-notes.md` from the
+changelog, actual signing status and canonical installation instructions. The release
+workflow uses this generator. README installs use the maintained `main/install.sh`
+and the latest published stable assets. Release-page commands pin both script and
+asset version to that release tag, so older instructions remain reproducible.
+
+After publication, the macOS `verify-installation` job checks the live README,
+release page and raw script, then runs the public curl command with `--verify-only`.
+To repeat this from the matching checkout:
+
+```sh
+python3 Scripts/check-installation.py --published-tag v<VERSION>
+```
+
+The existing v0.8.1 release predates the installer; its installation text uses the
+maintained main script with `--version 0.8.1`. Check that bootstrap with
+`--published-tag v0.8.1 --installer-ref main`. Do not move its tag or replace its
+assets. A failed post-publication check requires investigation and a correction;
+do not silently remove the check. On a clean supported Mac, also exercise the
+recommended command, reopen System Settings and confirm the installed savers run.
+
 ## Without Apple credentials
 
 The default path is **ad-hoc signed, not notarized**. Ordinary CI always supports this.

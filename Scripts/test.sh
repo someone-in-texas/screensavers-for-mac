@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+python3 Scripts/check-installation.py
+python3 Tests/ReleaseInstallerTests.py
 [[ -f build/generated/BuildVersion.swift ]] || Scripts/build.sh
 SOURCES=()
 while IFS= read -r file; do SOURCES+=("$file"); done < <(find Shared Savers -name '*.swift' ! -name '*View.swift' | sort)

@@ -16,6 +16,7 @@ trap cleanup EXIT
 hdiutil attach -quiet -readonly -nobrowse -mountpoint "$work/mount" "dist/$base.dmg"
 mounted=1
 for location in "$work/zip" "$work/mount"; do
+    [[ ! -e "$location/install.sh" && ! -e "$location/Install.sh" ]]
     helper="$location/Optional/Screensavers AI Helper.app"
     [[ -s "$location/Optional/AI_HELPER.md" ]]
     plutil -lint "$helper/Contents/Info.plist"
@@ -47,4 +48,14 @@ for location in "$work/zip" "$work/mount"; do
     done
     [[ "$(printf '%s\n' "${ids[@]}" | sort -u | wc -l | tr -d ' ')" == 9 ]]
 done
+# Exercise the same archive/bundle checks as the public installer, without network
+# requests or installation. This catches new saver identities and asset drift.
+if [[ "$ARCH" == arm64 ]]; then
+    bash -c '
+        source ./install.sh
+        work=$1
+        verify_archive "$2" dist/SHA256SUMS "${2##*/}"
+        validate_bundles "$work/zip" "$3"
+    ' verify-installer "$work" "dist/$base.zip" "$VERSION"
+fi
 echo 'Verified checksums, mounted DMG, expanded ZIP, bundle metadata, architecture and signatures.'

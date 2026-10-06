@@ -15,6 +15,15 @@ personal project, a collection scene change, or release preparation.
   Browser sign-in and generation are separate manual tests; do not claim them from mocks.
 - Release preparation: update `VERSION` and `CHANGELOG.md`, then `make release-check`.
   Inspect the actual resulting package; record actual signing/notarization status.
+- Installer/documentation maintenance without a new release: run
+  `python3 Tests/ReleaseInstallerTests.py` and `python3 Scripts/check-installation.py`.
+  For packaging or workflow integration changes also run `make release-check` and
+  `make security-check`; no version bump is needed for documentation-only publication.
+  Preserve the canonical README curl command and generated, version-pinned release
+  instructions. After an authorized push/publication, use
+  `python3 Scripts/check-installation.py --published-tag v<VERSION>` (with
+  `--installer-ref main` only for the existing v0.8.1 bootstrap). This downloads and
+  verifies without installing. Check CI including post-publication verification.
 
 When a test fails, distinguish changed expectations from broken behavior. Preserve
 assertions for full-viewport map readiness, asynchronous cancellation, preference

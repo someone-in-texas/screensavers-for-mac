@@ -11,6 +11,8 @@ There is no Xcode project, Swift package or dependency install step. Start with
 - `Savers/<Name>/`: scene and unique Objective-C `ScreenSaverView` entry point.
 - `PreviewHost/main.swift`: same scenes, offline snapshots, real bundle-load smoke.
 - `Scripts/build.sh`: canonical target list, arm64 bundles, generated Info.plists.
+- `install.sh`: public curl installer for published releases; `Scripts/install.sh`
+  remains the local source-build installer.
 - `Tests/main.swift` and focused `Tests/*Tests.swift`: offline test harness.
 - `AIHelper/`: optional separate app; never compiled into a saver. See
   [AI helper contract](docs/AI_HELPER.md) before changing auth or activation.
@@ -22,6 +24,20 @@ runs logic/render/bundle/lifecycle tests after a build. `make release-check` als
 packages and verifies DMG/ZIP, signatures, architectures and versions. These commands
 do not install savers or publish releases. Use `make install` only when installation
 is part of the request; it replaces the user's matching collection bundles.
+
+Maintain the recommended curl route with every installer or release change.
+Run `python3 Tests/ReleaseInstallerTests.py` and `python3 Scripts/check-installation.py`;
+both are included in `Scripts/test.sh` and `make release-check`. Keep the README's
+top installation block synchronized with `Scripts/release_installation.py` and use
+`Scripts/release-notes.py` for release-page instructions. Release commands pin both
+the script ref and installed version; the README uses the maintained main script.
+Keep the public installer outside the DMG/ZIP, preserve the `/dev/stdin` entry point,
+and update its saver allowlist when collection identities change. No developer-tool
+dependency or Gatekeeper/quarantine mutation belongs in the public installer.
+After authorized publication, run `python3 Scripts/check-installation.py --published-tag v<VERSION>`
+to verify the live README, release page, raw script and curl download in verify-only
+mode. The release workflow runs this check after publication too. Do not install on
+the maintainer's account as part of automated checks.
 
 Use the smallest relevant validation while iterating, then run the checks for the
 scope you changed. See [validation](docs/VALIDATION.md). Keep tests offline and use

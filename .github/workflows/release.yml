@@ -50,18 +50,10 @@ jobs:
         run: |
           ./Scripts/package.sh
           ./Scripts/verify-package.sh
-      - name: Prepare release notes
+      - name: Prepare and verify release instructions
         run: |
-          python3 - <<'PYNOTES'
-          from pathlib import Path
-          version = Path('VERSION').read_text().strip()
-          section = Path('CHANGELOG.md').read_text().split(f'## {version}\n', 1)[1].split('\n## ', 1)[0].strip()
-          notes = f'Screensavers for Mac {version} · Apple Silicon · macOS 14.6+\n\n{section}\n\n'
-          notes += 'Download the DMG or ZIP below. Both contain the same nine savers and separate optional AI helper. Verify downloads with `shasum -a 256 -c SHA256SUMS`.\n\n'
-          notes += Path('dist/SIGNING.txt').read_text()
-          notes += '\nSee the [README](https://github.com/someone-in-texas/screensavers-for-mac#readme) for installation and Gatekeeper approval.\n'
-          Path('dist/release-notes.md').write_text(notes)
-          PYNOTES
+          python3 Scripts/check-installation.py
+          python3 Scripts/release-notes.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: verified-release
@@ -105,3 +97,18 @@ jobs:
           fi
           gh release upload "$tag" ./*.dmg ./*.zip SHA256SUMS --clobber
           gh release edit "$tag" --draft=false --latest
+
+  verify-installation:
+    needs: publish
+    runs-on: macos-15
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Verify published curl command and release page
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 Scripts/check-installation.py --published-tag "$GITHUB_REF_NAME"

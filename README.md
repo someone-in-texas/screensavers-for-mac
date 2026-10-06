@@ -3,7 +3,24 @@
 Native macOS screen savers that turn idle displays into imaginative, ever-changing worlds.
 Built with Swift, AppKit, Core Graphics, and Core Animation. No browser runtime or dependencies.
 
-**[Download latest release](https://github.com/someone-in-texas/screensavers-for-mac/releases/latest)** · Apple Silicon · macOS 14.6 or later
+<!-- recommended-install:start -->
+**Recommended: install from Terminal** · Apple Silicon · macOS 14.6+
+
+Quit System Settings and stop any running screen saver, then run:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/someone-in-texas/screensavers-for-mac/main/install.sh | bash /dev/stdin
+```
+
+Downloads and verifies the published release, then installs or updates its savers
+for your user. Preferences and cached maps are retained. No Git, developer tools,
+Homebrew, or `sudo` required. Reopen System Settings afterward.
+
+Append `--verify-only` to check the download without installing. The optional AI
+helper is not installed. [Inspect the installer](https://raw.githubusercontent.com/someone-in-texas/screensavers-for-mac/main/install.sh) before running.
+<!-- recommended-install:end -->
+
+[Installation details and DMG alternative](#install) · [Latest release](https://github.com/someone-in-texas/screensavers-for-mac/releases/latest)
 
 ## City Drift
 
@@ -128,6 +145,21 @@ save a seed or let each day bring a new drawing. Entirely offline and silent.
 [Charcoal study](docs/images/research-chair.png) · [Blueprint study](docs/images/research-archive.png)
 
 ## Install
+
+Use the recommended Terminal command at the top of this page. Rerun it to update
+to the latest published stable release. To choose a release, append
+`--version 0.8.1` after `/dev/stdin`; append `--verify-only` to download and check
+without installing. The installer verifies the release ZIP checksum, bundle
+identifiers, versions, signatures and Apple Silicon architecture before replacing
+matching bundles. Failed replacements roll back to the previous bundles.
+
+The command downloads the repository's maintained `main/install.sh`; the savers
+come from published release assets. It does not build or install unreleased scenes.
+It does not change Gatekeeper settings or remove quarantine attributes. Terminal
+`curl` downloads normally avoid browser-added quarantine, but this does not make
+an ad-hoc release notarized or guarantee every Mac's security policy will allow it.
+
+### Alternative: DMG or ZIP
 
 1. Download the **DMG** from [Releases](https://github.com/someone-in-texas/screensavers-for-mac/releases).
 2. Open it and double-click each `.saver`. Choose installation for the current user.

@@ -1,5 +1,28 @@
 # Validation
 
+## Public release installer
+
+Run `python3 Tests/ReleaseInstallerTests.py` for offline installer integration checks
+and `python3 Scripts/check-installation.py` for README/release-command consistency.
+These run through `Scripts/test.sh` and `make release-check`. Tests use signed fixture
+bundles, mock downloads and temporary installation directories; they never replace
+the user's savers. Developer-tool access is disabled for installer subprocesses.
+The documented curl pipeline is exercised through `/dev/stdin`, including release
+version arguments. Package verification checks the actual ZIP using the installer
+and asserts that no installer script is shipped inside the DMG or ZIP.
+
+After authorized publication, run
+`python3 Scripts/check-installation.py --published-tag v<VERSION>` from the matching
+checkout to verify live URLs, README and release text, and run the curl command with
+`--verify-only`. The release workflow performs this check on macOS after publication.
+For the existing v0.8.1 release only, add `--installer-ref main` because its tag
+predates the installer. Network checks are separate from the offline test suite.
+
+The maintainer reported a successful installation on a second Mac using the
+temporary gist's curl pipeline. This confirms that tested machine, not every
+supported macOS version or managed-device policy. Future installer changes still
+need a clean-Mac installation/update smoke test; keep signing status accurate.
+
 ## v0.7.2.1 preparation
 
 - `Scripts/release-check.sh` passed end to end. Both 54-cycle native Options

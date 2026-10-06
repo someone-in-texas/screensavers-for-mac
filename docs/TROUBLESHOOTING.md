@@ -1,5 +1,15 @@
 # Troubleshooting
 
+## Downloaded saver blocked by Gatekeeper
+
+Try the [recommended Terminal installer](../README.md#screensavers-for-mac), which
+downloads and verifies the published ZIP and installs matching bundles for your
+user. It needs no developer tools and preserves preferences and cached maps.
+Append `--verify-only` to its command to check downloads without installing.
+It does not disable Gatekeeper or remove quarantine attributes; the release's
+documented signing/notarization status still applies. If it fails, retain the
+Terminal error and macOS version when reporting the issue.
+
 ## Picker thumbnails and reopening Options
 
 The bundles include real preview artwork in legacy PNG and TIFF formats. Recent
