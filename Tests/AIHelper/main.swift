@@ -121,4 +121,5 @@ if CommandLine.arguments.contains("--protocol-smoke") {
     wait({ done }, timeout: 25); live.close()
     expect(done && success, "real CLI handshake, isolated signed-out account and thread policy, no browser or generation")
 }
+try testCommonplace()
 print("Passed \(checks) AI helper checks.")

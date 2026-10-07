@@ -20,7 +20,7 @@ final class ConfigurationWindow: NSWindow {
     }
 }
 
-final class ConfigurationController: NSWindowController {
+final class ConfigurationController: NSWindowController, SaverConfiguration {
     private let store: SettingsStore
     private let changed: (SaverSettings) -> Void
     private var revealLore = false

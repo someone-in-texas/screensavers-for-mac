@@ -3,8 +3,8 @@
 set -euo pipefail
 
 REPOSITORY=https://github.com/someone-in-texas/screensavers-for-mac
-NAMES=('World Clock Room' 'City Drift' 'Voxel Cosmos' 'Paper Sky' 'Dapple' 'Flourish' 'Lattice' 'Strawberry Fields Forever' 'Good Research Takes Time')
-IDS=(worldclockroom citydrift voxelcosmos papersky dapple flourish lattice strawberryfieldsforever goodresearchtakestime)
+NAMES=('World Clock Room' 'City Drift' 'Voxel Cosmos' 'Paper Sky' 'Dapple' 'Flourish' 'Lattice' 'Strawberry Fields Forever' 'Good Research Takes Time' 'Years in Bloom')
+IDS=(worldclockroom citydrift voxelcosmos papersky dapple flourish lattice strawberryfieldsforever goodresearchtakestime yearsinbloom)
 work=''
 transaction=''
 destination=''

@@ -2,9 +2,9 @@ import AppKit
 import ScreenSaver
 
 enum SaverKind: String, CaseIterable {
-    case worldClockRoom, cityDrift, voxelCosmos, paperSky, dapple, flourish, lattice, strawberryFieldsForever, goodResearchTakesTime
+    case worldClockRoom, cityDrift, voxelCosmos, paperSky, dapple, flourish, lattice, strawberryFieldsForever, goodResearchTakesTime, yearsInBloom, commonplace
     var title: String {
-        switch self { case .worldClockRoom: return "World Clock Room"; case .cityDrift: return "City Drift"; case .voxelCosmos: return "Voxel Cosmos"; case .paperSky: return "Paper Sky"; case .dapple: return "Dapple"; case .flourish: return "Flourish"; case .lattice: return "Lattice"; case .strawberryFieldsForever: return "Strawberry Fields Forever"; case .goodResearchTakesTime: return "Good Research Takes Time" }
+        switch self { case .yearsInBloom: return "Years in Bloom"; case .commonplace: return "Commonplace"; case .worldClockRoom: return "World Clock Room"; case .cityDrift: return "City Drift"; case .voxelCosmos: return "Voxel Cosmos"; case .paperSky: return "Paper Sky"; case .dapple: return "Dapple"; case .flourish: return "Flourish"; case .lattice: return "Lattice"; case .strawberryFieldsForever: return "Strawberry Fields Forever"; case .goodResearchTakesTime: return "Good Research Takes Time" }
     }
     var identifier: String { "com.someoneintexas.screensavers.\(rawValue.lowercased())" }
 }
@@ -24,6 +24,8 @@ enum MapPalette: String, CaseIterable, Codable { case original, ink, blueprint, 
 enum MapStyle: String, CaseIterable, Codable { case online, lines, traditional }
 
 struct SaverSettings: Codable, Equatable {
+    var bloom = BloomSettings()
+    var commonplace = CommonplaceSettings()
     var strawberry = StrawberrySettings()
     var research = ResearchSettings()
     var flourish = FlourishSettings()
@@ -50,13 +52,15 @@ struct SaverSettings: Codable, Equatable {
     var pointsOfInterest = false
     init() {}
     private enum CodingKeys: String, CodingKey {
-        case cosmos, paperSky, dapple, flourish, lattice, strawberry, research
+        case cosmos, paperSky, dapple, flourish, lattice, strawberry, research, bloom, commonplace
         case floor, face, speed, density, smoothSeconds, labels, palette, intensity, grain, vignette
         case mapSourceVersion, mapStyle, streetLabels, water, parks, pointsOfInterest
     }
     init(from decoder: Decoder) throws {
         self.init()
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        bloom = (try? c.decodeIfPresent(BloomSettings.self, forKey: .bloom)) ?? bloom
+        commonplace = (try? c.decodeIfPresent(CommonplaceSettings.self, forKey: .commonplace)) ?? commonplace
         strawberry = try c.decodeIfPresent(StrawberrySettings.self, forKey: .strawberry) ?? strawberry
         research = try c.decodeIfPresent(ResearchSettings.self, forKey: .research) ?? research
         flourish = try c.decodeIfPresent(FlourishSettings.self, forKey: .flourish) ?? flourish
@@ -83,6 +87,7 @@ struct SaverSettings: Codable, Equatable {
     }
     func sanitized() -> Self {
         var copy = self
+        copy.commonplace = commonplace.sanitized()
         copy.strawberry = strawberry.sanitized()
         copy.research = research.sanitized()
         copy.flourish = flourish.sanitized()

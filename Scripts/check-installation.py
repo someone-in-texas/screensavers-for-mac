@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import subprocess
 from urllib.request import Request, urlopen
-from release_installation import REPOSITORY, command, installer_url, validate_instructions
+from release_installation import REPOSITORY, command, installer_url, validate_instructions, validate_ai_instructions
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -23,6 +23,7 @@ def fetch(url):
 def check_local():
     readme = (ROOT / "README.md").read_text()
     validate_instructions(readme)
+    validate_ai_instructions(readme)
     if readme.index(command()) > readme.index("## City Drift"):
         raise ValueError("Recommended command must remain above the README gallery")
     spec = importlib.util.spec_from_file_location("release_notes", ROOT / "Scripts/release-notes.py")
@@ -37,7 +38,8 @@ def check_local():
         for requirement in ("Tests/ReleaseInstallerTests.py", "Scripts/check-installation.py"):
             if requirement not in text:
                 raise ValueError(f"{path} must document {requirement}")
-    subprocess.run(["bash", "-n", str(ROOT / "install.sh")], check=True)
+    for script in ("install.sh", "install-ai.sh"):
+        subprocess.run(["bash", "-n", str(ROOT / script)], check=True)
     print("README command, generated release instructions, and maintenance guidance agree.", flush=True)
 
 
@@ -53,6 +55,12 @@ def check_published(tag, ref):
     # pipefail catches a missing script even when bash receives empty input.
     subprocess.run(["/bin/bash", "-o", "pipefail", "-c",
                     command(tag, ref) + " --verify-only"], check=True)
+    if tuple(map(int, tag[1:].split(".")[:2])) >= (0, 9):
+        validate_ai_instructions(release["body"], tag, ref)
+        validate_ai_instructions(fetch(f"https://raw.githubusercontent.com/{REPOSITORY}/main/README.md"))
+        if fetch(installer_url(ref, ai=True)) != (ROOT / "install-ai.sh").read_text():
+            raise ValueError("Published AI installer differs from this checkout")
+        subprocess.run(["/bin/bash", "-o", "pipefail", "-c", command(tag, ref, ai=True)+" --verify-only"], check=True)
     print(f"Published README, {tag} release page, and public curl command verified.")
 
 

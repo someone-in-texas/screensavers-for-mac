@@ -8,7 +8,7 @@ printf 'enum BuildVersion { static let value = "%s" }\n' "$(cat VERSION)" > buil
 SDK=$(xcrun --sdk macosx --show-sdk-path)
 SOURCES=()
 # Include every saver entry point, not just the scene files used by PreviewHost.
-# The production build compiles this shared code separately for all nine bundles;
+# The production build compiles this shared code separately for all eleven bundles;
 # CodeQL only needs one compilation of each source to analyze it.
 while IFS= read -r file; do SOURCES+=("$file"); done < <(find Shared Savers -name '*.swift' | sort)
 FLAGS=(-sdk "$SDK" -target arm64-apple-macos14.6 -swift-version 5 -O -whole-module-optimization -framework AppKit -framework ScreenSaver -framework CoreImage)

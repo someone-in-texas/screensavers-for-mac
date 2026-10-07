@@ -24,3 +24,12 @@ source timestamps, processing details, attribution and ODbL 1.0 license are in
 saver. This dataset is licensed under ODbL 1.0, not MIT. These are separately
 rendered roads, street names, water/park geometry and named places; no standard raster tile archive is distributed.
 Overpass is used only by the explicit maintainer refresh script, never at runtime.
+
+Commonplace includes ten Cleveland Museum of Art images designated CC0 in the
+museum's item metadata, and verified public-domain extracts from Thoreau, Austen
+and Darwin. Item links, creators, rights and retrieval details are preserved in
+[Assets/Commonplace](Assets/Commonplace/README.md) and in the saver's Sources & Credits.
+Optional helper downloads use item-verified Cleveland and Art Institute of Chicago
+public-domain records. Each downloaded object retains its own provenance; the
+repository's MIT license does not replace source rights. Notebook passages and
+procedural study diagrams are original fictional material, separately identified.

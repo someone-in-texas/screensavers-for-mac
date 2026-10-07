@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.0
+
+Unreleased development work. No 0.9 artifacts have been published.
+
+- Add Years in Bloom, an offline illustrated garden with eighteen plant archetypes, seasons and weather.
+- Add Commonplace, a local notebook of original fictional writing and credited archival material, in a separate AI pack.
+- Add explicit ChatGPT helper setup for Commonplace, validated five-day bootstrap and daily notebook generation.
+- Separate the standard collection from the AI pack, with independent verified curl installers.
+
 ## 0.8.2
 
 - Fade City Drift's first complete map gently over its palette background at

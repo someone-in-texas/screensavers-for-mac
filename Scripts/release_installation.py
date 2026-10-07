@@ -14,15 +14,16 @@ def release_version(tag):
     return tag[1:]
 
 
-def installer_url(ref="main"):
+def installer_url(ref="main", ai=False):
     if ref != "main":
         release_version(ref)
-    return f"https://raw.githubusercontent.com/{REPOSITORY}/{ref}/install.sh"
+    script = "install-ai.sh" if ai else "install.sh"
+    return f"https://raw.githubusercontent.com/{REPOSITORY}/{ref}/{script}"
 
 
-def command(tag=None, ref="main"):
+def command(tag=None, ref="main", ai=False):
     suffix = f" --version {release_version(tag)}" if tag else ""
-    return f"curl -fsSL {installer_url(ref)} | bash /dev/stdin{suffix}"
+    return f"curl -fsSL {installer_url(ref, ai=ai)} | bash /dev/stdin{suffix}"
 
 
 def instructions(tag=None, ref="main"):
@@ -51,3 +52,30 @@ def validate_instructions(text, tag=None, ref="main"):
     for url in re.findall(r"https?://[^\s<>()`]+", text):
         if urlsplit(url).hostname in {"gist.githubusercontent.com", "gist.github.com"}:
             raise ValueError("Temporary gist URL must not appear in installation documentation")
+
+AI_START = "<!-- ai-install:start -->"
+AI_END = "<!-- ai-install:end -->"
+
+
+def ai_instructions(tag=None, ref="main"):
+    return f"""{AI_START}
+**Separate AI pack: Commonplace + Screensavers AI Helper**
+
+```sh
+{command(tag, ref, ai=True)}
+```
+
+Installs Commonplace for your user and the helper in `~/Applications`, preserving
+notebook archives and preferences. It does not launch the helper or connect an
+account. In Commonplace Options, choose **Set Up ChatGPT** when ready. The starter
+notebook and saved pages work offline. Generation requires local Codex and uses
+your ChatGPT account limits; see [AI setup]({ROOT_URL}/blob/{ref}/docs/AI_HELPER.md).
+
+Append `--verify-only` to validate without installing.
+[Inspect the AI installer]({installer_url(ref, ai=True)}) before running.
+{AI_END}"""
+
+
+def validate_ai_instructions(text, tag=None, ref="main"):
+    if text.count(AI_START) != 1 or text.count(AI_END) != 1 or ai_instructions(tag, ref) not in text:
+        raise ValueError("AI pack installation block is missing or stale")

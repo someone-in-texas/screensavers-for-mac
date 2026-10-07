@@ -2,17 +2,23 @@
 """Generate release notes with version-pinned installation instructions."""
 import argparse
 from pathlib import Path
-from release_installation import ROOT_URL, instructions, validate_instructions
+from release_installation import ROOT_URL, instructions, validate_instructions, ai_instructions, validate_ai_instructions
 
 
 def render(version, changelog, signing):
     section = changelog.split(f"## {version}\n", 1)[1].split("\n## ", 1)[0].strip()
     tag = f"v{version}"
     notes = f"Screensavers for Mac {version} · Apple Silicon · macOS 14.6+\n\n"
-    notes += instructions(tag, tag) + "\n\n" + section + "\n\n"
-    notes += ("Alternative: download the DMG or ZIP below. Both contain the screen savers "
-              "and separate optional AI helper. Verify downloads with "
-              "`shasum -a 256 -c SHA256SUMS`.\n\n")
+    notes += instructions(tag, tag) + "\n\n"
+    has_ai = tuple(map(int, version.split(".")[:2])) >= (0, 9)
+    if has_ai:
+        notes += ai_instructions(tag, tag) + "\n\n"
+        validate_ai_instructions(notes, tag, tag)
+    notes += section + "\n\n"
+    notes += ("Alternative: download a DMG or ZIP below. Standard archives contain ten non-AI savers; "
+              "archives marked AI contain Commonplace and its helper. " if has_ai else
+              "Alternative: download the DMG or ZIP below. Both contain the screen savers and separate optional AI helper. ")
+    notes += "Verify downloads with `shasum -a 256 -c SHA256SUMS`.\n\n"
     notes += signing.strip() + f"\n\nSee the [README]({ROOT_URL}#install) for installation and troubleshooting.\n"
     validate_instructions(notes, tag, tag)
     return notes

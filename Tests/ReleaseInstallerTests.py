@@ -262,5 +262,174 @@ mv() {
         self.assertIn("Expected a stable version", result.stderr)
 
 
+class AIInstallerTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.base = tempfile.TemporaryDirectory(prefix="ai-pack-installer-tests-")
+        cls.root = Path(cls.base.name)
+        source = cls.root / "fixture.c"
+        source.write_text("int main(void) { return 0; }\n")
+        for name, identifier, executable, bundle_type, flags in (
+            ("Commonplace.saver", "commonplace", "Commonplace", "BNDL", ["-bundle"]),
+            ("Screensavers AI Helper.app", "aihelper", "ScreensaversAIHelper", "APPL", []),
+        ):
+            bundle = cls.root / name
+            binary = bundle / "Contents/MacOS" / executable
+            binary.parent.mkdir(parents=True)
+            subprocess.run(["xcrun", "clang", "-arch", "arm64", *flags, str(source), "-o", str(binary)], check=True, capture_output=True)
+            (bundle / "Contents/Info.plist").write_bytes(plistlib.dumps({"CFBundleIdentifier": "com.someoneintexas.screensavers."+identifier,
+                "CFBundleExecutable": executable, "CFBundlePackageType": bundle_type, "CFBundleShortVersionString": "0.9.0"}))
+            subprocess.run(["codesign", "--force", "--sign", "-", str(bundle)], check=True, capture_output=True)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.base.cleanup()
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(dir=self.root)
+        self.addCleanup(self.temp.cleanup)
+        self.case = Path(self.temp.name)
+        self.savers, self.apps = self.case / "Screen Savers", self.case / "Applications"
+        self.savers.mkdir(); self.apps.mkdir()
+        self.asset = self.case / "ScreensaversForMac-AI-v0.9.0-arm64.zip"
+        subprocess.run(["/usr/bin/zip", "-qr", str(self.asset), "Commonplace.saver", "Screensavers AI Helper.app"], cwd=self.root, check=True)
+        self.checksum()
+
+    def checksum(self):
+        (self.case / "SHA256SUMS").write_text(hashlib.sha256(self.asset.read_bytes()).hexdigest()+"  "+self.asset.name+"\n")
+
+    def run_installer(self, args=(), extra=""):
+        script = r'''
+source "$INSTALLER_UNDER_TEST"
+check_platform() { :; }
+fetch() {
+    local output='' url=''
+    while (( $# )); do
+        case "$1" in --output) output=$2; shift 2 ;; --write-out) shift 2 ;; *) url=$1; shift ;; esac
+    done
+    if [[ "$url" == */releases/latest ]]; then printf '%s/releases/tag/v0.9.0' "$REPOSITORY";
+    else cp "$FIXTURE_RELEASE/${url##*/}" "$output"; fi
+}
+eval "$(declare -f install_bundles | sed '1s/install_bundles/install_to_path/')"
+install_bundles() { install_to_path "$1" "$FIXTURE_SAVERS" "$FIXTURE_APPS"; }
+'''
+        env = dict(os.environ, INSTALLER_UNDER_TEST=str(ROOT / "install-ai.sh"), FIXTURE_RELEASE=str(self.case),
+                   FIXTURE_SAVERS=str(self.savers), FIXTURE_APPS=str(self.apps), TMPDIR=str(self.case), DEVELOPER_DIR="/nonexistent-test-toolchain")
+        return subprocess.run(["/bin/bash", "-c", script+extra+'\nmain "$@"', "ai-installer-test", *args], env=env, text=True, capture_output=True)
+
+    def assert_clean(self):
+        self.assertFalse(list(self.savers.glob(".screensavers-ai-install.*")))
+        self.assertFalse(list(self.apps.glob(".screensavers-ai-install.*")))
+        self.assertFalse(list(self.case.glob("screensavers-download.*")))
+
+    def test_verify_only(self):
+        result = self.run_installer(["--verify-only"])
+        self.assertEqual(result.returncode, 0, result.stdout+result.stderr)
+        self.assertEqual(list(self.savers.iterdir()), [])
+        self.assertEqual(list(self.apps.iterdir()), [])
+        self.assert_clean()
+
+    def test_install_both_destinations(self):
+        result = self.run_installer(["--version", "0.9.0"])
+        self.assertEqual(result.returncode, 0, result.stdout+result.stderr)
+        self.assertTrue((self.savers / "Commonplace.saver").is_dir())
+        self.assertTrue((self.apps / "Screensavers AI Helper.app").is_dir())
+        self.assert_clean()
+
+    def test_helper_failure_restores_both_destinations(self):
+        for destination, name in [(self.savers,"Commonplace.saver"),(self.apps,"Screensavers AI Helper.app")]:
+            shutil.copytree(self.root / name,destination / name)
+            (destination / name / "old-marker").write_text("original")
+        result = self.run_installer(extra=r'''
+mv() { if [[ "$1" == */new/"Screensavers AI Helper.app" ]]; then return 1; fi; command mv "$@"; }
+''')
+        self.assertNotEqual(result.returncode, 0)
+        for destination,name in [(self.savers,"Commonplace.saver"),(self.apps,"Screensavers AI Helper.app")]:
+            self.assertEqual((destination / name / "old-marker").read_text(), "original")
+        self.assert_clean()
+
+    def test_new_install_failure_removes_partial_saver(self):
+        result = self.run_installer(extra=r'''
+mv() { if [[ "$1" == */new/"Screensavers AI Helper.app" ]]; then return 1; fi; command mv "$@"; }
+''')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(list(self.savers.iterdir()), [])
+        self.assertEqual(list(self.apps.iterdir()), [])
+        self.assert_clean()
+
+    def test_unrelated_helper_stops_before_saver_mutation(self):
+        target = self.apps / "Screensavers AI Helper.app/Contents"
+        target.mkdir(parents=True)
+        (target / "Info.plist").write_bytes(plistlib.dumps({"CFBundleIdentifier":"unrelated.app"}))
+        result = self.run_installer()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unrelated bundle", result.stderr)
+        self.assertEqual(list(self.savers.iterdir()), [])
+        self.assert_clean()
+
+    def test_missing_helper_rejected(self):
+        with zipfile.ZipFile(self.asset, "w") as output:
+            for item in (self.root / "Commonplace.saver").rglob("*"):
+                if item.is_file(): output.write(item,item.relative_to(self.root))
+        self.checksum()
+        result = self.run_installer(["--verify-only"])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("missing", result.stderr)
+        self.assert_clean()
+
+    def test_documented_curl_pipeline(self):
+        mockbin = self.case / "bin"
+        mockbin.mkdir()
+        curl = mockbin / "curl"
+        curl.write_text(r'''#!/bin/bash
+set -eu
+output=''
+url=''
+while (( $# )); do
+    case "$1" in
+        --output) output=$2; shift 2 ;;
+        --write-out|--retry|--connect-timeout|--max-time|--proto|--proto-redir) shift 2 ;;
+        -*) shift ;;
+        *) url=$1; shift ;;
+    esac
+done
+case "$url" in
+    https://raw.githubusercontent.com/someone-in-texas/screensavers-for-mac/*/install-ai.sh)
+        cat "$INSTALLER_UNDER_TEST" ;;
+    https://github.com/someone-in-texas/screensavers-for-mac/releases/latest)
+        printf '%s' 'https://github.com/someone-in-texas/screensavers-for-mac/releases/tag/v0.9.0' ;;
+    https://github.com/someone-in-texas/screensavers-for-mac/releases/download/v0.9.0/*)
+        cp "$FIXTURE_RELEASE/${url##*/}" "$output" ;;
+    *) echo "Unexpected URL: $url" >&2; exit 1 ;;
+esac
+''')
+        curl.chmod(0o755)
+        env = dict(os.environ, PATH=f"{mockbin}:/usr/bin:/bin:/usr/sbin:/sbin",
+                   INSTALLER_UNDER_TEST=str(ROOT / "install-ai.sh"),
+                   FIXTURE_RELEASE=str(self.case), TMPDIR=str(self.case),
+                   DEVELOPER_DIR="/nonexistent-installer-test-toolchain")
+        for public_command in (command(ai=True), command("v0.9.0", "v0.9.0", ai=True)):
+            with self.subTest(command=public_command):
+                result = subprocess.run(["/bin/bash", "-o", "pipefail", "-c",
+                                         public_command + " --verify-only"],
+                                        env=env, text=True, capture_output=True)
+                self.assertEqual(result.returncode, 0, result.stdout+result.stderr)
+                self.assertIn("Verified", result.stdout)
+                self.assertIn("Nothing installed", result.stdout)
+                self.assert_clean()
+
+    def test_checksum_rejected_before_mutation(self):
+        (self.case / "SHA256SUMS").write_text("0" * 64+"  "+self.asset.name+"\n")
+        result = self.run_installer()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(list(self.savers.iterdir()), [])
+        self.assertEqual(list(self.apps.iterdir()), [])
+        self.assert_clean()
+
+    def test_script_entrypoint_and_pinning(self):
+        self.assertIn("install-ai.sh | bash /dev/stdin --version 0.9.0", command("v0.9.0","v0.9.0",ai=True))
+        self.assertIn("/v0.9.0/install-ai.sh", command("v0.9.0","v0.9.0",ai=True))
+
+
 if __name__ == "__main__":
     unittest.main()

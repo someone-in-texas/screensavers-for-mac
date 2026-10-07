@@ -1,7 +1,7 @@
 # Screensavers for Mac
 
 Native macOS screen savers that turn idle displays into imaginative, ever-changing worlds.
-Built with Swift, AppKit, Core Graphics, and Core Animation. No browser runtime or dependencies.
+Built with Swift, AppKit, Core Graphics, and Core Animation. No browser runtime. Standard savers need no dependencies; the optional AI pack uses a separate helper.
 
 <!-- recommended-install:start -->
 **Recommended: install from Terminal** · Apple Silicon · macOS 14.6+
@@ -20,7 +20,54 @@ Append `--verify-only` to check the download without installing. The optional AI
 helper is not installed. [Inspect the installer](https://raw.githubusercontent.com/someone-in-texas/screensavers-for-mac/main/install.sh) before running.
 <!-- recommended-install:end -->
 
+### AI pack — 0.9 development, not yet published
+
+The following route becomes available with the first 0.9 release.
+
+<!-- ai-install:start -->
+**Separate AI pack: Commonplace + Screensavers AI Helper**
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/someone-in-texas/screensavers-for-mac/main/install-ai.sh | bash /dev/stdin
+```
+
+Installs Commonplace for your user and the helper in `~/Applications`, preserving
+notebook archives and preferences. It does not launch the helper or connect an
+account. In Commonplace Options, choose **Set Up ChatGPT** when ready. The starter
+notebook and saved pages work offline. Generation requires local Codex and uses
+your ChatGPT account limits; see [AI setup](https://github.com/someone-in-texas/screensavers-for-mac/blob/main/docs/AI_HELPER.md).
+
+Append `--verify-only` to validate without installing.
+[Inspect the AI installer](https://raw.githubusercontent.com/someone-in-texas/screensavers-for-mac/main/install-ai.sh) before running.
+<!-- ai-install:end -->
+
 [Installation details and DMG alternative](#install) · [Latest release](https://github.com/someone-in-texas/screensavers-for-mac/releases/latest)
+
+## Years in Bloom — new in 0.9
+
+A botanical journal unfolds through spring growth, summer flowers, falling leaves
+and winter dormancy. Eighteen seeded plant archetypes grow persistent branches and
+new seasonal foliage across five-year generations, surrounded by textured paper
+and restrained illustrated weather. Choose a specimen, grouping, meadow or woodland;
+seven palettes, three speeds and seasonal emphasis shape the scene. Entirely offline.
+
+![Years in Bloom: procedural botanical illustration](docs/images/years-in-bloom.png)
+
+[Winter evergreen](docs/images/years-in-bloom-winter.png)
+
+## Commonplace — separate AI pack, new in 0.9
+
+A changing physical notebook combines short fictional observations, practical lists,
+questions and callbacks with verified public-domain extracts and real CC0 archival
+pictures. Six art-directed themes range from Sepia Archive to a quiet Off-World
+notebook. Saved pages and the starter book play offline; explicit ChatGPT setup in
+the separate helper adds five opening days, then one new day at a time.
+
+![Commonplace: an evolving archival notebook](docs/images/commonplace.png)
+
+[Ultrawide notebook](docs/images/commonplace-wide.png) · [Midnight Observatory](docs/images/commonplace-observatory.png) · [Off-World](docs/images/commonplace-offworld.png)
+
+[Architecture, art reviews and validation](docs/0.9_IMPLEMENTATION.md) · [AI setup and privacy](docs/AI_HELPER.md)
 
 ## City Drift
 
@@ -166,7 +213,7 @@ an ad-hoc release notarized or guarantee every Mac's security policy will allow 
 3. Open **System Settings → Wallpaper → Screen Saver** (or **Screen Saver** on older
    macOS). Under **Other → Show All**, select a saver and open **Options / Screen Saver Options**.
 
-The ZIP contains the same nine bundles. To verify downloads, place the DMG, ZIP,
+The standard ZIP contains ten savers. The separate AI ZIP contains Commonplace and its helper. To verify downloads, place the DMG, ZIP,
 and `SHA256SUMS` in one directory and run `shasum -a 256 -c SHA256SUMS` there.
 
 Releases without Apple signing credentials are **ad-hoc signed, not notarized**.
@@ -184,7 +231,7 @@ Use current Xcode or Apple’s Command Line Tools on an Apple Silicon Mac.
 ```sh
 git clone https://github.com/someone-in-texas/screensavers-for-mac.git
 cd screensavers-for-mac
-make build       # nine .saver bundles and PreviewHost.app in build/products
+make build       # eleven .saver bundles, PreviewHost.app and the helper in build/products
 make test        # deterministic offline tests, bundle loading, and renderer checks
 make preview     # switch savers, configure, resize, or save a frame
 open build/products/PreviewHost.app --args --dapple
@@ -225,5 +272,5 @@ Use [AGENTS.md](AGENTS.md), the [reusable skills](SKILLS.md), and the
 [agent development guide](docs/AGENT_DEVELOPMENT.md) to contribute efficiently or
 create your own standalone saver with `Scripts/new-saver.py`. Personal projects
 need not be contributed back. The [optional AI helper](docs/AI_HELPER.md) provides
-ChatGPT sign-in and content testing for future AI savers; none of today's nine
-savers uses or requires it.
+ChatGPT sign-in and daily content generation for Commonplace. The ten standard
+savers do not use or require it.

@@ -33,8 +33,10 @@ plist() {
 </dict></plist>
 PLIST
 }
-for kind in WorldClockRoom CityDrift VoxelCosmos PaperSky Dapple Flourish Lattice StrawberryFieldsForever GoodResearchTakesTime; do
+for kind in WorldClockRoom CityDrift VoxelCosmos PaperSky Dapple Flourish Lattice StrawberryFieldsForever GoodResearchTakesTime YearsInBloom Commonplace; do
     case "$kind" in
+        YearsInBloom) name='Years in Bloom'; id=yearsinbloom; image=years-in-bloom ;;
+        Commonplace) name='Commonplace'; id=commonplace; image=commonplace ;;
         WorldClockRoom) name='World Clock Room'; id=worldclockroom; image=world-clock-room ;;
         CityDrift) name='City Drift'; id=citydrift; image=city-drift ;;
         VoxelCosmos) name='Voxel Cosmos'; id=voxelcosmos; image=voxel-cosmos ;;
@@ -53,13 +55,15 @@ for kind in WorldClockRoom CityDrift VoxelCosmos PaperSky Dapple Flourish Lattic
     plist "$bundle/Contents/Info.plist" "$name" "com.someoneintexas.screensavers.$id" "$kind" "${kind}View" BNDL
     xcrun swift Scripts/make-thumbnails.swift "docs/images/$image.png" "$bundle/Contents/Resources"
     if [[ "$kind" == CityDrift ]]; then ditto Assets/StarterMaps "$bundle/Contents/Resources/StarterMaps"; fi
+    if [[ "$kind" == Commonplace ]]; then ditto Assets/Commonplace "$bundle/Contents/Resources/Commonplace"; fi
     codesign --force --sign - "$bundle"
 done
 app=build/products/PreviewHost.app
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 ditto Assets/StarterMaps "$app/Contents/Resources/StarterMaps"
+ditto Assets/Commonplace "$app/Contents/Resources/Commonplace"
 xcrun swiftc "${FLAGS[@]}" -module-name PreviewHost "${SOURCES[@]}" PreviewHost/main.swift -o "$app/Contents/MacOS/PreviewHost"
 plist "$app/Contents/Info.plist" PreviewHost com.someoneintexas.screensavers.preview PreviewHost NSApplication APPL
 codesign --force --sign - "$app"
 Scripts/build-ai-helper.sh
-echo "Built all nine savers and PreviewHost ($ARCH, macOS 14.6+)."
+echo "Built all eleven savers and PreviewHost ($ARCH, macOS 14.6+)."
