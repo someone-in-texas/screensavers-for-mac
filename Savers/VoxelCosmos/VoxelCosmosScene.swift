@@ -9,6 +9,7 @@ final class VoxelCosmosScene: SaverScene {
     private var tour = MotionClock()
     private var running = false
     private var sprites: [String: CGImage] = [:]
+    private var spritePhases: [String: Int] = [:]
     private var sky: CGImage?
     private var skySize = CGSize.zero
     private var buffer: CGContext?
@@ -37,9 +38,11 @@ final class VoxelCosmosScene: SaverScene {
         }
         settings = next; captionKey = ""
     }
-    static func renderSize(_ size: CGSize, pixelSize: Double) -> CGSize {
-        let scale: CGFloat = min(1 / CGFloat(pixelSize), 800 / max(1, size.width), 600 / max(1, size.height))
-        return CGSize(width: max(1, ceil(size.width * scale)), height: max(1, ceil(size.height * scale)))
+    static func renderSize(_ size: CGSize, pixelSize: Double, closeUp: Bool = false) -> CGSize {
+        let detail = closeUp ? 1.25 : 1.0
+        let scale: CGFloat = min(detail / CGFloat(pixelSize), 800 * detail / max(1, size.width), 600 * detail / max(1, size.height))
+        return CGSize(width: min(800 * detail, max(1, ceil(size.width * scale))),
+                      height: min(600 * detail, max(1, ceil(size.height * scale))))
     }
     private func advance(_ time: Double) {
         if running {
@@ -93,29 +96,53 @@ final class VoxelCosmosScene: SaverScene {
         default: return (0.54 + noise * 0.18, 0.57 + noise * 0.15, 0.65 + noise * 0.15)
         }
     }
+    // Sample the original palette continuously as longitude turns. Interpolation
+    // prevents individual voxel colors from flickering at texture-cell boundaries.
+    private func rotatingSurface(_ planet: Int, x: Double, y: Double, z: Double, phase: Double) -> (Double, Double, Double) {
+        let u = x * cos(phase) + y * sin(phase), v = -x * sin(phase) + y * cos(phase)
+        let ix = Int(floor(u)), iy = Int(floor(v)), iz = Int(floor(z))
+        let fx = u - Double(ix), fy = v - Double(iy), fz = z - Double(iz)
+        var result = (0.0, 0.0, 0.0)
+        for dz in 0...1 { for dy in 0...1 { for dx in 0...1 {
+            let weight = (dx == 0 ? 1-fx : fx) * (dy == 0 ? 1-fy : fy) * (dz == 0 ? 1-fz : fz)
+            let rgb = surface(planet, ix+dx, iy+dy, iz+dz)
+            result.0 += rgb.0 * weight; result.1 += rgb.1 * weight; result.2 += rgb.2 * weight
+        } } }
+        return result
+    }
     private func sprite(_ planet: Int) -> CGImage {
-        let key = String(planet)
-        if let image = sprites[key] { return image }
-        let c = bitmap(width: 240, height: 200)!
+        let detailed = activeView.planet == planet
+        let key = "\(planet)-\(detailed)"
+        // Only one rotation frame per body is retained; tiny moons and system
+        // views keep their existing cached sculptures. Twelve steps per active
+        // second at normal speed; zero motion reuses the same frame indefinitely.
+        let phase = detailed ? Int(motion.elapsed * 12) : 0
+        if let image = sprites[key], spritePhases[key] == phase { return image }
+        let resolution = detailed ? 1.5 : 1.0
+        let c = bitmap(width: Int(240 * resolution), height: Int(200 * resolution))!
+        c.scaleBy(x: resolution, y: resolution)
         c.setShouldAntialias(false)
         halo(c, at: CGPoint(x: 120, y: 100), radius: 31, rgb: surface(planet, 0, 4, 6), strength: planet == -1 ? 0.9 : 0.26)
-        let unit = 3.0, a = yaw, e = elevation
+        let radius = detailed ? 14 : 10
+        let density = Double(radius) / 10
+        let unit = 3.0 / density, a = yaw, e = elevation
         func project(_ x: Double, _ y: Double, _ z: Double) -> CGPoint {
             CGPoint(x: 120 + (x * cos(a) - y * sin(a)) * unit,
                     y: 100 + (z * cos(e) - (x * sin(a) + y * cos(a)) * sin(e)) * unit)
         }
         struct Voxel { let x: Int; let y: Int; let z: Int; let ring: Bool; let depth: Double }
         var voxels: [Voxel] = []
-        func inside(_ x: Int, _ y: Int, _ z: Int) -> Bool { x*x + y*y + z*z <= 100 }
-        for z in -10...10 { for y in -10...10 { for x in -10...10 {
+        func inside(_ x: Int, _ y: Int, _ z: Int) -> Bool { x*x + y*y + z*z <= radius*radius }
+        for z in -radius...radius { for y in -radius...radius { for x in -radius...radius {
             if inside(x,y,z) && (!inside(x+1,y,z) || !inside(x,y+1,z) || !inside(x,y,z+1)) {
                 let depth = (Double(x) * sin(a) + Double(y) * cos(a)) * cos(e) + Double(z) * sin(e)
                 voxels.append(Voxel(x: x, y: y, z: z, ring: false, depth: depth))
             }
         } } }
         if planet == 5 || planet == 6 {
-            for y in -23...23 { for x in -23...23 {
-                let r = hypot(Double(x), Double(y))
+            let ringRadius = Int(23 * density)
+            for y in -ringRadius...ringRadius { for x in -ringRadius...ringRadius {
+                let r = hypot(Double(x), Double(y)) / density
                 if r > 14 && r < 23 && (r < 18.5 || r > 20) && hash(x, y) > 0.08 {
                     let z = planet == 6 ? x / 2 : 0
                     let depth = (Double(x) * sin(a) + Double(y) * cos(a)) * cos(e) + Double(z) * sin(e)
@@ -126,8 +153,8 @@ final class VoxelCosmosScene: SaverScene {
         voxels.sort { $0.depth < $1.depth }
         for v in voxels {
             let x = Double(v.x), y = Double(v.y), z = Double(v.z)
-            let rgb = v.ring ? (0.62 + hash(v.x,v.y) * 0.28, 0.56 + hash(v.x,v.y) * 0.25, 0.48 + hash(v.x,v.y) * 0.22) : surface(planet, v.x, v.y, v.z)
-            let shade = planet == -1 ? 1 : 0.58 + 0.42 * max(0, (-x * 0.3 + y * 0.5 + z * 0.8) / 10)
+            let rgb = v.ring ? (0.62 + hash(v.x,v.y) * 0.28, 0.56 + hash(v.x,v.y) * 0.25, 0.48 + hash(v.x,v.y) * 0.22) : (detailed ? rotatingSurface(planet, x: x / density, y: y / density, z: z / density, phase: Double(phase) / 12 * 0.06) : surface(planet, v.x, v.y, v.z))
+            let shade = planet == -1 ? 1 : 0.58 + 0.42 * max(0, (-x * 0.3 + y * 0.5 + z * 0.8) / Double(radius))
             let h = v.ring ? 0.28 : 0.5
             func face(_ vertices: [(Double, Double, Double)], _ light: Double) {
                 c.beginPath()
@@ -141,7 +168,7 @@ final class VoxelCosmosScene: SaverScene {
             face([(x-0.5,y+0.5,z-h),(x+0.5,y+0.5,z-h),(x+0.5,y+0.5,z+h),(x-0.5,y+0.5,z+h)], 0.82)
             face([(x-0.5,y-0.5,z+h),(x+0.5,y-0.5,z+h),(x+0.5,y+0.5,z+h),(x-0.5,y+0.5,z+h)], 1.15)
         }
-        let image = c.makeImage()!; sprites[key] = image; return image
+        let image = c.makeImage()!; sprites[key] = image; spritePhases[key] = phase; return image
     }
     private func makeSky(_ size: CGSize) -> CGImage {
         let c = bitmap(width: Int(size.width), height: Int(size.height))!
@@ -237,26 +264,28 @@ final class VoxelCosmosScene: SaverScene {
             let rotation = yaw - .pi / 4 + t * 0.006
             let squash = sin(elevation)
             struct Placed { let planet: Int; let p: CGPoint; let radius: Double }
-            var placed = [Placed(planet: -1, p: .zero, radius: activeView == .solarSystem ? 27 : 34)]
+            let outer = activeView == .outerPlanets
+            var placed = outer ? [] : [Placed(planet: -1, p: .zero, radius: activeView == .solarSystem ? 27 : 34)]
             for (j,i) in indices.enumerated() {
                 let r = indices.count == 8 ? 55 + Double(j) * 30 : 78 + Double(j) * 58
                 if settings.orbits {
-                    c.setStrokeColor(color(0.32,0.52,0.67,0.28)); c.setLineWidth(0.65)
+                    c.setStrokeColor(outer ? color(0.40,0.68,0.76,0.34) : color(0.32,0.52,0.67,0.28)); c.setLineWidth(0.65)
+                    c.setLineDash(phase: 0, lengths: outer ? [2, 5] : [])
                     c.strokeEllipse(in: CGRect(x: -r, y: -r*squash, width: r*2, height: r*squash*2))
                 }
                 let phase = [2.8, 5.0, 0.45, 3.9, 2.2, 5.7, 0.9, 3.5][i] + rotation + t * (0.015 / Double(i+1))
                 placed.append(Placed(planet: i, p: CGPoint(x: cos(phase)*r, y: sin(phase)*r*squash), radius: radii[i] * (indices.count == 4 ? 1.25 : 1)))
             }
-            if settings.asteroids { drawDust(c, t: t, field: false) }
+            if settings.asteroids { drawDust(c, t: t, field: false, ringRadius: outer ? 280 : 153) }
             for p in placed.sorted(by: { $0.p.y > $1.p.y }) { body(c, p.planet, at: p.p, radius: p.radius) }
         }
         c.restoreGState()
         return c.makeImage()
     }
-    private func drawDust(_ c: CGContext, t: Double, field: Bool) {
+    private func drawDust(_ c: CGContext, t: Double, field: Bool, ringRadius: Double = 153) {
         for i in 0..<(field ? 140 : 110) {
             let a = hash(i, 5) * .pi * 2 + t * 0.008
-            let r = (field ? 100.0 : 153.0) + hash(i, 6) * (field ? 260 : 18)
+            let r = (field ? 100.0 : ringRadius) + hash(i, 6) * (field ? 260 : 18)
             let x = cos(a) * r, y = sin(a) * r * sin(elevation)
             let v = 0.3 + hash(i, 7) * 0.35
             c.setFillColor(color(v * 0.85,v * 0.9,v,0.8))
@@ -269,7 +298,7 @@ final class VoxelCosmosScene: SaverScene {
         CATransaction.begin(); CATransaction.setDisableActions(true)
         defer { CATransaction.commit() }
         advance(time)
-        let pixels = Self.renderSize(size, pixelSize: settings.pixelSize)
+        let pixels = Self.renderSize(size, pixelSize: settings.pixelSize, closeUp: activeView.planet != nil)
         if let image = render(size: pixels, compact: size.width < 600 || size.height < 300) { currentImage = image; picture.contents = image }
         if picture.superlayer !== root { root.addSublayer(picture); root.addSublayer(dissolve); root.addSublayer(caption) }
         root.backgroundColor = NSColor.black.cgColor; root.masksToBounds = true
@@ -290,7 +319,7 @@ final class VoxelCosmosScene: SaverScene {
                     withAppKit(c) {
                         text("VOXEL COSMOS", at: CGPoint(x: margin, y: size.height-margin-12), size: small ? 8 : 10, color: NSColor(srgbRed: 0.51, green: 0.66, blue: 0.77, alpha: 1), tracking: small ? 2 : 3)
                         text(activeView.title.uppercased(), at: CGPoint(x: margin, y: margin+17), size: small ? 13 : 23, color: NSColor(srgbRed: 0.81, green: 0.89, blue: 0.91, alpha: 1), weight: .light, tracking: small ? 1.5 : 3)
-                        text(activeView.planet != nil ? "A SMALL WORLD IN AN ENDLESS NIGHT" : "AN IMAGINED CELESTIAL MINIATURE", at: CGPoint(x: margin, y: margin), size: small ? 6 : 9, color: NSColor(srgbRed: 0.44, green: 0.57, blue: 0.69, alpha: 1), tracking: small ? 1 : 2)
+                        text(activeView.planet != nil ? "A SMALL WORLD IN AN ENDLESS NIGHT" : activeView == .outerPlanets ? "GAS AND ICE GIANTS IN THE OUTER REACHES" : "AN IMAGINED CELESTIAL MINIATURE", at: CGPoint(x: margin, y: margin), size: small ? 6 : 9, color: NSColor(srgbRed: 0.44, green: 0.57, blue: 0.69, alpha: 1), tracking: small ? 1 : 2)
                     }
                     caption.contents = c.makeImage()
                 }

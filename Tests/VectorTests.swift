@@ -193,7 +193,7 @@ func runVectorTests() {
     expect(variedRoot.sublayers!.allSatisfy(\.isHidden), "host layout before start cannot flash an offline city")
     varied.start()
     waitUntil {
-        _ = varied.updateLayer(variedRoot, size: viewport, time: 0, date: Date())
+        _ = varied.updateLayer(variedRoot, size: viewport, time: 10, date: Date())
         if varied.isAwaitingStartupMap {
             expect(variedRoot.sublayers!.allSatisfy(\.isHidden), "cache decoding and geometry composition keep bundled map hidden")
         }
@@ -202,6 +202,11 @@ func runVectorTests() {
     expect(varied.city == city && variedTransport.calls.isEmpty, "recent complete cached city starts without network")
     expect(variedRoot.sublayers?.count == 3 && !(variedRoot.sublayers![0].sublayers ?? []).isEmpty, "cached vector opening has no offline crossfade")
     expect(!varied.isDisplayingBundledMap && !varied.displayedCityLabel.hasSuffix("*"), "cached bundled-city name does not get an asterisk")
+    expect(variedRoot.sublayers![0].opacity == 0 && variedRoot.sublayers![2].opacity == 1, "ready cached geometry starts transparent with readable attribution")
+    _ = varied.updateLayer(variedRoot, size: viewport, time: 10.6, date: Date())
+    expect(abs(variedRoot.sublayers![0].opacity - 0.5) < 0.001, "cached vectors fade gently after readiness")
+    _ = varied.updateLayer(variedRoot, size: viewport, time: 11.2, date: Date())
+    expect(variedRoot.sublayers![0].opacity == 1, "cached vectors finish the startup fade")
     _ = varied.updateLayer(variedRoot, size: viewport, time: 242, date: Date())
     expect(varied.city != city, "warm startup still tours new destinations")
     varied.stop()

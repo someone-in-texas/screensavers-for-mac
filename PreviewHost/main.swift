@@ -117,10 +117,19 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
             precondition(self.view?.configureSheet === sheet && sheet.sheetParent === self.window, "Live sheet cannot be replaced")
             let done = sheet.contentView?.subviews.compactMap { $0 as? NSButton }.first { $0.title == "Done" }
             precondition(done != nil)
-            done?.performClick(nil) // Exercise our dismissal handler, not a host-side shortcut.
+            if index % 6 == 4 {
+                // A host may switch savers while Options is still attached.
+                // Stopping animation alone must not dismiss a legitimate sheet.
+                self.view?.stopAnimation()
+                precondition(sheet.sheetParent === self.window)
+                self.view?.removeFromSuperview()
+            } else {
+                done?.performClick(nil) // Exercise our dismissal handler, not a host-side shortcut.
+            }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 precondition(sheet.sheetParent == nil && !sheet.isVisible, "Done must detach and hide the sheet")
                 precondition(self.view?.configureSheet === sheet, "Reopening reuses the retained window")
+                if index % 6 == 4, let view = self.view { self.window.contentView?.addSubview(view); view.startAnimation() }
                 self.checkConfigurationCycle(index + 1)
             }
         }
@@ -193,6 +202,60 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
 
 let app = NSApplication.shared
 app.setActivationPolicy(.regular)
+if CommandLine.arguments.contains("--opening-gallery") {
+    let args = CommandLine.arguments
+    let out = args.firstIndex(of: "--output").map { args[$0+1] } ?? "build/opening-gallery"
+    let variant = args.firstIndex(of: "--variant").flatMap { Int(args[$0+1]) } ?? 0
+    try FileManager.default.createDirectory(atPath: out, withIntermediateDirectories: true)
+    let suite = "screensavers.opening-gallery.\(UUID().uuidString)", date = Date(timeIntervalSince1970: 1780315800)
+    let defaults = UserDefaults(suiteName: suite)!
+    defer { defaults.removePersistentDomain(forName: suite) }
+    for size in [CGSize(width: 1200, height: 800), CGSize(width: 800, height: 1200), CGSize(width: 280, height: 180), CGSize(width: 2400, height: 1000)] {
+        let suffix = "\(Int(size.width))x\(Int(size.height))"
+        for palette in [MapPalette.paper, .blueprint, .night] {
+            let store = SettingsStore(.cityDrift, defaults: defaults)
+            let cities = StarterMaps.bundled.catalog
+            precondition(!cities.isEmpty, "Opening gallery requires the PreviewHost app's bundled maps")
+            let scene = CityDriftScene(store: store, networkEnabled: false, city: cities[abs(variant % cities.count)])
+            var settings = SaverSettings(); settings.mapStyle = .lines; settings.palette = palette
+            scene.apply(settings); scene.start()
+            for time in [0.0, 0.3, 0.6, 0.9, 1.2, 2.0] {
+                let c = bitmap(width: Int(size.width), height: Int(size.height))!
+                scene.draw(in: c, size: size, time: time, date: date)
+                try savePNG(c.makeImage()!, "\(out)/city-\(palette.rawValue)-\(suffix)-\(time).png")
+            }
+            scene.stop()
+        }
+        for view in [CosmosView.earth, .jupiter, .saturn, .innerPlanets, .outerPlanets] {
+            let scene = VoxelCosmosScene(); var settings = SaverSettings()
+            settings.cosmos.view = view; settings.cosmos.angle = .classic; settings.cosmos.composition = .centered
+            if variant == 1 {
+                settings.cosmos.angle = .high; settings.cosmos.pixelSize = 5; settings.cosmos.speed = 3
+                settings.cosmos.labels = false; settings.cosmos.orbits = false
+            } else if variant == 2 {
+                settings.cosmos.angle = .low; settings.cosmos.pixelSize = 2; settings.cosmos.composition = .upperLeft
+            }
+            scene.apply(settings); scene.start()
+            let root = CALayer(); root.bounds = CGRect(origin: .zero, size: size)
+            var timings: [Double] = []
+            for frame in 0...360 {
+                let time = Double(frame) / 30
+                let start = ProcessInfo.processInfo.systemUptime
+                _ = scene.updateLayer(root, size: size, time: time, date: date)
+                timings.append((ProcessInfo.processInfo.systemUptime-start)*1000)
+                if [0, 3, 6, 9, 12, 30, 120, 240, 360].contains(frame) {
+                    let c = bitmap(width: Int(size.width), height: Int(size.height))!
+                    root.render(in: c)
+                    try savePNG(c.makeImage()!, "\(out)/cosmos-\(view.rawValue)-\(suffix)-\(time).png")
+                }
+            }
+            timings.sort()
+            print("\(view.rawValue) \(suffix): CPU update p95 \(timings[Int(Double(timings.count-1)*0.95)]) ms, max \(timings.last!) ms")
+            scene.stop()
+        }
+    }
+    exit(0)
+}
 if CommandLine.arguments.contains("--fine-gallery") {
     let args=CommandLine.arguments
     let out=args.firstIndex(of:"--output").flatMap { $0+1<args.count ? args[$0+1]:nil } ?? "build/fine-gallery"
@@ -392,6 +455,7 @@ for name in ["strawberry","research"] {
         for size in [CGSize(width: 1600, height: 1000), CGSize(width: 280, height: 180), CGSize(width: 800, height: 1200)] {
             let c = bitmap(width: Int(size.width), height: Int(size.height))!
             scene.draw(in: c, size: size, time: 0, date: Date(timeIntervalSince1970: 1780315800))
+            scene.draw(in: c, size: size, time: 2, date: Date(timeIntervalSince1970: 1780315802))
             precondition(scene.isDisplayingBundledMap && scene.displayedCityLabel.hasSuffix("*"))
             try savePNG(c.makeImage()!, "\(folder)/city-drift-offline-\(city.name.lowercased())-\(Int(size.width))x\(Int(size.height)).png")
         }
@@ -466,6 +530,7 @@ for name in ["strawberry","research"] {
         starter.apply(settings)
         let c = bitmap(width: 1600, height: 1000)!
         starter.draw(in: c, size: CGSize(width: 1600, height: 1000), time: 0, date: Date())
+        starter.draw(in: c, size: CGSize(width: 1600, height: 1000), time: 2, date: Date())
         try savePNG(c.makeImage()!, "\(folder)/starter-\(city.name.lowercased()).png")
         if city.name == "Paris" {
             settings.palette = .paper; starter.apply(settings)

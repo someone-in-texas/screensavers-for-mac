@@ -393,11 +393,15 @@ final class ConfigurationController: NSWindowController {
     }
     @objc private func reset() { store.reset(); changed(store.value); build() }
     @objc func done() {
-        for well in controls.values.compactMap({ $0 as? NSColorWell }) { well.deactivate() }
-        NSColorPanel.shared.close()
+        dismiss(returnCode: .OK)
+    }
+    func dismiss(returnCode: NSApplication.ModalResponse) {
+        let activeWells = controls.values.compactMap { $0 as? NSColorWell }.filter(\.isActive)
+        for well in activeWells { well.deactivate() }
+        if !activeWells.isEmpty { NSColorPanel.shared.close() }
         guard let window else { return }
-        if let parent = window.sheetParent { parent.endSheet(window, returnCode: .OK) }
-        if NSApp.modalWindow === window { NSApp.stopModal(withCode: .OK) }
+        if let parent = window.sheetParent { parent.endSheet(window, returnCode: returnCode) }
+        if NSApp.modalWindow === window { NSApp.stopModal(withCode: returnCode) }
         window.orderOut(nil)
     }
 }

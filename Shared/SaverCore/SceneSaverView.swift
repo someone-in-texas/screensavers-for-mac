@@ -35,6 +35,12 @@ class SceneSaverView: ScreenSaverView {
     override var isOpaque: Bool { true }
     override func startAnimation() { scene.apply(store.value); scene.start(); super.startAnimation() }
     override func stopAnimation() { scene.stop(); super.stopAnimation() }
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        // Switching savers can remove the old view without pressing Done.
+        // Release its sheet so the host can present the next saver's options.
+        if window != nil && newWindow !== window { configuration?.dismiss(returnCode: .cancel) }
+        super.viewWillMove(toWindow: newWindow)
+    }
     override func animateOneFrame() {
         if !presentLayers() { needsDisplay = true }
     }

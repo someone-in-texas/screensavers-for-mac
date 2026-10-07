@@ -1,7 +1,14 @@
 # Changelog
 
-## Unreleased
+## 0.8.2
 
+- Fade City Drift's first complete map gently over its palette background at
+  startup, with readable attribution and unchanged later city transitions.
+- Refine Voxel Cosmos close-up planets with slightly finer voxels and slow surface
+  rotation. Keep the outer-planets center sun-free, with cool dashed orbit guides
+  and a distant dust belt; retain the Sun in inner-planets and solar-system views.
+- Dismiss an old saver's Options sheet when its view leaves the host window, so
+  switching savers cannot leave that sheet attached to the host.
 - Recommend a curl installer that verifies published release ZIPs and installs or
   updates savers for the current user without developer tools. Preserve settings
   and cached maps, and restore previous bundles if replacement fails.

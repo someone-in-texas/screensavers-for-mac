@@ -20,6 +20,8 @@ func runCosmosTests() {
         let pixels = VoxelCosmosScene.renderSize(size, pixelSize: 2)
         expect(pixels.width <= 800 && pixels.height <= 600, "cosmos pixel buffer is bounded in either orientation")
         expect(abs(pixels.width / pixels.height - size.width / size.height) < 0.02, "cosmos preserves viewport aspect ratio")
+        let closeUp = VoxelCosmosScene.renderSize(size, pixelSize: 2, closeUp: true)
+        expect(closeUp.width > pixels.width && closeUp.width <= 1000 && closeUp.height <= 750, "close-ups add modest detail within bounded buffers")
     }
     let scene = VoxelCosmosScene(), root = CALayer(), size = CGSize(width: 480, height: 320)
     var paused = SaverSettings(); paused.cosmos.speed = 0; paused.cosmos.secondsPerView = 15
@@ -57,8 +59,20 @@ func runCosmosTests() {
     let fixedFrame = steadyRoot.sublayers![0].contents as! CGImage
     let fixedBytes = fixedFrame.dataProvider!.data! as Data
     for i in 1...80 { _ = steady.updateLayer(steadyRoot, size: size, time: Double(i)/10, date: Date()) }
-    expect(fixedBytes == (steadyRoot.sublayers![0].contents as! CGImage).dataProvider!.data! as Data, "fixed Cosmos sculpture has no zoom-induced pixel crawl")
+    let rotatedBytes = (steadyRoot.sublayers![0].contents as! CGImage).dataProvider!.data! as Data
+    expect(fixedBytes != rotatedBytes, "close-up surface rotates even without a moon")
+    func silhouette(_ data: Data) -> [Bool] {
+        let bytes = [UInt8](data)
+        return stride(from: 0, to: bytes.count, by: 4).map { bytes[$0] != 0 || bytes[$0+1] != 0 || bytes[$0+2] != 0 }
+    }
+    expect(silhouette(fixedBytes) == silhouette(rotatedBytes), "rotation preserves the exact silhouette without zoom or pixel crawl")
     expect(fixedBytes == fixedFrame.dataProvider!.data! as Data, "published frame remains immutable after subsequent rendering")
+    steady.stop()
+    _ = steady.updateLayer(steadyRoot, size: size, time: 1000, date: Date())
+    expect(rotatedBytes == (steadyRoot.sublayers![0].contents as! CGImage).dataProvider!.data! as Data, "stopped close-up holds its rotation")
+    steady.start()
+    _ = steady.updateLayer(steadyRoot, size: size, time: 1001, date: Date())
+    expect(rotatedBytes == (steadyRoot.sublayers![0].contents as! CGImage).dataProvider!.data! as Data, "resuming rotation excludes paused wall time")
     fixed.cosmos.view = .earth; steady.apply(fixed)
     _ = steady.updateLayer(steadyRoot, size: size, time: 9, date: Date())
     let movingFrame = steadyRoot.sublayers![0].contents as! CGImage
@@ -77,6 +91,18 @@ func runCosmosTests() {
     }
     expect(anchors.count == 5, "composition tour includes center and all four quadrants")
     compositionScene.stop()
+    for view in [CosmosView.innerPlanets, .outerPlanets] {
+        let system = VoxelCosmosScene(), systemRoot = CALayer()
+        var settings = fixed; settings.cosmos.view = view; settings.cosmos.asteroids = false; settings.cosmos.orbits = false
+        system.apply(settings); system.start()
+        _ = system.updateLayer(systemRoot, size: size, time: 0, date: Date())
+        let image = systemRoot.sublayers![0].contents as! CGImage
+        let bytes = [UInt8](image.dataProvider!.data! as Data)
+        let offset = (image.height/2)*image.bytesPerRow + (image.width/2)*4
+        let centerIsBlack = bytes[offset] == 0 && bytes[offset+1] == 0 && bytes[offset+2] == 0
+        expect(centerIsBlack == (view == .outerPlanets), "only inner planets retain the central Sun, even with guides and labels disabled")
+        system.stop()
+    }
     for composition in CosmosComposition.allCases where composition != .varied {
         fixed.cosmos.composition = composition; steady.apply(fixed)
         _ = steady.updateLayer(steadyRoot, size: size, time: 0, date: Date())

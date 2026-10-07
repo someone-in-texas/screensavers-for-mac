@@ -1,5 +1,40 @@
 # Validation
 
+## 0.8.2 preparation
+
+- `make release-check` passed: 2,549,288 offline checks, all nine actual bundles,
+  54 native Options cycles plus 54 fallback-timer cycles, 48 helper checks and
+  standalone-scaffold smoke. The mounted DMG and expanded ZIP passed checksums,
+  version/identifier metadata, arm64 architecture and signature verification.
+  Packages are ad-hoc signed, not notarized. Version-pinned release-page text was
+  generated with `Scripts/release-notes.py`.
+- `make security-check` passed dependency auditing, workflow analysis and the
+  committed-history secret scan. GitHub CodeQL/CI for the prepared source and
+  live post-publication verification remain pending; this preparation did not
+  install savers, push, tag or publish a release.
+- Three sequential `art_critic` rounds accepted City Drift and Voxel Cosmos
+  without actionable visual findings. Actual renderer sequences cover all three
+  bundled cities, Paper/Blueprint/Night, 1200×800, 800×1200, 280×180 and 2400×1000.
+  City frames sample the opening at 0, 0.3, 0.6, 0.9, 1.2 and 2 seconds; attribution
+  stays readable while complete geometry fades over the palette background.
+- Cosmos reviews cover Earth, Jupiter, Saturn and inner/outer planets, all three
+  fixed angles, pixel sizes 2/3/5, centered/upper-left framing, normal/maximum
+  motion speed and hidden captions/orbit guides. Early 0.1-second samples and
+  1/4/8/12-second frames show stable silhouettes and rings with rotating surfaces.
+  The outer view remains distinct without its Sun. These are sampled-frame
+  reviews, not continuous physical-display playback or an energy benchmark.
+- Reproduce these offline galleries with PreviewHost `--opening-gallery`,
+  `--variant 1` and `--variant 2`, each with its own `--output` directory. Use the
+  built app executable so bundled maps are available. Temporary preference suites
+  isolate the gallery from user settings; no map downloads occur.
+- Regression coverage adds delayed cached-vector and cached-raster fades,
+  same-instance restart, unchanged later city transitions, close-up buffer bounds,
+  visible surface rotation with an invariant silhouette, pause/resume and the
+  inner/outer central Sun distinction. Native Options cycling also removes each
+  saver view with a sheet open, then reattaches and reopens it; stopping animation
+  alone must leave the sheet attached. This exercises a stale-sheet failure path;
+  the intermittent issue in System Settings itself remains a manual check.
+
 ## Public release installer
 
 Run `python3 Tests/ReleaseInstallerTests.py` for offline installer integration checks

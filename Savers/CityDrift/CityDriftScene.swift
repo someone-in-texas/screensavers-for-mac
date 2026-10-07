@@ -5,6 +5,8 @@ import QuartzCore
 final class CityDriftScene: SaverScene {
     static let cityDuration = 120.0
     static let transitionDuration = 1.5
+    static let startupFadeDuration = 1.2
+    private var startupReveal = MotionClock()
     private var settings = SaverSettings()
     private let store: SettingsStore
     private let networkEnabled: Bool
@@ -128,12 +130,14 @@ final class CityDriftScene: SaverScene {
                 : chooseDestination()
         }
         startupCachePending = reuseCache && !usesVectorMap; startupCacheRequested = false; awaitingStartupVectors = false
+        startupReveal = MotionClock()
         hasStarted = true; running = true; generation += 1; beginCity(keepOutgoing: false)
     }
     func stop() {
         running = false; generation += 1; loader?.stop(); loader = nil; vectorSource.stop()
         cacheRead?.cancel(); cacheRead = nil
         motion.pause(); fallbackMotion.pause(); tour.pause(); visitRequest += 1; preparedVisit = nil; preparedVectorVisit = nil
+        startupReveal.pause()
         coverLayer?.removeFromSuperlayer(); coverLayer = nil
     }
     func apply(_ settings: SaverSettings) {
@@ -400,6 +404,14 @@ final class CityDriftScene: SaverScene {
         mapLayer.setAffineTransform(CGAffineTransform(scaleX: size.width / viewport.width, y: size.height / viewport.height))
         lastSize = size
         updateStarter(scale: root.contentsScale * size.width / viewport.width)
+        // Start the opening fade only once actual geometry is ready, not while
+        // disk reads/composition are pending. Later city transitions stay intact.
+        if running && (!(starterLayer.sublayers ?? []).isEmpty || completeViewport) {
+            startupReveal.step(now: time, speed: 1, maximumStep: .infinity)
+        }
+        let progress = min(1, startupReveal.elapsed / Self.startupFadeDuration)
+        let openingOpacity = Float(progress * progress * (3 - 2 * progress))
+        starterLayer.opacity = openingOpacity
         starterLayer.anchorPoint = .zero; starterLayer.bounds = mapLayer.bounds
         starterLayer.position = mapLayer.position; starterLayer.setAffineTransform(mapLayer.affineTransform())
         if usesOnlineVector && vectorSource.map == nil && bundledMap != nil {
@@ -414,6 +426,7 @@ final class CityDriftScene: SaverScene {
         // Never reveal an incomplete raster, even if only one tile is missing.
         // Keep an already visible map opaque as it moves; new visits start hidden.
         mapLayer.opacity = rendersVectors ? 0 : Float(rasterFadeStart.map { min(1, max(0, (time - $0) / 1.2)) } ?? 0)
+        mapLayer.opacity *= openingOpacity
         for tile in rendersVectors ? [] : placements {
             guard let image = image(for: tile.id) else { continue }
             let layer: CALayer

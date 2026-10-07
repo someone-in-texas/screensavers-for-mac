@@ -359,6 +359,11 @@ waitUntil {
 expect(cachedStart.city == paris && !(startupRoot.sublayers![1].sublayers ?? []).isEmpty, "cached startup replaces initial map without network")
 expect(!cachedStart.isDisplayingBundledMap && !cachedStart.displayedCityLabel.hasSuffix("*"), "cached Paris raster is not marked offline")
 expect(startupRoot.sublayers?.count == 3, "cached raster startup has no bundled crossfade cover")
+expect(startupRoot.sublayers![1].opacity == 0, "complete cached raster starts transparent instead of popping in")
+_ = cachedStart.updateLayer(startupRoot, size: smallViewport, time: 0.61, date: fixed)
+expect(abs(startupRoot.sublayers![1].opacity - 0.5) < 0.001, "cached raster shares the gentle startup fade")
+_ = cachedStart.updateLayer(startupRoot, size: smallViewport, time: 1.21, date: fixed)
+expect(startupRoot.sublayers![1].opacity == 1, "cached raster startup reaches full opacity")
 CATransaction.commit(); cachedStart.stop()
 
 // Queued cache reads must not change a stopped or resized scene.
@@ -421,6 +426,7 @@ for scale in [CGFloat(1), 2] {
         _ = scene.updateLayer(root, size: size, time: Double(index), date: fixed)
         let streets = (root.sublayers![0].sublayers ?? []).filter { $0.name == "road" }
         expect(root.sublayers?.count == 3 && streets.count == 6 && streets.allSatisfy { $0.name == "road" && $0.opacity == 1 }, "default first frame is a complete vector scene at \(size), \(scale)x")
+        expect(index != 0 || root.sublayers![0].opacity == 0, "bundled startup begins with a solid background even after pre-start layout")
         expect(root.sublayers![1].sublayers?.isEmpty != false && root.sublayers![1].opacity == 0, "default never exposes partial raster tiles")
         expect(streets.compactMap { ($0 as? CAShapeLayer)?.strokeColor?.alpha }.allSatisfy { $0 == 1 }, "road strokes use a solid opaque color")
         CATransaction.commit()
@@ -428,9 +434,11 @@ for scale in [CGFloat(1), 2] {
     scene.stop(); scene.start()
     _ = scene.updateLayer(root, size: previewSize, time: 10, date: fixed)
     expect(root.sublayers?.count == 3 && !(root.sublayers![0].sublayers ?? []).isEmpty, "same-instance restart has no stale cover or empty opening")
+    expect(root.sublayers![0].opacity == 0, "same-instance restart repeats only the opening fade")
     expect(scene.isDisplayingBundledMap && scene.displayedCityLabel.hasSuffix("*"), "offline map label has an asterisk")
     let firstCity = scene.city
     _ = scene.updateLayer(root, size: previewSize, time: 252, date: fixed)
+    expect(root.sublayers![0].opacity == 1, "later city visits do not restart the opening fade")
     expect(scene.city != firstCity && starterMaps[scene.city] != nil, "line-map tour only selects fully bundled destinations")
     scene.stop()
 }
