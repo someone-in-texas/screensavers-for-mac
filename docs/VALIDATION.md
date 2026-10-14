@@ -1,5 +1,29 @@
 # Validation
 
+## 0.9.0 release preparation
+
+- `make release-check` passed after the botanical watercolor/weather and
+  handwritten-desk refinements: **2,579,646 offline checks, zero failures**,
+  all eleven actual bundles, five rendering aspect ratios, both 66-cycle native
+  Options passes, 440 helper checks, and standalone scaffold smoke.
+- All **24 installer integration tests** passed. Both documented curl pipelines
+  retain `/dev/stdin` and version pinning. Coverage includes exact documented pack
+  identities, rejection of mixed packs, updates preserving the other pack,
+  checksum rejection, and rollback across both AI installation destinations.
+- Mounted DMGs and extracted ZIPs contain exactly ten standard savers, or only
+  Commonplace and Screensavers AI Helper in the AI pack. Both public installers
+  installed and updated the actual signed bundles in shared disposable
+  destinations. The bundled handwriting font and license were checked too.
+  No installation test changed the maintainer's installed savers or applications.
+- Local dependency, workflow and committed-history secret scans passed. GitHub
+  CI and CodeQL remain mandatory before tagging, and the release workflow repeats
+  the security/build/package gates before publishing. Published curl routes are
+  verified afterward with `Scripts/check-installation.py --published-tag v0.9.0`.
+- Local packages are ad-hoc signed, not notarized. Authentication, generated AI
+  content, a clean-Mac install and minimum-OS hardware testing are separate manual
+  checks. See [the final rendering review](WEATHER_AND_HANDWRITING.md) for actual
+  images, critic scores, native timing measurements and remaining visual limits.
+
 ## 0.9 local development validation
 
 - Full optimized arm64 build completed for all eleven saver bundles, PreviewHost
