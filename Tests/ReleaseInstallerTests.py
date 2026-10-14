@@ -17,7 +17,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "Scripts"))
-from release_installation import command, instructions, validate_instructions
+from release_installation import command, instructions, validate_instructions, ai_instructions, validate_ai_instructions
 
 
 class ReleaseInstallerTests(unittest.TestCase):
@@ -261,6 +261,30 @@ mv() {
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Expected a stable version", result.stderr)
 
+    def test_standard_pack_rejects_commonplace(self):
+        extra = self.case / "Commonplace.saver"
+        shutil.copytree(self.bundle, extra)
+        subprocess.run(["/usr/bin/zip", "-qr", str(self.asset), extra.name], cwd=self.case, check=True)
+        self.write_checksum()
+        result = self.run_installer()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unrecognized screen savers", result.stderr)
+        self.assertEqual(list(self.dest.iterdir()), [])
+        self.assert_clean()
+
+    def test_documented_pack_contents_match_installers(self):
+        for script, block, expected in (
+            ("install.sh", instructions(), ["World Clock Room", "City Drift", "Voxel Cosmos", "Paper Sky", "Dapple", "Flourish", "Lattice", "Strawberry Fields Forever", "Good Research Takes Time", "Years in Bloom"]),
+            ("install-ai.sh", ai_instructions(), ["Commonplace.saver", "Screensavers AI Helper.app"]),
+        ):
+            result = subprocess.run(["bash", "-c", 'source "$1"; printf "%s\\n" "${NAMES[@]}"', "contents", str(ROOT / script)], text=True, capture_output=True, check=True)
+            self.assertEqual(result.stdout.splitlines(), expected)
+            for name in expected:
+                self.assertIn(name.removesuffix(".saver").removesuffix(".app"), block)
+        validate_ai_instructions(ai_instructions())
+        with self.assertRaises(ValueError):
+            validate_ai_instructions(ai_instructions().replace("bash /dev/stdin", "bash"))
+
 
 class AIInstallerTests(unittest.TestCase):
     @classmethod
@@ -334,6 +358,36 @@ install_bundles() { install_to_path "$1" "$FIXTURE_SAVERS" "$FIXTURE_APPS"; }
         self.assertEqual(result.returncode, 0, result.stdout+result.stderr)
         self.assertTrue((self.savers / "Commonplace.saver").is_dir())
         self.assertTrue((self.apps / "Screensavers AI Helper.app").is_dir())
+        self.assert_clean()
+
+    def test_update_preserves_other_pack_and_user_data(self):
+        standard = self.savers / "Years in Bloom.saver"
+        standard.mkdir()
+        (standard / "keep").write_text("standard pack")
+        archive = self.case / "notebook-archive.json"
+        archive.write_text("saved notebook")
+        first = self.run_installer()
+        self.assertEqual(first.returncode, 0, first.stdout+first.stderr)
+        for destination, name in [(self.savers, "Commonplace.saver"), (self.apps, "Screensavers AI Helper.app")]:
+            (destination / name / "old-marker").write_text("old version")
+        updated = self.run_installer()
+        self.assertEqual(updated.returncode, 0, updated.stdout+updated.stderr)
+        self.assertEqual(archive.read_text(), "saved notebook")
+        self.assertEqual((standard / "keep").read_text(), "standard pack")
+        for destination, name in [(self.savers, "Commonplace.saver"), (self.apps, "Screensavers AI Helper.app")]:
+            self.assertFalse((destination / name / "old-marker").exists())
+        self.assert_clean()
+
+    def test_ai_pack_rejects_extra_standard_saver(self):
+        extra = self.case / "Years in Bloom.saver"
+        shutil.copytree(self.root / "Commonplace.saver", extra)
+        subprocess.run(["/usr/bin/zip", "-qr", str(self.asset), extra.name], cwd=self.case, check=True)
+        self.checksum()
+        result = self.run_installer()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unrecognized bundles", result.stderr)
+        self.assertEqual(list(self.savers.iterdir()), [])
+        self.assertEqual(list(self.apps.iterdir()), [])
         self.assert_clean()
 
     def test_helper_failure_restores_both_destinations(self):

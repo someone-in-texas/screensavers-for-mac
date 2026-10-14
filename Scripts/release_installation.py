@@ -27,6 +27,14 @@ def command(tag=None, ref="main", ai=False):
 
 
 def instructions(tag=None, ref="main"):
+    current_pack = tag is None or tuple(map(int, release_version(tag).split(".")[:2])) >= (0, 9)
+    contents = """**Standard pack — ten screen savers:** Years in Bloom, World Clock Room,
+City Drift, Voxel Cosmos, Paper Sky, Dapple, Flourish, Lattice,
+Strawberry Fields Forever, and Good Research Takes Time.
+Installs them in `~/Library/Screen Savers`. **Commonplace and Screensavers AI Helper
+are not included**; use the separate AI installer below for those two items.
+
+""" if current_pack else ""
     return f"""{START}
 **Recommended: install from Terminal** · Apple Silicon · macOS 14.6+
 
@@ -36,7 +44,7 @@ Quit System Settings and stop any running screen saver, then run:
 {command(tag, ref)}
 ```
 
-Downloads and verifies the published release, then installs or updates its savers
+{contents}Downloads and verifies the published release, then installs or updates its savers
 for your user. Preferences and cached maps are retained. No Git, developer tools,
 Homebrew, or `sudo` required. Reopen System Settings afterward.
 
@@ -65,9 +73,11 @@ def ai_instructions(tag=None, ref="main"):
 {command(tag, ref, ai=True)}
 ```
 
-Installs Commonplace for your user and the helper in `~/Applications`, preserving
-notebook archives and preferences. It does not launch the helper or connect an
-account. In Commonplace Options, choose **Set Up ChatGPT** when ready. The starter
+Installs only **Commonplace** in `~/Library/Screen Savers` and **Screensavers AI Helper**
+in `~/Applications`, preserving notebook archives and preferences. The ten standard
+savers use the main installer above; run both commands to install both packs.
+
+The AI installer does not launch the helper or connect an account. In Commonplace Options, choose **Set Up ChatGPT** when ready. The starter
 notebook and saved pages work offline. Generation requires local Codex and uses
 your ChatGPT account limits; see [AI setup]({ROOT_URL}/blob/{ref}/docs/AI_HELPER.md).
 

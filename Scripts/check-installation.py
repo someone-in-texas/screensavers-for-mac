@@ -32,6 +32,7 @@ def check_local():
     version = (ROOT / "VERSION").read_text().strip()
     notes = module.render(version, (ROOT / "CHANGELOG.md").read_text(), "Ad-hoc signed; not notarized.")
     validate_instructions(notes, f"v{version}", f"v{version}")
+    validate_ai_instructions(notes, f"v{version}", f"v{version}")
     for path in ("AGENTS.md", "docs/RELEASING.md", "docs/VALIDATION.md",
                  ".agents/skills/validate-screensaver/SKILL.md"):
         text = (ROOT / path).read_text()

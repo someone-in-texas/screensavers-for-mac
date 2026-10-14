@@ -54,7 +54,9 @@ Before each release, run `python3 Scripts/check-installation.py` and
 text in `Scripts/release_installation.py` and checks generated release notes. The
 latter executes the documented curl pipeline with an offline transport and tests
 verification, installation and rollback in temporary directories. Package checks
-also pass the actual release ZIP through the public installer's validation functions.
+also verify the exact bundle set and install/update the actual signed release ZIP
+through each public installer in shared disposable destinations. Neither path
+installs on the maintainer account.
 Update the installer allowlist whenever saver identities change.
 
 `python3 Scripts/release-notes.py` generates `dist/release-notes.md` from the

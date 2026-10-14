@@ -9,7 +9,8 @@
   cycles and 66 fallback-timer cycles passed, as did the standalone scaffold smoke.
   Both standard and AI packs passed DMG/ZIP validation: checksums, bundle identities,
   versions, arm64 architecture, signatures and each public installer's verification.
-  Nothing was installed on the maintainer's account; 0.9 remains unpublished.
+  Nothing was installed on the maintainer's account; these checks preceded the
+  0.9 release preparation.
 - Twenty standard/AI installer integration tests passed, including both real
   documented curl pipelines through `/dev/stdin`, checksum rejection, missing or
   unrelated helper bundles, and rollback across both user install locations.

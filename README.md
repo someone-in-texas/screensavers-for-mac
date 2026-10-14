@@ -12,6 +12,12 @@ Quit System Settings and stop any running screen saver, then run:
 curl -fsSL https://raw.githubusercontent.com/someone-in-texas/screensavers-for-mac/main/install.sh | bash /dev/stdin
 ```
 
+**Standard pack — ten screen savers:** Years in Bloom, World Clock Room,
+City Drift, Voxel Cosmos, Paper Sky, Dapple, Flourish, Lattice,
+Strawberry Fields Forever, and Good Research Takes Time.
+Installs them in `~/Library/Screen Savers`. **Commonplace and Screensavers AI Helper
+are not included**; use the separate AI installer below for those two items.
+
 Downloads and verifies the published release, then installs or updates its savers
 for your user. Preferences and cached maps are retained. No Git, developer tools,
 Homebrew, or `sudo` required. Reopen System Settings afterward.
@@ -20,9 +26,7 @@ Append `--verify-only` to check the download without installing. The optional AI
 helper is not installed. [Inspect the installer](https://raw.githubusercontent.com/someone-in-texas/screensavers-for-mac/main/install.sh) before running.
 <!-- recommended-install:end -->
 
-### AI pack — 0.9 development, not yet published
-
-The following route becomes available with the first 0.9 release.
+### Optional AI pack
 
 <!-- ai-install:start -->
 **Separate AI pack: Commonplace + Screensavers AI Helper**
@@ -31,9 +35,11 @@ The following route becomes available with the first 0.9 release.
 curl -fsSL https://raw.githubusercontent.com/someone-in-texas/screensavers-for-mac/main/install-ai.sh | bash /dev/stdin
 ```
 
-Installs Commonplace for your user and the helper in `~/Applications`, preserving
-notebook archives and preferences. It does not launch the helper or connect an
-account. In Commonplace Options, choose **Set Up ChatGPT** when ready. The starter
+Installs only **Commonplace** in `~/Library/Screen Savers` and **Screensavers AI Helper**
+in `~/Applications`, preserving notebook archives and preferences. The ten standard
+savers use the main installer above; run both commands to install both packs.
+
+The AI installer does not launch the helper or connect an account. In Commonplace Options, choose **Set Up ChatGPT** when ready. The starter
 notebook and saved pages work offline. Generation requires local Codex and uses
 your ChatGPT account limits; see [AI setup](https://github.com/someone-in-texas/screensavers-for-mac/blob/main/docs/AI_HELPER.md).
 
@@ -48,7 +54,8 @@ Append `--verify-only` to validate without installing.
 A botanical journal unfolds through spring growth, summer flowers, falling leaves
 and winter dormancy. Eighteen seeded plant archetypes grow persistent branches and
 new seasonal foliage across five-year generations, surrounded by textured paper
-and restrained illustrated weather. Choose a specimen, grouping, meadow or woodland;
+and gently moving weather washes. Layered watercolor and broken pencil marks soften
+the leaves, petals, and stems. Choose a specimen, grouping, meadow or woodland;
 seven palettes, three speeds and seasonal emphasis shape the scene. Entirely offline.
 
 ![Years in Bloom: procedural botanical illustration](docs/images/years-in-bloom.png)
@@ -60,14 +67,15 @@ seven palettes, three speeds and seasonal emphasis shape the scene. Entirely off
 A changing physical notebook combines short fictional observations, practical lists,
 questions and callbacks with verified public-domain extracts and real CC0 archival
 pictures. Six art-directed themes range from Sepia Archive to a quiet Off-World
-notebook. Saved pages and the starter book play offline; explicit ChatGPT setup in
+notebook. Handwritten notes sit on gently panning desks with independently moving
+pages. Saved pages and the starter book play offline; explicit ChatGPT setup in
 the separate helper adds five opening days, then one new day at a time.
 
 ![Commonplace: an evolving archival notebook](docs/images/commonplace.png)
 
 [Ultrawide notebook](docs/images/commonplace-wide.png) · [Midnight Observatory](docs/images/commonplace-observatory.png) · [Off-World](docs/images/commonplace-offworld.png)
 
-[Architecture, art reviews and validation](docs/0.9_IMPLEMENTATION.md) · [AI setup and privacy](docs/AI_HELPER.md)
+[Architecture, art reviews and validation](docs/0.9_IMPLEMENTATION.md) · [Rendering and motion review](docs/WEATHER_AND_HANDWRITING.md) · [AI setup and privacy](docs/AI_HELPER.md)
 
 ## City Drift
 
@@ -234,6 +242,10 @@ cd screensavers-for-mac
 make build       # eleven .saver bundles, PreviewHost.app and the helper in build/products
 make test        # deterministic offline tests, bundle loading, and renderer checks
 make preview     # switch savers, configure, resize, or save a frame
+Scripts/build-preview.sh # build only PreviewHost.app
+Scripts/run-preview.sh   # launch it; build first if missing
+Scripts/run-preview.sh --bloom-review --offline # Years in Bloom
+Scripts/run-preview.sh --commonplace-review --offline # Commonplace
 open build/products/PreviewHost.app --args --dapple
 make install     # rebuild and install for the current user
 make package     # DMG, ZIP, and SHA256SUMS in dist
@@ -264,7 +276,7 @@ target 60 FPS. Geometry, textures, and map tiles are cached. See
 Report map issues at [OpenStreetMap](https://www.openstreetmap.org/fixthemap), and
 project bugs through [GitHub Issues](https://github.com/someone-in-texas/screensavers-for-mac/issues).
 
-Code: [MIT](LICENSE). Map data and imagery: [Third-party notices](THIRD_PARTY_NOTICES.md).
+Code: [MIT](LICENSE). Map data, imagery and fonts: [Third-party notices](THIRD_PARTY_NOTICES.md).
 
 ## Agents and personal screen savers
 

@@ -7,6 +7,7 @@ final class YearsInBloomScene: SaverScene {
     private var running = false
     private let seed: UInt64
     private let paper = CALayer(), atmosphere = CAGradientLayer(), weather = CAShapeLayer(), distantRain = CAShapeLayer()
+    private let pageWeather = BloomAtmosphere()
     private let seasonalWash = CAGradientLayer(), lightning = CALayer()
     private let garden = CALayer(), ground = CALayer(), successor = CAShapeLayer()
     private var annualYear = -1
@@ -14,7 +15,22 @@ final class YearsInBloomScene: SaverScene {
     private var size = CGSize.zero
     private var cohort = -1
     private var plants: [PlantLayers] = []
-        private var rebuild = true
+    private var rebuild = true
+    private let paintings = BloomPaintingCache()
+    private var backingScale = 1.0
+    private final class PendingPainting {
+        let birth: Double
+        private var action: (() -> Void)?
+        init(birth: Double, make: @escaping () -> Void) { self.birth = birth;action = make }
+        func finish() { let work = action;action = nil;work?() }
+    }
+    private var pendingPaintings: [PendingPainting] = []
+    private var paintingIndex = 0
+    var pendingPaintingCount: Int { pendingPaintings.count-paintingIndex }
+    var paintingCacheBytes: Int { paintings.bytes }
+    var paintingCacheMisses: Int { paintings.misses }
+    var paintingCacheHits: Int { paintings.hits }
+    private(set) var activePaintingBytes = 0
     private(set) var simulatedYears = 0.0
     private(set) var layerCount = 0
     init(seed: UInt64 = UInt64.random(in: 1...UInt64.max)) { self.seed = seed }
@@ -30,8 +46,14 @@ final class YearsInBloomScene: SaverScene {
         let structure: BloomStructure
         let layer = CALayer(), snow = CAShapeLayer(), roots = CAShapeLayer(), seedHeads = CAShapeLayer()
         var branches: [CAShapeLayer] = []
+        var branchStates: [SIMD3<Double>] = []
+        var tipRatios: [Double] = []
+        var joinDirections: [(CGPoint?,CGPoint?)] = []
         var leaves: [CAShapeLayer] = []
         var details: [CAShapeLayer] = []
+        var autumnPaint: [CALayer] = []
+        var paintingBytes = 0
+        var paintingJobs: [PendingPainting?] = []
         let anchor: CGPoint
         let scale: Double
         init(_ structure: BloomStructure, anchor: CGPoint, scale: Double) { self.structure = structure; self.anchor = anchor; self.scale = scale }
@@ -48,6 +70,7 @@ final class YearsInBloomScene: SaverScene {
         }
     }
     private func paperImage(_ size: CGSize) -> CGImage? {
+        if settings.art.rendering != .classic { return illustrationPaper(size) }
         let w = min(1800,Int(max(1,size.width))), h = min(1400,Int(max(1,size.height)))
         guard let c = bitmap(width:w,height:h) else { return nil }
         c.setFillColor(pigments.paper.cgColor); c.fill(CGRect(x:0,y:0,width:w,height:h))
@@ -60,9 +83,35 @@ final class YearsInBloomScene: SaverScene {
         }
         return c.makeImage()
     }
+    private func illustrationPaper(_ size: CGSize) -> CGImage? {
+        let w = min(4096,Int(ceil(size.width))), h = min(4096,Int(ceil(size.height)))
+        guard let c = bitmap(width:w,height:h), let tile = bitmap(width:512,height:512) else { return nil }
+        tile.setFillColor(pigments.paper.cgColor);tile.fill(CGRect(x:0,y:0,width:512,height:512))
+        tile.scaleBy(x:2,y:2)
+        let texture = settings.texture == .subtle ? 0.65:settings.texture == .strong ? 1.4:1.0
+        var random = ArtRandom(state:seed)
+        for _ in 0..<5200 {
+            let x = random.next()*256,y = random.next()*256
+            tile.setStrokeColor(pigments.ink.withAlphaComponent(texture*settings.art.paperGrain*(0.015+random.next()*0.035)).cgColor)
+            tile.setLineWidth(0.22)
+            let length = 0.6+random.next()*1.1
+            for offset in [0.0,-256.0] {
+                tile.move(to:CGPoint(x:x+offset,y:y));tile.addLine(to:CGPoint(x:x+offset+length,y:y));tile.strokePath()
+            }
+        }
+        guard let image = tile.makeImage() else { return nil }
+        c.scaleBy(x:Double(w)/size.width,y:Double(h)/size.height)
+        for x in stride(from:0.0,to:size.width,by:256) { for y in stride(from:0.0,to:size.height,by:256) {
+            c.draw(image,in:CGRect(x:x,y:y,width:256,height:256))
+        } }
+        return c.makeImage()
+    }
     private func leafPath(_ species: BloomPlant, flower: Bool, variation: Double) -> CGPath {
         let path = CGMutablePath()
         if flower {
+            if settings.art.rendering != .classic && [.lavender,.sage,.grass].contains(species) {
+                return BloomIllustration.florets(species:species,variation:variation)
+            }
             if species == .lavender || species == .sage || species == .grass {
                 for tier in 0..<(5+Int(variation*3)) { for side in [-1.0,1.0] {
                     path.addEllipse(in:CGRect(x:side*(0.08+variation*0.035)-0.11,y:Double(tier)*0.16+side*variation*0.055,width:0.22*(1-Double(tier)*0.075),height:0.17+variation*0.05))
@@ -133,8 +182,22 @@ final class YearsInBloomScene: SaverScene {
         }
         return path
     }
+    private func organColor(_ plant: BloomPlant, organ: BloomOrgan, autumn: Double, winter: Double) -> NSColor {
+        let p = pigments
+        let rust = NSColor(srgbRed:0.68,green:0.37+organ.variation*0.16,blue:0.17,alpha:1)
+        let green = plant.evergreen ? p.leaf.blended(withFraction:winter*0.18,of:NSColor(srgbRed:0.25,green:0.38,blue:0.35,alpha:1))! : p.leaf.blended(withFraction:autumn*(0.65+organ.variation*0.3),of:rust) ?? p.leaf
+        var color = organ.flower ? p.bloom : (green.blended(withFraction:organ.variation*0.20,of:p.paper) ?? green)
+        if plant == .sunflower && organ.flower { color = .init(srgbRed:0.83,green:0.63,blue:0.20,alpha:1) }
+        if plant == .lavender && organ.flower { color = .init(srgbRed:0.51,green:0.44,blue:0.64,alpha:1) }
+        if plant == .japaneseMaple && !organ.flower { color = p.bloom.blended(withFraction:autumn*0.3,of:rust)! }
+        if plant == .grass && organ.flower { color = p.ink.blended(withFraction:0.45,of:p.paper)! }
+        return color
+    }
     private func populate(_ root: CALayer, cohort: Int) {
+        let previous = cohort == self.cohort ? plants:[]
+        let reusable = !rebuild ? previous:[]
         garden.sublayers?.forEach { $0.removeFromSuperlayer() }; plants.removeAll()
+        pendingPaintings.removeAll();paintingIndex = 0;activePaintingBytes = 0
         var random = ArtRandom(state: seed &+ UInt64(cohort) &* 7919)
         let layout = settings.layout == .automatic ? [BloomLayout.specimen,.grouping,.meadow,.woodland][Int(random.next()*4)] : settings.layout
         let choices = Array(BloomPlant.allCases.dropFirst())
@@ -147,9 +210,28 @@ final class YearsInBloomScene: SaverScene {
         default: species = [primary]
         }
         let anchors = species.count == 1 ? [CGPoint(x:0,y:0)] : species.count == 5 ? [CGPoint(x:-145,y:0),CGPoint(x:-70,y:4),CGPoint(x:5,y:-5),CGPoint(x:75,y:3),CGPoint(x:145,y:-2)] : [CGPoint(x:0,y:0),CGPoint(x:-125,y:-8),CGPoint(x:122,y:0)]
+        let placements = BloomDrawing.placements(layout:layout,count:species.count,seed:seed &+ UInt64(cohort)*7919)
+        let structures = species.enumerated().map { index,plant in
+            BloomStructure(species:plant,seed:seed &+ UInt64(cohort*101+index*17) &+ (plant.annual ? UInt64(max(0,annualYear))*104729:0))
+        }
+        // Budget the active artwork as well as the LRU. Conservatively estimate raster area
+        // from each organ's original silhouette, including bleed and row padding.
+        let area = structures.reduce(0.0) { total,structure in
+            total+structure.organs.reduce(0.0) { sum,organ in
+                let bounds = leafPath(structure.species,flower:organ.flower,variation:organ.variation).boundingBoxOfPath.insetBy(dx:-0.12,dy:-0.12)
+                return sum+(bounds.width+0.15)*(bounds.height+0.15)*(organ.flower ? 1:2)
+            }
+        }
+        let rasterLimit = min(192,sqrt(24*1024*1024/max(1,area*4)))
         for (index, plant) in species.enumerated() {
-            let structure = BloomStructure(species:plant,seed:seed &+ UInt64(cohort*101+index*17) &+ (plant.annual ? UInt64(max(0,annualYear))*104729:0))
-            let item = PlantLayers(structure,anchor:anchors[index],scale:species.count == 1 ? 1 : index == 0 ? 0.95 : layout == .woodland ? 0.75 : 0.62)
+            let structure = structures[index]
+            if reusable.indices.contains(index), !plant.annual, reusable[index].structure.species == plant {
+                let item = reusable[index];garden.addSublayer(item.layer);plants.append(item)
+                activePaintingBytes += item.paintingBytes
+                continue
+            }
+            let classic = settings.art.rendering == .classic
+            let item = PlantLayers(structure,anchor:classic ? anchors[index]:placements[index].anchor,scale:classic ? (species.count == 1 ? 1 : index == 0 ? 0.95 : layout == .woodland ? 0.75 : 0.62):placements[index].scale)
             garden.addSublayer(item.layer)
             let rootPath = CGMutablePath()
             for side in [-1.0,1.0] { for i in 0..<4 { rootPath.move(to:CGPoint(x:0,y:4));rootPath.addQuadCurve(to:CGPoint(x:side*Double(8+i*8),y:-4-Double(i%2)*3),control:CGPoint(x:side*Double(4+i*3),y:-3)) } }
@@ -158,10 +240,31 @@ final class YearsInBloomScene: SaverScene {
                 let shape = CAShapeLayer(), path = CGMutablePath()
                 path.move(to:branch.start);path.addQuadCurve(to:branch.end,control:branch.control)
                 shape.path = path;shape.fillColor = nil;shape.lineCap = .round;shape.lineJoin = .round
+                if settings.art.rendering != .classic {
+                    for _ in 0..<2 {
+                        let stroke = CAShapeLayer();stroke.path = path;stroke.fillColor = nil;stroke.lineCap = .round
+                        shape.addSublayer(stroke)
+                    }
+                }
                 item.layer.addSublayer(shape);item.branches.append(shape)
+                item.branchStates.append(SIMD3(repeating:-1))
+                let continuation = structure.branches.first { $0.order == 0 && branch.order == 0 && $0.start == branch.end }
+                item.tipRatios.append(continuation.map { $0.width/branch.width } ?? (plant.woody ? 0.24:0.13))
+                let preceding = structure.branches.first { $0.order == 0 && branch.order == 0 && $0.end == branch.start }
+                func join(_ a: CGPoint, _ b: CGPoint) -> CGPoint {
+                    let al = max(0.001,hypot(a.x,a.y)), bl = max(0.001,hypot(b.x,b.y))
+                    return CGPoint(x:a.x/al+b.x/bl,y:a.y/al+b.y/bl)
+                }
+                let before = preceding.map { join(CGPoint(x:branch.start.x-$0.control.x,y:branch.start.y-$0.control.y),CGPoint(x:branch.control.x-branch.start.x,y:branch.control.y-branch.start.y)) }
+                let after = continuation.map { join(CGPoint(x:branch.end.x-branch.control.x,y:branch.end.y-branch.control.y),CGPoint(x:$0.control.x-branch.end.x,y:$0.control.y-branch.end.y)) }
+                item.joinDirections.append((before,after))
             }
-            for organ in structure.organs {
-                let shape = CAShapeLayer();shape.path = leafPath(plant,flower:organ.flower,variation:organ.variation)
+            for (organIndex,organ) in structure.organs.enumerated() {
+                let shape = CAShapeLayer()
+                let original = leafPath(plant,flower:organ.flower,variation:organ.variation)
+                shape.path = settings.art.rendering == .classic ? original : BloomIllustration.organicPath(original,species:plant,flower:organ.flower,variation:organ.variation,amount:settings.art.edgeIrregularity)
+                let autumn = CALayer()
+                item.autumnPaint.append(autumn);item.paintingJobs.append(nil)
                 shape.lineWidth = plant.evergreen ? 0.045 : 0.016
                 shape.fillColor = plant.evergreen ? nil : pigments.leaf.cgColor
                 shape.lineCap = .round;shape.lineJoin = .round
@@ -184,12 +287,47 @@ final class YearsInBloomScene: SaverScene {
                     for n in 1...4 { for side in [-1.0,1.0] { let y = Double(n)*0.16;veins.move(to:CGPoint(x:0,y:y));veins.addLine(to:CGPoint(x:side*0.20,y:y+0.15)) } }
                     detail.fillColor = nil
                 }
-                if !plant.evergreen {
+                if settings.art.rendering == .classic && !plant.evergreen {
                     let pigment = CAShapeLayer(), freckles = CGMutablePath()
                     for n in 0..<5 { let x = sin(Double(n)*7.1+organ.variation)*0.08,y = 0.30+Double(n)*0.08;freckles.addEllipse(in:CGRect(x:x,y:y,width:0.08+organ.variation*0.06,height:0.13)) }
                     pigment.path = freckles;pigment.fillColor = pigments.paper.withAlphaComponent(0.13).cgColor;shape.addSublayer(pigment)
                 }
                 detail.path = veins;detail.lineWidth = 0.013;detail.strokeColor = pigments.ink.withAlphaComponent(0.32).cgColor;shape.addSublayer(detail)
+                if settings.art.rendering != .classic, let path = shape.path {
+                    let colors = [organColor(plant,organ:organ,autumn:0,winter:0),organColor(plant,organ:organ,autumn:1,winter:plant.evergreen ? 1:0)]
+                    let summer = CALayer()
+                    // A resize keeps the existing painting until its replacement
+                    // is ready, so increased raster density cannot reveal bare paths.
+                    if previous.indices.contains(index), previous[index].structure.species == plant,
+                       previous[index].structure.organs.indices.contains(organIndex),
+                       previous[index].structure.organs[organIndex].variation == organ.variation {
+                        let old = previous[index].leaves[organIndex].sublayers?.filter { $0.contents != nil } ?? []
+                        for (target,source) in zip([summer,autumn],old) {
+                            target.frame = source.frame;target.contents = source.contents
+                        }
+                    }
+                    for paint in [summer,autumn] {
+                        paint.minificationFilter = .trilinear;paint.magnificationFilter = .linear
+                        shape.insertSublayer(paint,below:detail)
+                    }
+                    let cache = paintings, art = settings.art, p = pigments
+                    let resolution = min(rasterLimit,72*min(size.width/1400,size.height/1000)*backingScale)
+                    let job = PendingPainting(birth:structure.branches[organ.branch].birth+0.24*organ.along,make: { [weak self, weak item] in
+                    guard let self, let item else { return }
+                    for season in 0..<(organ.flower ? 1:2) {
+                        let key = BloomPaintingCache.Key(species:plant.rawValue,variation:organ.variation,flower:organ.flower,autumn:season == 1)
+                        if let painting = cache.painting(key,make: {
+                            BloomIllustration.paint(path:path,species:plant,organ:organ,color:colors[season],paper:p.paper,ink:p.ink,art:art,resolution:resolution)
+                        }) {
+                            let paint = season == 1 ? autumn:summer
+                            self.activePaintingBytes += painting.bytes;item.paintingBytes += painting.bytes
+                            paint.frame = painting.bounds;paint.contents = painting.image
+                        }
+                    }
+                    })
+                    item.paintingJobs[organIndex] = job;pendingPaintings.append(job)
+                    detail.opacity = 0
+                }
                 item.layer.addSublayer(shape);item.leaves.append(shape);item.details.append(detail)
             }
             item.snow.fillColor = nil;item.snow.lineCap = .round;item.layer.addSublayer(item.snow);item.layer.addSublayer(item.seedHeads)
@@ -204,6 +342,7 @@ final class YearsInBloomScene: SaverScene {
                 }
             }
         }
+        pendingPaintings.sort { $0.birth < $1.birth }
         gardenBounds = bounds
         layerCount = plants.reduce(5) { $0+$1.branches.count+$1.leaves.count*2+1 }
     }
@@ -213,8 +352,10 @@ final class YearsInBloomScene: SaverScene {
         if running { clock.step(now:time,speed:1/settings.pace.secondsPerYear,maximumStep:0.25) }
         simulatedYears = clock.elapsed
         let nextCohort = Int(simulatedYears/5), age = simulatedYears.truncatingRemainder(dividingBy:5)
-        if paper.superlayer !== root { root.addSublayer(paper);root.addSublayer(atmosphere);root.addSublayer(seasonalWash);root.addSublayer(distantRain);root.addSublayer(ground);root.addSublayer(garden);root.addSublayer(successor);root.addSublayer(weather);root.addSublayer(lightning);root.masksToBounds = true }
-        if size != self.size || rebuild {
+        if paper.superlayer !== root { root.addSublayer(paper);root.addSublayer(atmosphere);root.addSublayer(seasonalWash);root.addSublayer(distantRain);root.addSublayer(pageWeather.background);root.addSublayer(ground);root.addSublayer(garden);root.addSublayer(successor);root.addSublayer(weather);root.addSublayer(pageWeather.foreground);root.addSublayer(lightning);root.masksToBounds = true }
+        let nextBacking = max(1,root.contentsScale)
+        if size != self.size || nextBacking != backingScale || rebuild {
+            paintings.removeAll();backingScale = nextBacking;rebuild = true
             self.size = size;paper.frame = CGRect(origin:.zero,size:size);paper.contents = paperImage(size)
             atmosphere.frame = paper.frame;atmosphere.type = .radial
             seasonalWash.frame = paper.frame;seasonalWash.type = .radial
@@ -231,10 +372,24 @@ final class YearsInBloomScene: SaverScene {
             atmosphere.startPoint = CGPoint(x:0.4,y:0.7);atmosphere.endPoint = CGPoint(x:1,y:0)
         }
         let year = Int(simulatedYears)
-        if cohort != nextCohort || annualYear != year || rebuild {
+        if cohort != nextCohort || (annualYear != year && plants.contains { $0.structure.species.annual }) || rebuild {
             annualYear = year;populate(root,cohort:nextCohort);cohort = nextCohort;rebuild = false
         }
+        // Paint earliest organs first while their stems are still developing.
+        // A synchronous budget avoids worker callbacks and makes stop/resume exact.
+        if running {
+            let deadline = ProcessInfo.processInfo.systemUptime+0.003
+            repeat {
+                guard paintingIndex<pendingPaintings.count else { break }
+                pendingPaintings[paintingIndex].finish();paintingIndex += 1
+            } while ProcessInfo.processInfo.systemUptime<deadline
+            if paintingIndex == pendingPaintings.count { pendingPaintings.removeAll();paintingIndex = 0 }
+        }
         let season = BloomCalendar(years:simulatedYears,settings:settings), p = pigments
+        let illustrated = settings.art.rendering != .classic
+        pageWeather.background.isHidden = !illustrated;pageWeather.foreground.isHidden = !illustrated
+        for layer in [atmosphere,seasonalWash,weather,distantRain] { layer.isHidden = illustrated }
+        if illustrated { pageWeather.update(size:size,seconds:simulatedYears*settings.pace.secondsPerYear,season:season,settings:settings,paper:p.paper,ink:p.ink,seed:seed) }
         let spring = max(0,1-abs(season.phase-0.15)*5), summer = max(0,1-abs(season.phase-0.38)*5)
         let washColor = season.phase<0.27 ? NSColor(srgbRed:0.49,green:0.65,blue:0.59,alpha:0.12*spring+season.rain*0.09) : season.phase<0.53 ? NSColor(srgbRed:0.92,green:0.68,blue:0.31,alpha:0.15*summer) : season.phase<0.77 ? NSColor(srgbRed:0.74,green:0.46,blue:0.24,alpha:0.16*season.autumn) : NSColor(srgbRed:0.36,green:0.50,blue:0.63,alpha:0.23*season.winter)
         atmosphere.colors = [washColor.cgColor,NSColor.clear.cgColor]
@@ -273,16 +428,44 @@ final class YearsInBloomScene: SaverScene {
                 if plant.annual {
                     let dry = max(0,(season.phase-0.56)/0.35)
                     let path = CGMutablePath();path.move(to:branch.start);path.addQuadCurve(to:CGPoint(x:branch.end.x+dry*9,y:branch.end.y-dry*14),control:CGPoint(x:branch.control.x+dry*4,y:branch.control.y))
-                    shape.path = path;shape.opacity = Float(1-dry*0.55)
+                    if settings.art.rendering == .classic { shape.path = path };shape.opacity = Float(1-dry*0.55)
                 }
                 shape.lineWidth = branch.width*(0.45+min(age,4)*0.16)
                 shape.strokeColor = (plant == .birch && branch.order == 0 ? NSColor(srgbRed:0.70,green:0.68,blue:0.59,alpha:1) : p.ink.blended(withFraction:branch.order == 0 ? 0.18:0.37,of:p.paper)!).cgColor
+                if settings.art.rendering != .classic {
+                    let dry = plant.annual ? max(0,(season.phase-0.56)/0.35):0
+                    let state = SIMD3(Double(shape.strokeEnd),Double(shape.lineWidth),dry)
+                    if state != item.branchStates[i] {
+                        let drawing = BloomDrawing.branch(branch,growth:state.x,width:state.y,tipRatio:item.tipRatios[i],dry:dry,startDirection:item.joinDirections[i].0,endDirection:item.joinDirections[i].1)
+                        shape.path = drawing.body
+                        for (pass,layer) in (shape.sublayers ?? []).enumerated() {
+                            guard let stroke = layer as? CAShapeLayer else { continue }
+                            stroke.path = pass == 0 ? drawing.light:drawing.pencil
+                            stroke.lineWidth = max(0.16,shape.lineWidth*(pass == 0 ? 0.12:0.065))
+                            stroke.strokeColor = (pass == 0 ? p.paper.withAlphaComponent(0.23):p.ink.withAlphaComponent(0.27)).cgColor
+                        }
+                        item.branchStates[i] = state
+                    }
+                    shape.fillColor = shape.strokeColor;shape.strokeColor = nil
+                }
                 if season.winter>0, growth>0.5, branch.order>0 {
-                    let start = branch.point(0.18), end = branch.point(min(0.9,growth))
-                    caps.move(to:CGPoint(x:start.x,y:start.y+branch.width/2+0.8));caps.addQuadCurve(to:CGPoint(x:end.x,y:end.y+1),control:CGPoint(x:branch.control.x,y:branch.control.y+1.5))
+                    if !illustrated {
+                        let start = branch.point(0.18), end = branch.point(min(0.9,growth))
+                        caps.move(to:CGPoint(x:start.x,y:start.y+branch.width/2+0.8));caps.addQuadCurve(to:CGPoint(x:end.x,y:end.y+1),control:CGPoint(x:branch.control.x,y:branch.control.y+1.5))
+                    } else if abs(branch.end.x-branch.start.x)>abs(branch.end.y-branch.start.y)*0.40 && i%4 != 0 {
+                        // Snow rests on selected upper surfaces, rather than tracing
+                        // every twig as a disconnected white duplicate branch.
+                        for step in 0...12 {
+                            let t = 0.20+(min(0.86,growth)-0.20)*Double(step)/12
+                            let at = branch.point(t)
+                            let width = shape.lineWidth*(1-(1-item.tipRatios[i])*t)
+                            let point = CGPoint(x:at.x,y:at.y+width*0.40+0.18)
+                            if step == 0 { caps.move(to:point) } else { caps.addLine(to:point) }
+                        }
+                    }
                 }
             }
-            item.snow.path = caps;item.snow.strokeColor = NSColor(srgbRed:0.98,green:0.98,blue:0.93,alpha:0.78*season.winter).cgColor;item.snow.lineWidth = 1.5+season.winter*1.2
+            item.snow.path = caps;item.snow.strokeColor = NSColor(srgbRed:0.98,green:0.98,blue:0.93,alpha:0.78*season.winter).cgColor;item.snow.lineWidth = illustrated ? 0.45+season.winter*0.65 : 1.5+season.winter*1.2
             for (i,organ) in item.structure.organs.enumerated() {
                 let branch = item.structure.branches[organ.branch]
                 let growth = min(1,max(0,(growingAge-branch.birth-0.24*organ.along)/0.16))
@@ -300,17 +483,24 @@ final class YearsInBloomScene: SaverScene {
                 let groundY = -5+sin(organ.variation*33)*9+cos(organ.variation*73)*4
                 shape.position = dropping ? CGPoint(x:point.x+sin(organ.variation*43+fall*5)*fall*28+season.wind*fall*20,y:point.y*(1-fall)+groundY*fall):point
                 let leafScale = organ.length*max(0.001,growth*(organ.flower ? blossom:plant.evergreen ? 1:springLeaf))
+                // Catch up after unusually sparse host callbacks before the organ
+                // becomes legible. This may exceed the preparation budget, but
+                // prevents missing leaves and late texture appearance at low FPS.
+                if running && visibility>0 && leafScale>0.1 && shape.sublayers?.first?.contents == nil {
+                    item.paintingJobs[i]?.finish()
+                }
                 shape.setAffineTransform(CGAffineTransform(rotationAngle:organ.angle+sway+(dropping ? fall*(1.2+organ.variation*4.8):0)+(organ.flower && plant == .sunflower ? sin(organ.variation*9)*0.18:0)).scaledBy(x:leafScale,y:leafScale))
                 shape.opacity = Float(min(0.97,visibility*(0.76+organ.variation*0.20)*(dropping ? 0.80-organ.variation*0.25:1)))
-                let rust = NSColor(srgbRed:0.68,green:0.37+organ.variation*0.16,blue:0.17,alpha:1)
-                let green = plant.evergreen ? p.leaf.blended(withFraction:season.winter*0.18,of:NSColor(srgbRed:0.25,green:0.38,blue:0.35,alpha:1))! : p.leaf.blended(withFraction:season.autumn*(0.65+organ.variation*0.3),of:rust) ?? p.leaf
-                var color = organ.flower ? p.bloom : (green.blended(withFraction:organ.variation*0.20,of:p.paper) ?? green)
-                if plant == .sunflower && organ.flower { color = .init(srgbRed:0.83,green:0.63,blue:0.20,alpha:1) }
-                if plant == .lavender && organ.flower { color = .init(srgbRed:0.51,green:0.44,blue:0.64,alpha:1) }
+                let color = organColor(plant,organ:organ,autumn:season.autumn,winter:season.winter)
                 item.details[i].fillColor = organ.flower ? p.ink.withAlphaComponent(0.78).cgColor:nil
-                if plant == .japaneseMaple && !organ.flower { color = p.bloom.blended(withFraction:season.autumn*0.3,of:rust)! }
-                if plant == .grass && organ.flower { color = p.ink.blended(withFraction:0.45,of:p.paper)! }
-                shape.fillColor = plant.evergreen && plant != .cedar ? nil : color.cgColor;shape.strokeColor = (plant.evergreen ? green.withAlphaComponent(0.88):p.ink.withAlphaComponent(0.36)).cgColor
+                if settings.art.rendering == .classic {
+                    shape.fillColor = plant.evergreen && plant != .cedar ? nil : color.cgColor
+                    let evergreenInk = p.leaf.blended(withFraction:season.winter*0.18,of:NSColor(srgbRed:0.25,green:0.38,blue:0.35,alpha:1))!
+                    shape.strokeColor = (plant.evergreen ? evergreenInk.withAlphaComponent(0.88):p.ink.withAlphaComponent(0.36)).cgColor
+                } else {
+                    shape.fillColor = nil;shape.strokeColor = nil
+                    item.autumnPaint[i].opacity = Float(plant.evergreen ? season.winter:season.autumn)
+                }
             }
             let heads = CGMutablePath()
             if plant.annual || plant == .fruitTree {
@@ -328,6 +518,7 @@ final class YearsInBloomScene: SaverScene {
             item.seedHeads.path = heads;item.seedHeads.fillColor = (plant == .fruitTree ? NSColor(srgbRed:0.62,green:0.28,blue:0.19,alpha:0.82):p.ink.withAlphaComponent(0.78)).cgColor
             item.seedHeads.opacity = Float(min(1,max(0,(season.phase-0.51)/0.08))*max(0,1-(season.phase-0.86)/0.1))
         }
+        if !illustrated {
         let precipitation = CGMutablePath(), seconds = simulatedYears*settings.pace.secondsPerYear
         var random = ArtRandom(state:seed &+ 800)
         let snow = season.winter, amount = max(season.rain,snow*0.48)
@@ -342,6 +533,7 @@ final class YearsInBloomScene: SaverScene {
         distantRain.path = precipitation;distantRain.setAffineTransform(CGAffineTransform(translationX:size.width*0.025,y:18));distantRain.lineWidth = 0.4
         distantRain.strokeColor = snow>0.3 ? nil:p.ink.withAlphaComponent(amount*0.09).cgColor;distantRain.fillColor = nil
         weather.strokeColor = snow>0.3 ? nil:p.ink.withAlphaComponent(amount*0.29).cgColor;weather.lineWidth = 0.6
+        }
         return true
     }
     func draw(in context: CGContext, size: CGSize, time: Double, date: Date) {

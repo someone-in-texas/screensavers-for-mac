@@ -16,8 +16,9 @@ through the private report.
 ## Scope and boundaries
 
 Reports about screen savers, City Drift's network/data parsing, the optional AI
-helper, build tools and release workflows are welcome. Current savers never need
-ChatGPT or launch the helper. The helper uses a separately installed Codex CLI and
+helper, build tools and release workflows are welcome. Standard savers never need
+ChatGPT or launch the helper. Commonplace plays saved content offline and opens the
+helper only through its explicit setup action. The helper uses a separately installed Codex CLI and
 its managed account/keyring flow; this repository does not bundle or update Codex.
 Keep macOS and Codex up to date. Issues in those products should also be reported
 to their vendors; disclose integration issues here.

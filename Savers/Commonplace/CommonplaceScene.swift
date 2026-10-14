@@ -19,6 +19,7 @@ final class CommonplaceScene: SaverScene {
     private(set) var renderedPages = 0
     private(set) var currentLayout = 0
     init(seed: UInt64 = UInt64.random(in:1...UInt64.max), archive: CommonplaceArchive? = CommonplaceArchive(), resources: URL? = nil, persistHistory: Bool = false) {
+        CommonplaceHandwriting.register(resources:resources)
         self.seed = seed;self.archive = archive;self.resources = resources;selection = CommonplaceSelection(seed:seed)
         historyURL = persistHistory ? archive?.root.appendingPathComponent("display-history.json"):nil
         if let url = historyURL,let history = Self.readHistory(url) {
@@ -45,12 +46,44 @@ final class CommonplaceScene: SaverScene {
         }
     }
     private func lettering(_ string:String,rect:CGRect,size:CGFloat,face:String = "Baskerville",color:NSColor,spacing:CGFloat = 3) {
+        if face == CommonplaceHandwriting.face { CommonplaceHandwriting.draw(string,rect:rect,size:size,color:color);return }
         let style = NSMutableParagraphStyle();style.lineSpacing = spacing;style.lineBreakMode = .byWordWrapping
         (string as NSString).draw(with:rect,options:[.usesLineFragmentOrigin,.usesFontLeading],attributes:[.font:NSFont(name:face,size:size) ?? NSFont.systemFont(ofSize:size),.foregroundColor:color,.paragraphStyle:style])
     }
     private func measuredHeight(_ string:String,width:CGFloat,size:CGFloat,face:String)->CGFloat {
+        if face == CommonplaceHandwriting.face { return CommonplaceHandwriting.height(string,width:width,size:size) }
         let style = NSMutableParagraphStyle();style.lineSpacing = 3;style.lineBreakMode = .byWordWrapping
         return ceil((string as NSString).boundingRect(with:CGSize(width:width,height:10000),options:[.usesLineFragmentOrigin,.usesFontLeading],attributes:[.font:NSFont(name:face,size:size) ?? NSFont.systemFont(ofSize:size),.paragraphStyle:style]).height)
+    }
+    private struct NotePassage {
+        let text: String, rect: CGRect, size: CGFloat, face: String, color: NSColor
+    }
+    /// Share the real flow between ink and its paper support, including callbacks.
+    private func notePassages(_ notes: [CommonplaceEntry], grammar: CommonplaceLayout, ink: NSColor) -> [NotePassage] {
+        let columns = grammar.columns
+        let width = grammar.note.width/Double(columns)-Double(columns-1)*20
+        var column = 0, y = grammar.note.maxY, passages: [NotePassage] = []
+        for entry in notes {
+            let handwritten = entry.kind != .table
+            let face = handwritten ? CommonplaceHandwriting.face:"Menlo"
+            var size = handwritten ? (notes.count == 1 ? 32.0:notes.count>3 ? 24.0:27.0):19.0
+            var height = measuredHeight(entry.text,width:width,size:size,face:face)+4
+            while height>grammar.note.height && size>12 { size -= 1;height = measuredHeight(entry.text,width:width,size:size,face:face)+4 }
+            if y-height < grammar.note.minY { column += 1;y = grammar.note.maxY }
+            guard column<columns, height<=grammar.note.height else { continue }
+            let rect = CGRect(x:grammar.note.minX+Double(column)*(width+40),y:y-height,width:width,height:height)
+            passages.append(NotePassage(text:entry.text,rect:rect,size:size,face:face,color:ink.withAlphaComponent(handwritten ? 0.85:0.96)))
+            y -= height+(handwritten ? 28:22)
+            if let id = entry.replyTo,let earlier = library?.days.flatMap(\.entries).first(where:{ $0.id == id }) {
+                let excerpt = "Earlier: "+String(earlier.text.prefix(120))+(earlier.text.count>120 ? "…":"")
+                let height = measuredHeight(excerpt,width:width-8,size:12,face:"Baskerville-Italic")+8
+                if y-height>=grammar.note.minY {
+                    passages.append(NotePassage(text:excerpt,rect:CGRect(x:rect.minX+8,y:y-height,width:width-8,height:height),size:12,face:"Baskerville-Italic",color:colors.accent))
+                    y -= height+18
+                }
+            }
+        }
+        return passages
     }
     private func makePage(size:CGSize,number:Int)->CGImage? {
         let aspect = Double(size.width/size.height)
@@ -65,8 +98,10 @@ final class CommonplaceScene: SaverScene {
         currentLayout = selected.layout;renderedPages += 1
         let layout = selected.layout, grammar = CommonplaceLayout(index:selected.layout,width:w,height:h,theme:currentTheme)
         let spread = grammar.support == .spread
+        let noteInk = currentTheme == .observatory ? NSColor(srgbRed:0.28,green:0.27,blue:0.23,alpha:1):p.ink
+        let passages = settings.originalWriting ? notePassages(selected.entries,grammar:grammar,ink:noteInk):[]
         let margin = 95.0, sheet = CGRect(x:margin,y:55,width:w-2*margin,height:h-110)
-        c.setFillColor(p.desk.cgColor);c.fill(CGRect(x:0,y:0,width:w,height:h))
+        // Leave the margins transparent: the persistent tabletop stays underneath.
         c.saveGState();c.setShadow(offset:CGSize(width:7,height:-10),blur:25,color:NSColor.black.withAlphaComponent(0.35).cgColor)
         c.setFillColor(p.paper.cgColor)
         let outline = CGMutablePath()
@@ -93,13 +128,8 @@ final class CommonplaceScene: SaverScene {
         c.drawRadialGradient(wash,startCenter:CGPoint(x:w*0.27,y:h*0.72),startRadius:10,endCenter:CGPoint(x:w*0.27,y:h*0.72),endRadius:w*0.67,options:[])
         if grammar.support == .card || grammar.support == .clipping || currentTheme == .observatory {
             var inset = grammar.note.insetBy(dx:-22,dy:-24)
-            let columnWidth = grammar.note.width/Double(grammar.columns)-Double(grammar.columns-1)*20
-            let required = selected.entries.reduce(0.0) { total,entry in
-                let font = entry.kind == .table ? "Menlo":entry.kind == .callback || entry.kind == .question ? "Noteworthy-Light":currentTheme == .atomic ? "Menlo":currentTheme == .offWorld ? "AmericanTypewriter":"Baskerville"
-                let pointSize = entry.kind == .table ? 15.0:selected.entries.count == 1 ? 25.0:selected.entries.count>3 ? 18.0:21.0
-                return total+measuredHeight(entry.text,width:columnWidth,size:pointSize,face:font)+32
-            }
-            let height = min(grammar.note.height+48,max(95,required/Double(grammar.columns)+30))
+            let bottom = passages.map { $0.rect.minY }.min() ?? grammar.note.maxY
+            let height = max(95,grammar.note.maxY-bottom+48)
             inset.origin.y = grammar.note.maxY+24-height;inset.size.height = height
             c.setShadow(offset:CGSize(width:2,height:-3),blur:5,color:p.ink.withAlphaComponent(0.16).cgColor)
             c.setFillColor((currentTheme == .observatory ? NSColor(srgbRed:0.81,green:0.78,blue:0.63,alpha:1):p.paper.blended(withFraction:0.17,of:.white)!).cgColor)
@@ -129,13 +159,12 @@ final class CommonplaceScene: SaverScene {
             c.setStrokeColor(NSColor(srgbRed:0.22,green:0.43,blue:0.53,alpha:0.20).cgColor)
             for y in stride(from:grammar.note.minY,to:grammar.note.maxY,by:30) { c.move(to:CGPoint(x:grammar.note.minX-15,y:y));c.addLine(to:CGPoint(x:grammar.note.maxX+12,y:y));c.strokePath() }
         }
-        let face = currentTheme == .atomic ? "Menlo" : currentTheme == .offWorld ? "AmericanTypewriter":"Baskerville"
-        let noteInk = currentTheme == .observatory ? NSColor(srgbRed:0.28,green:0.27,blue:0.23,alpha:1):p.ink
+        let face = CommonplaceHandwriting.face
         let left = grammar.title.x, top = grammar.title.y, width = sheet.maxX-60-grammar.title.x
         withAppKit(c) {
             if layout%4 == 0 { lettering("FIELD NOTES    /    \(String(format:"%03d",number+1))",rect:CGRect(x:left,y:top-18,width:width,height:25),size:11,face:"Menlo",color:p.accent) }
             let heading = currentTheme == .atomic ? "OBSERVATION RECORD" : currentTheme == .workshop ? "Bench notes" : currentTheme == .observatory ? "After dusk" : currentTheme == .offWorld ? "Habitat notebook / quiet shift" : selected.day.title
-            var headingSize = currentTheme == .atomic || currentTheme == .offWorld ? 24.0:34.0
+            var headingSize = currentTheme == .atomic || currentTheme == .offWorld ? 32.0:42.0
             while headingSize>18 && measuredHeight(heading,width:width,size:headingSize,face:face)>54 { headingSize -= 1 }
             lettering(heading,rect:CGRect(x:left,y:top-85,width:width,height:54),size:headingSize,face:face,color:p.ink)
             let stamp = selected.day.date.hasPrefix("2000-") ? "Undated · starter notebook" : selected.day.date
@@ -144,11 +173,17 @@ final class CommonplaceScene: SaverScene {
         let artRect = grammar.picture
         if artRect.width>0,settings.quotations,let quoteIndex = selection.quotation() {
             let quote = CommonplaceQuotation.verified[quoteIndex]
-            let rect = CGRect(x:artRect.minX,y:artRect.midY-90,width:artRect.width,height:180)
+            let text = "“"+quote.text+"”"
+            let maximumHeight = max(110,artRect.height-80)
+            var quoteSize = 27.0
+            while quoteSize>16 && measuredHeight(text,width:artRect.width,size:quoteSize,face:CommonplaceHandwriting.face)>maximumHeight { quoteSize -= 1 }
+            let bodyHeight = measuredHeight(text,width:artRect.width,size:quoteSize,face:CommonplaceHandwriting.face)
+            let totalHeight = bodyHeight+80
+            let rect = CGRect(x:artRect.minX,y:artRect.midY-totalHeight/2,width:artRect.width,height:totalHeight)
             withAppKit(c) {
                 lettering("PUBLIC-DOMAIN EXTRACT",rect:CGRect(x:rect.minX,y:rect.maxY-20,width:rect.width,height:20),size:10,face:"Menlo",color:p.accent)
-                lettering("“"+quote.text+"”",rect:CGRect(x:rect.minX,y:rect.minY+45,width:rect.width,height:110),size:22,face:"Baskerville-Italic",color:p.ink)
-                lettering(quote.attribution,rect:CGRect(x:rect.minX,y:rect.minY,width:rect.width,height:42),size:11,face:"Baskerville",color:p.ink.withAlphaComponent(0.75))
+                lettering(text,rect:CGRect(x:rect.minX,y:rect.minY+45,width:rect.width,height:bodyHeight),size:quoteSize,face:CommonplaceHandwriting.face,color:p.ink)
+                lettering(quote.attribution,rect:CGRect(x:rect.minX,y:rect.minY,width:rect.width,height:36),size:11,face:"Baskerville",color:p.ink.withAlphaComponent(0.75))
             }
         } else if currentTheme == .observatory,settings.diagrams,artRect.width>0 {
             diagram(c,rect:artRect,variant:7,color:p.ink)
@@ -175,29 +210,9 @@ final class CommonplaceScene: SaverScene {
             }
         } else if artRect.width>0, settings.diagrams { diagram(c,rect:artRect,variant:studyVariant(selected.entries),color:p.ink) }
         if settings.originalWriting {
-            let notes = selected.entries
-            let columns = grammar.columns
-            let noteWidth = grammar.note.width/Double(columns)-Double(columns-1)*20
-            var column = 0, y = grammar.note.maxY
             withAppKit(c) {
-                for entry in notes {
-                    var fontSize = entry.kind == .table ? 15.0:notes.count == 1 ? 25.0:notes.count>3 ? 18.0:21.0
-                    let handwritten = entry.kind == .callback || entry.kind == .question
-                    let font = entry.kind == .table ? "Menlo":handwritten ? "Noteworthy-Light":face
-                    var height = measuredHeight(entry.text,width:noteWidth,size:fontSize,face:font)+4
-                    while height>grammar.note.height && fontSize>12 { fontSize -= 1;height = measuredHeight(entry.text,width:noteWidth,size:fontSize,face:font)+4 }
-                    if y-height < grammar.note.minY { column += 1;y = grammar.note.maxY }
-                    guard column<columns, height<=grammar.note.height else { continue }
-                    let rect = CGRect(x:grammar.note.minX+Double(column)*(noteWidth+40),y:y-height,width:noteWidth,height:height)
-                    lettering(entry.text,rect:rect,size:fontSize,face:font,color:noteInk.withAlphaComponent(handwritten ? 0.85:0.96))
-                    y -= height+(handwritten ? 28:22)
-                    if let id = entry.replyTo,let earlier = library?.days.flatMap(\.entries).first(where:{ $0.id == id }) {
-                        let excerpt = "Earlier: "+String(earlier.text.prefix(120))+(earlier.text.count>120 ? "…":"")
-                        let h = measuredHeight(excerpt,width:noteWidth,size:12,face:"Baskerville-Italic")+8
-                        if y-h>=grammar.note.minY {
-                            lettering(excerpt,rect:CGRect(x:rect.minX+8,y:y-h,width:noteWidth-8,height:h),size:12,face:"Baskerville-Italic",color:p.accent);y -= h+18
-                        }
-                    }
+                for passage in passages {
+                    lettering(passage.text,rect:passage.rect,size:passage.size,face:passage.face,color:passage.color)
                 }
                 lettering("Fictional notebook · \(String(format:"%03d",number+1))",rect:CGRect(x:margin+65,y:80,width:width,height:20),size:10,face:"Menlo",color:p.ink.withAlphaComponent(0.45))
             }
@@ -282,15 +297,21 @@ final class CommonplaceScene: SaverScene {
         if library == nil { library = CommonplaceLibrary(archive:archive,resources:resources) }
         CATransaction.begin();CATransaction.setDisableActions(true);defer { CATransaction.commit() }
         let number = Int(clock.elapsed/settings.pace.secondsPerPage), theme = Int(clock.elapsed/1500)
-        let sheetSize = CGSize(width:min(size.width,size.height*1.65),height:size.height)
-        if theme != themeNumber || rebuild {
+        let sheetSize = CGSize(width:min(size.width*0.96,size.height*1.65),height:size.height*0.96)
+        let themeChanged = theme != themeNumber
+        if themeChanged || rebuild {
             currentTheme = settings.theme == .automatic ? Array(CommonplaceTheme.allCases.dropFirst())[(theme+Int(seed%6))%6]:settings.theme;themeNumber = theme
         }
         if desk.superlayer !== root { root.addSublayer(desk);root.addSublayer(departing);root.addSublayer(page);root.masksToBounds = true }
-        desk.frame = CGRect(origin:.zero,size:size);desk.backgroundColor = colors.desk.cgColor
+        let camera = CommonplaceDesk.camera(seconds:clock.elapsed,size:size)
+        if size != lastSize || rebuild || themeChanged || desk.contents == nil {
+            desk.contents = CommonplaceDesk.image(size:size,desk:colors.desk,paper:colors.paper,ink:colors.ink,seed:seed)
+        }
+        desk.bounds = CGRect(x:0,y:0,width:size.width*1.16,height:size.height*1.16)
+        desk.position = CGPoint(x:size.width/2+camera.x,y:size.height/2+camera.y)
         if number != pageNumber || size != lastSize || rebuild {
             if number != pageNumber { library = CommonplaceLibrary(archive:archive,resources:resources) }
-            departing.contents = page.contents;departing.bounds = CGRect(origin:.zero,size:sheetSize);departing.position = CGPoint(x:size.width/2,y:size.height/2)
+            departing.contents = page.contents;departing.setAffineTransform(page.affineTransform());departing.bounds = CGRect(origin:.zero,size:sheetSize);departing.position = CGPoint(x:size.width/2,y:size.height/2)
             page.contents = makePage(size:sheetSize,number:number);pageNumber = number;lastSize = size;rebuild = false
         }
         var motion = ArtRandom(state:seed &+ UInt64(number)*17_171)
@@ -299,8 +320,13 @@ final class CommonplaceScene: SaverScene {
         let progress = number == 0 ? 0:1-eased
         let slideX = direction<0.34 ? -progress*size.width:direction<0.76 ? progress*size.width:progress*size.width*0.08
         let slideY = direction>=0.76 ? progress*size.height:0
-        page.frame = CGRect(x:(size.width-sheetSize.width)/2+slideX+sin(clock.elapsed*0.018)*3,y:slideY+sin(clock.elapsed*0.013)*2,width:sheetSize.width,height:sheetSize.height)
-        departing.position = CGPoint(x:size.width/2-eased*size.width*0.08,y:size.height/2);departing.opacity = p<1 && number>0 ? 1:0
+        page.bounds = CGRect(origin:.zero,size:sheetSize)
+        page.position = CGPoint(x:size.width/2+camera.x+slideX,y:size.height/2+camera.y+slideY)
+        page.setAffineTransform(CGAffineTransform(rotationAngle:0.008*sin(Double(number)*2.4+Double(seed%9))))
+        // The previous sheet stays opaque as a shallow stack under the new one.
+        // Only the arriving page slides; desk fibers never ghost through paper.
+        departing.position = CGPoint(x:size.width/2+camera.x-eased*4,y:size.height/2+camera.y-eased*5)
+        departing.opacity = number>0 ? 1:0
         page.shadowOpacity = number>0 && p<1 ? 0.25:0;page.shadowRadius = 20
         return true
     }

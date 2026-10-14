@@ -13,3 +13,7 @@ were checked against the public-domain editions on 2026-10-06:
 
 Original author/work attribution is retained on the page. Search ideas supplied by
 AI are never promoted into this reviewed quotation catalog automatically.
+
+Handwriting uses the unmodified Kalam Regular font by Indian Type Foundry.
+It is distributed under SIL Open Font License 1.1, separately from the CC0 images
+and MIT code. See [font provenance](Fonts/README.md) and [full license](Fonts/OFL.txt).

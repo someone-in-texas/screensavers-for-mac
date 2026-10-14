@@ -28,7 +28,8 @@ macOS 14.6+. No sudo, Homebrew, Git, or developer tools required.
   --help             Show this help.
 
 Quit System Settings and stop any running screen saver before installing.
-The optional AI helper is not installed. This does not change Gatekeeper settings
+Commonplace and Screensavers AI Helper use the separate install-ai.sh installer.
+Neither is installed by this script. This does not change Gatekeeper settings
 or remove quarantine attributes. Releases may be ad-hoc signed, not notarized.
 EOF
 }

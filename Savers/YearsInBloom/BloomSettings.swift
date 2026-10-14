@@ -20,6 +20,41 @@ enum BloomPace: String, CaseIterable, Codable { case relaxed, normal, fast
 enum BloomWeather: String, CaseIterable, Codable { case calm, natural, dramatic }
 enum BloomTexture: String, CaseIterable, Codable { case subtle, medium, strong }
 enum BloomSeason: String, CaseIterable, Codable { case balanced, spring, summer, autumn, winter }
+enum BloomRendering: String, CaseIterable, Codable {
+    case classic, organic, botanicalWatercolor
+    var title: String { self == .botanicalWatercolor ? "Botanical Watercolor" : rawValue.capitalized }
+}
+
+/// Artistic intensities, mapped to small geometry offsets and optical densities
+/// by BloomIllustration. Optional storage keeps every pre-existing setting intact.
+struct BloomArtSettings: Codable, Equatable {
+    var rendering = BloomRendering.botanicalWatercolor
+    var edgeIrregularity = 0.35
+    var pigmentVariation = 0.65
+    var paperGrain = 0.30
+    var wetEdges = 0.25
+    init() {}
+    private enum CodingKeys: String, CodingKey { case rendering, edgeIrregularity, pigmentVariation, paperGrain, wetEdges }
+    init(from decoder: Decoder) throws {
+        self.init()
+        guard let c = try? decoder.container(keyedBy:CodingKeys.self) else { return }
+        rendering = (try? c.decode(BloomRendering.self,forKey:.rendering)) ?? rendering
+        edgeIrregularity = (try? c.decode(Double.self,forKey:.edgeIrregularity)) ?? edgeIrregularity
+        pigmentVariation = (try? c.decode(Double.self,forKey:.pigmentVariation)) ?? pigmentVariation
+        paperGrain = (try? c.decode(Double.self,forKey:.paperGrain)) ?? paperGrain
+        wetEdges = (try? c.decode(Double.self,forKey:.wetEdges)) ?? wetEdges
+        self = sanitized()
+    }
+    func sanitized() -> Self {
+        var result = self
+        func unit(_ value: Double, _ fallback: Double) -> Double { value.isFinite ? min(1,max(0,value)) : fallback }
+        result.edgeIrregularity = unit(edgeIrregularity,0.35)
+        result.pigmentVariation = unit(pigmentVariation,0.65)
+        result.paperGrain = unit(paperGrain,0.30)
+        result.wetEdges = unit(wetEdges,0.25)
+        return result
+    }
+}
 struct BloomSettings: Codable, Equatable {
     var plant = BloomPlant.automatic
     var layout = BloomLayout.automatic
@@ -29,6 +64,11 @@ struct BloomSettings: Codable, Equatable {
     var texture = BloomTexture.medium
     var emphasis = BloomSeason.balanced
     var seed: UInt64 = 42
+    var illustration: BloomArtSettings? = nil
+    var art: BloomArtSettings {
+        get { (illustration ?? BloomArtSettings()).sanitized() }
+        set { illustration = newValue.sanitized() }
+    }
 }
 
 /// Calendar and plant geometry are independent of the renderer. Five-year cohorts

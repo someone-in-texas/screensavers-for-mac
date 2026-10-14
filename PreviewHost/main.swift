@@ -151,21 +151,31 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
             if CommandLine.arguments.contains("--strawberry-review") {settings.strawberry.seedBehavior = .fixed}
             if CommandLine.arguments.contains("--research-review") {settings.research.seedBehavior = .fixed}
             if CommandLine.arguments.contains("--lore") {settings.research.loreMode=true;settings.strawberry.loreMode=true}
-            if let i=CommandLine.arguments.firstIndex(of:"--seed"),i+1<CommandLine.arguments.count,let seed=UInt64(CommandLine.arguments[i+1]) {settings.research.seed=seed;settings.strawberry.seed=seed}
+            if let i=CommandLine.arguments.firstIndex(of:"--seed"),i+1<CommandLine.arguments.count,let seed=UInt64(CommandLine.arguments[i+1]) {settings.research.seed=seed;settings.strawberry.seed=seed;settings.bloom.seed=seed}
             if let i=CommandLine.arguments.firstIndex(of:"--composition"),i+1<CommandLine.arguments.count {
                 settings.research.fineArt.composition=ResearchComposition(rawValue:CommandLine.arguments[i+1]) ?? settings.research.fineArt.composition
                 settings.strawberry.fineArt.composition=StrawberryComposition(rawValue:CommandLine.arguments[i+1]) ?? settings.strawberry.fineArt.composition
+            }
+            if CommandLine.arguments.contains("--bloom-review") {
+                if let i = CommandLine.arguments.firstIndex(of:"--filter"),i+1<CommandLine.arguments.count,
+                   let plant = BloomPlant(rawValue:CommandLine.arguments[i+1]) { settings.bloom.plant = plant }
+                if let i = CommandLine.arguments.firstIndex(of:"--layout"),i+1<CommandLine.arguments.count,
+                   let layout = BloomLayout(rawValue:CommandLine.arguments[i+1]) { settings.bloom.layout = layout }
+                if let i = CommandLine.arguments.firstIndex(of:"--rendering"),i+1<CommandLine.arguments.count,
+                   let rendering = BloomRendering(rawValue:CommandLine.arguments[i+1]) { settings.bloom.art.rendering = rendering }
+                if let i = CommandLine.arguments.firstIndex(of:"--weather"),i+1<CommandLine.arguments.count,
+                   let weather = BloomWeather(rawValue:CommandLine.arguments[i+1]) { settings.bloom.weather = weather }
             }
             store.value = settings
         }
         let noNetwork = CommandLine.arguments.contains("--offline") || CommandLine.arguments.contains("--launch-smoke")
         let fixed = CommandLine.arguments.firstIndex(of: "--city").flatMap { i in i + 1 < CommandLine.arguments.count ? CommandLine.arguments[i + 1] : nil }
-        let scene: SaverScene = kind == .yearsInBloom ? YearsInBloomScene() as SaverScene : kind == .commonplace ? CommonplaceScene(archive: noNetwork ? nil:CommonplaceArchive()) as SaverScene : kind == .worldClockRoom ? WorldClockScene() : kind == .voxelCosmos ? VoxelCosmosScene() as SaverScene : kind == .paperSky ? PaperSkyScene() as SaverScene : kind == .dapple ? DappleScene() as SaverScene : kind == .flourish ? FlourishScene() as SaverScene : kind == .lattice ? LatticeScene() as SaverScene : kind == .strawberryFieldsForever ? StrawberryFieldsScene() as SaverScene : kind == .goodResearchTakesTime ? GoodResearchScene() as SaverScene : CityDriftScene(store: store, networkEnabled: !noNetwork, city: MapCity.all.first { $0.name == fixed }, visitCache: noNetwork && !CommandLine.arguments.contains("--launch-smoke") ? CityVisitCache() : nil)
+        let scene: SaverScene = kind == .yearsInBloom ? (review ? YearsInBloomScene(seed:store.value.bloom.seed):YearsInBloomScene()) as SaverScene : kind == .commonplace ? CommonplaceScene(archive: noNetwork ? nil:CommonplaceArchive()) as SaverScene : kind == .worldClockRoom ? WorldClockScene() : kind == .voxelCosmos ? VoxelCosmosScene() as SaverScene : kind == .paperSky ? PaperSkyScene() as SaverScene : kind == .dapple ? DappleScene() as SaverScene : kind == .flourish ? FlourishScene() as SaverScene : kind == .lattice ? LatticeScene() as SaverScene : kind == .strawberryFieldsForever ? StrawberryFieldsScene() as SaverScene : kind == .goodResearchTakesTime ? GoodResearchScene() as SaverScene : CityDriftScene(store: store, networkEnabled: !noNetwork, city: MapCity.all.first { $0.name == fixed }, visitCache: noNetwork && !CommandLine.arguments.contains("--launch-smoke") ? CityVisitCache() : nil)
         let frame = NSRect(x: 0, y: 0, width: window.contentView!.bounds.width, height: window.contentView!.bounds.height - 48)
         view = PreviewSaverView(frame: frame, isPreview: false, kind: kind, scene: scene, settingsStore: store)
         window.contentView?.addSubview(view!, positioned: .below, relativeTo: picker)
         view?.startAnimation()
-        if review, (kind == .strawberryFieldsForever || kind == .goodResearchTakesTime),
+        if review, (kind == .strawberryFieldsForever || kind == .goodResearchTakesTime || kind == .yearsInBloom),
            let i=CommandLine.arguments.firstIndex(of:"--review-age"),i+1<CommandLine.arguments.count,
            let age=Double(CommandLine.arguments[i+1]),age.isFinite,age>0,let root=view?.layer {
             for frame in 0...Int(min(7200,age)*4) {_ = scene.updateLayer(root,size:frameSize(),time:Double(frame)/4,date:Date())}
@@ -237,6 +247,11 @@ if CommandLine.arguments.contains("--bloom-gallery") || CommandLine.arguments.co
             settings.bloom.plant = BloomPlant(rawValue:value)!;settings.bloom.layout = .specimen
             if let i = args.firstIndex(of:"--palette"),let palette = BloomPalette(rawValue:args[i+1]) { settings.bloom.palette = palette }
             if let i = args.firstIndex(of:"--layout"),let layout = BloomLayout(rawValue:args[i+1]) { settings.bloom.layout = layout }
+            if let i = args.firstIndex(of:"--weather"),let weather = BloomWeather(rawValue:args[i+1]) { settings.bloom.weather = weather }
+            if let i = args.firstIndex(of:"--rendering"),let rendering = BloomRendering(rawValue:args[i+1]) { settings.bloom.art.rendering = rendering }
+            for (flag,key) in [("--edge",\BloomArtSettings.edgeIrregularity),("--pigment",\BloomArtSettings.pigmentVariation),("--grain",\BloomArtSettings.paperGrain),("--bleed",\BloomArtSettings.wetEdges)] {
+                if let i = args.firstIndex(of:flag),let number = Double(args[i+1]) { settings.bloom.art[keyPath:key] = number/100 }
+            }
             scene = YearsInBloomScene(seed:gallerySeed)
         } else {
             settings.commonplace.theme = CommonplaceTheme(rawValue:value)!
@@ -245,9 +260,12 @@ if CommandLine.arguments.contains("--bloom-gallery") || CommandLine.arguments.co
         }
         scene.apply(settings);scene.start()
         let root = CALayer();root.bounds = CGRect(origin:.zero,size:size)
+        let backing = args.firstIndex(of:"--backing-scale").flatMap { Double(args[$0+1]) } ?? 1
+        root.contentsScale = backing
         let targets = bloom ? [0.08,0.20,0.38,0.66,0.86,1.35,3.35,4.80,4.96,5.02,5.15] : [0.08,1.0] + (1..<max(2,min(180,pageCount))).map { Double($0)+0.08 }
         var frame = 0, timings:[Double] = []
-        for target in targets {
+        let chosenTargets = args.firstIndex(of:"--years").map { args[$0+1].split(separator:",").compactMap { Double($0) }.sorted() } ?? targets
+        for target in chosenTargets {
             let seconds = target * (bloom ? settings.bloom.pace.secondsPerYear : settings.commonplace.pace.secondsPerPage)
             while Double(frame)/4 <= seconds+0.001 {
                 let begin = ProcessInfo.processInfo.systemUptime
@@ -255,9 +273,14 @@ if CommandLine.arguments.contains("--bloom-gallery") || CommandLine.arguments.co
                 timings.append((ProcessInfo.processInfo.systemUptime-begin)*1000)
             }
             CATransaction.flush()
-            let c = bitmap(width:Int(size.width),height:Int(size.height))!;root.render(in:c)
+            let c = bitmap(width:Int(size.width*backing),height:Int(size.height*backing))!;c.scaleBy(x:backing,y:backing)
+            if let i = args.firstIndex(of:"--zoom"),let zoom = Double(args[i+1]),zoom>0 {
+                c.translateBy(x:size.width/2,y:size.height/2);c.scaleBy(x:zoom,y:zoom);c.translateBy(x:-size.width/2,y:-size.height/2)
+            }
+            root.render(in:c)
             try savePNG(c.makeImage()!,"\(output)/\(value)-\(target).png")
         }
+        if let botanical = scene as? YearsInBloomScene { print("paint layers: \(botanical.activePaintingBytes) bytes; pending: \(botanical.pendingPaintingCount); paint cache: \(botanical.paintingCacheBytes) bytes; \(botanical.paintingCacheHits) hits; \(botanical.paintingCacheMisses) misses") }
         scene.stop();timings.sort();print("\(value): \(timings.count) updates; CPU p95 \(timings[Int(Double(timings.count-1)*0.95)]) ms, max \(timings.last!) ms")
     }
     try? FileManager.default.removeItem(at:temporary)

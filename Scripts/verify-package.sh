@@ -25,6 +25,11 @@ for pack in standard ai; do
     for location in "$work/$pack" "$work/mount"; do
         [[ ! -e "$location/install.sh" && ! -e "$location/install-ai.sh" && ! -e "$location/Install.sh" ]]
         [[ -s "$location/LICENSE" && -s "$location/THIRD_PARTY_NOTICES.md" ]]
+        count=0
+        for item in "$location"/*.saver "$location"/*.app; do
+            [[ ! -e "$item" ]] || count=$((count+1))
+        done
+        [[ "$count" == "${#names[@]}" ]]
         ids=()
         for name in "${names[@]}"; do
             bundle="$location/$name"
@@ -47,7 +52,11 @@ for pack in standard ai; do
             if [[ "$name" == 'City Drift.saver' ]]; then
                 for resource in streets.json ODbL-1.0.txt README.md; do [[ -s "$bundle/Contents/Resources/StarterMaps/$resource" ]]; done
             fi
-            if [[ "$name" == 'Commonplace.saver' ]]; then [[ -s "$bundle/Contents/Resources/Commonplace/catalog.json" ]]; fi
+            if [[ "$name" == 'Commonplace.saver' ]]; then
+                for resource in catalog.json Fonts/Kalam-Regular.ttf Fonts/OFL.txt; do
+                    [[ -s "$bundle/Contents/Resources/Commonplace/$resource" ]]
+                done
+            fi
         done
         [[ "$(printf '%s\n' "${ids[@]}" | sort -u | wc -l | tr -d ' ')" == "${#names[@]}" ]]
         if [[ "$pack" == standard ]]; then
@@ -65,6 +74,24 @@ for pack in standard ai; do
             verify_archive "$3" dist/SHA256SUMS "${3##*/}"
             validate_bundles "$4" "$5"
         ' verify-installer "$installer" "$work" "dist/$base.zip" "$work/$pack" "$VERSION"
+        # Exercise the real signed release bundles through installation AND update.
+        # Both packs share disposable destinations, never the maintainer account.
+        for pass in first update; do
+            bash -c '
+                source "$1"
+                work=$(mktemp -d "$2/installer-download.XXXXXX")
+                trap cleanup EXIT
+                validate_bundles "$3" "$4"
+                install_bundles "$3" "$2/installed/Screen Savers" "$2/installed/Applications"
+            ' test-install "$installer" "$work" "$work/$pack" "$VERSION"
+            for name in "${names[@]}"; do
+                destination="$work/installed/Screen Savers"
+                [[ "$name" != *.app ]] || destination="$work/installed/Applications"
+                [[ ! -e "$destination/$name/old-marker" ]]
+                codesign --verify --strict "$destination/$name"
+                if [[ "$pass" == first ]]; then printf 'old version\n' > "$destination/$name/old-marker"; fi
+            done
+        done
     fi
 done
-echo 'Verified both packs: checksums, DMG/ZIP, identities, versions, architecture, signatures and public installer validation.'
+echo 'Verified both packs: exact contents, checksums, DMG/ZIP, identities, versions, architecture, signatures, and public installer installation/update in disposable directories.'

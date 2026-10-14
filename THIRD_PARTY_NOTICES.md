@@ -33,3 +33,12 @@ Optional helper downloads use item-verified Cleveland and Art Institute of Chica
 public-domain records. Each downloaded object retains its own provenance; the
 repository's MIT license does not replace source rights. Notebook passages and
 procedural study diagrams are original fictional material, separately identified.
+
+## Kalam handwriting font
+
+Commonplace bundles unmodified Kalam Regular by Indian Type Foundry, copyright
+2014 Indian Type Foundry, under the SIL Open Font License 1.1. It is registered
+only inside the saver/preview process, not installed into the user's font library.
+The font and complete license are in `Assets/Commonplace/Fonts/`; the pinned
+Google Fonts source and retrieval details are in that directory's `README.md`.
+This asset license is separate from the project's MIT code license.
