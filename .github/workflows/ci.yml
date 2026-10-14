@@ -16,7 +16,8 @@ jobs:
     uses: ./.github/workflows/security.yml
   native:
     runs-on: macos-15
-    timeout-minutes: 20
+    # Eleven independently compiled bundles plus render/lifecycle/package checks.
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
