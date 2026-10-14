@@ -1,8 +1,9 @@
 # Releasing
 
-`VERSION` is the canonical collection version. All nine savers use it; generated files
-live only under `build`. The separately built AI helper is packaged in `Optional/`
-and is never installed by the saver installer. It uses the same version/signing path. Releases target Apple Silicon and macOS 14.6+.
+`VERSION` is the canonical collection version. All eleven savers use it; generated files
+live only under `build`. The standard pack contains ten non-AI savers. The separate
+AI pack contains Commonplace and the helper, with its own `install-ai.sh` route.
+Both packs use the same version/signing path. Releases target Apple Silicon and macOS 14.6+.
 
 ```sh
 # Update VERSION and CHANGELOG.md; review screenshots/docs.
@@ -31,17 +32,19 @@ Expected files in `dist`:
 
 - `ScreensaversForMac-v<VERSION>-arm64.dmg`
 - `ScreensaversForMac-v<VERSION>-arm64.zip`
-- `SHA256SUMS`
+- `ScreensaversForMac-AI-v<VERSION>-arm64.dmg`
+- `ScreensaversForMac-AI-v<VERSION>-arm64.zip`
+- `SHA256SUMS` (all four assets)
 - local `SIGNING.txt`, incorporated into release notes
 
 Download the published files to a fresh directory, run `shasum -a 256 -c SHA256SUMS`,
-mount the DMG and check all nine savers. Confirm the release notes state the actual signing
+mount the DMG and check both packs and all eleven savers. Confirm the release notes state the actual signing
 level. For final validation, also build from a clean checkout, launch PreviewHost,
-install the bundles and check System Settings preview/configuration.
+use a separate test account or clean Mac to install the bundles and check System Settings preview/configuration. Automated checks never install on the maintainer account.
 
 ## Maintain the recommended curl installer
 
-`install.sh` downloads published ZIPs; `Scripts/install.sh` builds local source.
+`install.sh` downloads the standard ZIP; `install-ai.sh` downloads the AI ZIP; `Scripts/install.sh` builds local source.
 Keep the public installer outside packaged DMG/ZIP contents. Its only runtime
 dependencies are tools shipped with macOS, and updates preserve preferences/cache.
 
@@ -51,7 +54,9 @@ Before each release, run `python3 Scripts/check-installation.py` and
 text in `Scripts/release_installation.py` and checks generated release notes. The
 latter executes the documented curl pipeline with an offline transport and tests
 verification, installation and rollback in temporary directories. Package checks
-also pass the actual release ZIP through the public installer's validation functions.
+also verify the exact bundle set and install/update the actual signed release ZIP
+through each public installer in shared disposable destinations. Neither path
+installs on the maintainer account.
 Update the installer allowlist whenever saver identities change.
 
 `python3 Scripts/release-notes.py` generates `dist/release-notes.md` from the

@@ -20,7 +20,14 @@ func line(_ context: CGContext, from: CGPoint, to: CGPoint, width: CGFloat, colo
     context.move(to: from); context.addLine(to: to); context.strokePath()
 }
 
+protocol SaverConfiguration: AnyObject {
+    var window: NSWindow? { get }
+    func prepareForPresentation()
+    func dismiss(returnCode: NSApplication.ModalResponse)
+}
+
 protocol SaverScene: AnyObject {
+    func configuration(store: SettingsStore, changed: @escaping (SaverSettings) -> Void) -> SaverConfiguration?
     func start()
     func stop()
     func apply(_ settings: SaverSettings)
@@ -29,5 +36,6 @@ protocol SaverScene: AnyObject {
 }
 
 extension SaverScene {
+    func configuration(store: SettingsStore, changed: @escaping (SaverSettings) -> Void) -> SaverConfiguration? { nil }
     func updateLayer(_ layer: CALayer, size: CGSize, time: Double, date: Date) -> Bool { false }
 }

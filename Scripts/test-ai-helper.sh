@@ -6,5 +6,5 @@ version_source=$(printf 'enum BuildVersion { static let value = "%s" }' "$(cat V
 if [[ ! -f build/generated/HelperBuildVersion.swift || "$(cat build/generated/HelperBuildVersion.swift)" != "$version_source" ]]; then
     printf '%s\n' "$version_source" > build/generated/HelperBuildVersion.swift
 fi
-xcrun swiftc -swift-version 5 AIHelper/CodexConnection.swift AIHelper/HelperSession.swift build/generated/HelperBuildVersion.swift Tests/AIHelper/main.swift -o build/ai-helper-tests
+xcrun swiftc -swift-version 5 Shared/Commonplace/*.swift AIHelper/CodexConnection.swift AIHelper/HelperSession.swift AIHelper/CommonplaceCoordinator.swift AIHelper/ArchiveSources.swift build/generated/HelperBuildVersion.swift Tests/AIHelper/CommonplaceTests.swift Tests/AIHelper/main.swift -o build/ai-helper-tests
 build/ai-helper-tests "$@"

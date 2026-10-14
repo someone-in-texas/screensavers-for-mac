@@ -9,8 +9,9 @@ if [[ ! -f build/generated/HelperBuildVersion.swift || "$(cat build/generated/He
     printf '%s\n' "$version_source" > build/generated/HelperBuildVersion.swift
 fi
 app='build/products/Screensavers AI Helper.app'
-mkdir -p "$app/Contents/MacOS"
-xcrun swiftc -sdk "$(xcrun --sdk macosx --show-sdk-path)" -target "$ARCH-apple-macos14.6" -swift-version 5 -O -framework AppKit AIHelper/*.swift build/generated/HelperBuildVersion.swift -o "$app/Contents/MacOS/ScreensaversAIHelper"
+mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+cp Assets/Commonplace/catalog.json "$app/Contents/Resources/Commonplace-catalog.json"
+xcrun swiftc -sdk "$(xcrun --sdk macosx --show-sdk-path)" -target "$ARCH-apple-macos14.6" -swift-version 5 -O -framework AppKit -framework ServiceManagement Shared/Commonplace/*.swift AIHelper/*.swift build/generated/HelperBuildVersion.swift -o "$app/Contents/MacOS/ScreensaversAIHelper"
 cat > "$app/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

@@ -3,8 +3,8 @@
 set -euo pipefail
 
 REPOSITORY=https://github.com/someone-in-texas/screensavers-for-mac
-NAMES=('World Clock Room' 'City Drift' 'Voxel Cosmos' 'Paper Sky' 'Dapple' 'Flourish' 'Lattice' 'Strawberry Fields Forever' 'Good Research Takes Time')
-IDS=(worldclockroom citydrift voxelcosmos papersky dapple flourish lattice strawberryfieldsforever goodresearchtakestime)
+NAMES=('World Clock Room' 'City Drift' 'Voxel Cosmos' 'Paper Sky' 'Dapple' 'Flourish' 'Lattice' 'Strawberry Fields Forever' 'Good Research Takes Time' 'Years in Bloom')
+IDS=(worldclockroom citydrift voxelcosmos papersky dapple flourish lattice strawberryfieldsforever goodresearchtakestime yearsinbloom)
 work=''
 transaction=''
 destination=''
@@ -28,7 +28,8 @@ macOS 14.6+. No sudo, Homebrew, Git, or developer tools required.
   --help             Show this help.
 
 Quit System Settings and stop any running screen saver before installing.
-The optional AI helper is not installed. This does not change Gatekeeper settings
+Commonplace and Screensavers AI Helper use the separate install-ai.sh installer.
+Neither is installed by this script. This does not change Gatekeeper settings
 or remove quarantine attributes. Releases may be ad-hoc signed, not notarized.
 EOF
 }

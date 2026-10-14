@@ -90,6 +90,8 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
         if CommandLine.arguments.contains("--lattice") || CommandLine.arguments.contains("--lattice-review") { picker.selectItem(at: 6) }
         if CommandLine.arguments.contains("--strawberry") || CommandLine.arguments.contains("--strawberry-review") {picker.selectItem(at:7)}
         if CommandLine.arguments.contains("--research") || CommandLine.arguments.contains("--research-review") {picker.selectItem(at:8)}
+        if CommandLine.arguments.contains("--bloom-review") { picker.selectItem(at:9) }
+        if CommandLine.arguments.contains("--commonplace-review") { picker.selectItem(at:10) }
         switchScene(); window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
         if let i = CommandLine.arguments.firstIndex(of: "--capture-after"), i + 1 < CommandLine.arguments.count,
            let seconds = Double(CommandLine.arguments[i + 1]), seconds.isFinite {
@@ -137,7 +139,7 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
     @objc func switchScene() {
         view?.reportPerformance(); view?.stopAnimation(); view?.removeFromSuperview()
         let kind = SaverKind.allCases[picker.indexOfSelectedItem]
-        let review = CommandLine.arguments.contains("--online-vector") || CommandLine.arguments.contains("--cosmos-review") || CommandLine.arguments.contains("--paper-review") || CommandLine.arguments.contains("--dapple-review") || CommandLine.arguments.contains("--flourish-review") || CommandLine.arguments.contains("--lattice-review") || CommandLine.arguments.contains("--strawberry-review") || CommandLine.arguments.contains("--research-review")
+        let review = CommandLine.arguments.contains("--bloom-review") || CommandLine.arguments.contains("--commonplace-review") || CommandLine.arguments.contains("--online-vector") || CommandLine.arguments.contains("--cosmos-review") || CommandLine.arguments.contains("--paper-review") || CommandLine.arguments.contains("--dapple-review") || CommandLine.arguments.contains("--flourish-review") || CommandLine.arguments.contains("--lattice-review") || CommandLine.arguments.contains("--strawberry-review") || CommandLine.arguments.contains("--research-review")
         let store = SettingsStore(kind, defaults: (CommandLine.arguments.contains("--launch-smoke") || review) ? UserDefaults(suiteName: smokeSuite + kind.rawValue) : nil)
         if review {
             var settings = SaverSettings(); settings.cosmos.secondsPerView = 15; settings.paperSky.secondsPerView = 20; settings.mapStyle = .online; settings.palette = .blueprint
@@ -149,21 +151,31 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
             if CommandLine.arguments.contains("--strawberry-review") {settings.strawberry.seedBehavior = .fixed}
             if CommandLine.arguments.contains("--research-review") {settings.research.seedBehavior = .fixed}
             if CommandLine.arguments.contains("--lore") {settings.research.loreMode=true;settings.strawberry.loreMode=true}
-            if let i=CommandLine.arguments.firstIndex(of:"--seed"),i+1<CommandLine.arguments.count,let seed=UInt64(CommandLine.arguments[i+1]) {settings.research.seed=seed;settings.strawberry.seed=seed}
+            if let i=CommandLine.arguments.firstIndex(of:"--seed"),i+1<CommandLine.arguments.count,let seed=UInt64(CommandLine.arguments[i+1]) {settings.research.seed=seed;settings.strawberry.seed=seed;settings.bloom.seed=seed}
             if let i=CommandLine.arguments.firstIndex(of:"--composition"),i+1<CommandLine.arguments.count {
                 settings.research.fineArt.composition=ResearchComposition(rawValue:CommandLine.arguments[i+1]) ?? settings.research.fineArt.composition
                 settings.strawberry.fineArt.composition=StrawberryComposition(rawValue:CommandLine.arguments[i+1]) ?? settings.strawberry.fineArt.composition
+            }
+            if CommandLine.arguments.contains("--bloom-review") {
+                if let i = CommandLine.arguments.firstIndex(of:"--filter"),i+1<CommandLine.arguments.count,
+                   let plant = BloomPlant(rawValue:CommandLine.arguments[i+1]) { settings.bloom.plant = plant }
+                if let i = CommandLine.arguments.firstIndex(of:"--layout"),i+1<CommandLine.arguments.count,
+                   let layout = BloomLayout(rawValue:CommandLine.arguments[i+1]) { settings.bloom.layout = layout }
+                if let i = CommandLine.arguments.firstIndex(of:"--rendering"),i+1<CommandLine.arguments.count,
+                   let rendering = BloomRendering(rawValue:CommandLine.arguments[i+1]) { settings.bloom.art.rendering = rendering }
+                if let i = CommandLine.arguments.firstIndex(of:"--weather"),i+1<CommandLine.arguments.count,
+                   let weather = BloomWeather(rawValue:CommandLine.arguments[i+1]) { settings.bloom.weather = weather }
             }
             store.value = settings
         }
         let noNetwork = CommandLine.arguments.contains("--offline") || CommandLine.arguments.contains("--launch-smoke")
         let fixed = CommandLine.arguments.firstIndex(of: "--city").flatMap { i in i + 1 < CommandLine.arguments.count ? CommandLine.arguments[i + 1] : nil }
-        let scene: SaverScene = kind == .worldClockRoom ? WorldClockScene() : kind == .voxelCosmos ? VoxelCosmosScene() as SaverScene : kind == .paperSky ? PaperSkyScene() as SaverScene : kind == .dapple ? DappleScene() as SaverScene : kind == .flourish ? FlourishScene() as SaverScene : kind == .lattice ? LatticeScene() as SaverScene : kind == .strawberryFieldsForever ? StrawberryFieldsScene() as SaverScene : kind == .goodResearchTakesTime ? GoodResearchScene() as SaverScene : CityDriftScene(store: store, networkEnabled: !noNetwork, city: MapCity.all.first { $0.name == fixed }, visitCache: noNetwork && !CommandLine.arguments.contains("--launch-smoke") ? CityVisitCache() : nil)
+        let scene: SaverScene = kind == .yearsInBloom ? (review ? YearsInBloomScene(seed:store.value.bloom.seed):YearsInBloomScene()) as SaverScene : kind == .commonplace ? CommonplaceScene(archive: noNetwork ? nil:CommonplaceArchive()) as SaverScene : kind == .worldClockRoom ? WorldClockScene() : kind == .voxelCosmos ? VoxelCosmosScene() as SaverScene : kind == .paperSky ? PaperSkyScene() as SaverScene : kind == .dapple ? DappleScene() as SaverScene : kind == .flourish ? FlourishScene() as SaverScene : kind == .lattice ? LatticeScene() as SaverScene : kind == .strawberryFieldsForever ? StrawberryFieldsScene() as SaverScene : kind == .goodResearchTakesTime ? GoodResearchScene() as SaverScene : CityDriftScene(store: store, networkEnabled: !noNetwork, city: MapCity.all.first { $0.name == fixed }, visitCache: noNetwork && !CommandLine.arguments.contains("--launch-smoke") ? CityVisitCache() : nil)
         let frame = NSRect(x: 0, y: 0, width: window.contentView!.bounds.width, height: window.contentView!.bounds.height - 48)
         view = PreviewSaverView(frame: frame, isPreview: false, kind: kind, scene: scene, settingsStore: store)
         window.contentView?.addSubview(view!, positioned: .below, relativeTo: picker)
         view?.startAnimation()
-        if review, (kind == .strawberryFieldsForever || kind == .goodResearchTakesTime),
+        if review, (kind == .strawberryFieldsForever || kind == .goodResearchTakesTime || kind == .yearsInBloom),
            let i=CommandLine.arguments.firstIndex(of:"--review-age"),i+1<CommandLine.arguments.count,
            let age=Double(CommandLine.arguments[i+1]),age.isFinite,age>0,let root=view?.layer {
             for frame in 0...Int(min(7200,age)*4) {_ = scene.updateLayer(root,size:frameSize(),time:Double(frame)/4,date:Date())}
@@ -178,7 +190,7 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
         c.scaleBy(x: size.width / view.bounds.width, y: size.height / view.bounds.height)
         layer.render(in: c)
         guard let image = c.makeImage() else { return }
-        let filename = ["world-clock-room.png", "city-drift.png", "voxel-cosmos.png", "paper-sky.png", "dapple.png", "flourish.png", "lattice.png", "strawberry-fields-forever.png", "good-research-takes-time.png"][picker.indexOfSelectedItem]
+        let filename = ["world-clock-room.png", "city-drift.png", "voxel-cosmos.png", "paper-sky.png", "dapple.png", "flourish.png", "lattice.png", "strawberry-fields-forever.png", "good-research-takes-time.png", "years-in-bloom.png", "commonplace.png"][picker.indexOfSelectedItem]
         if let i = CommandLine.arguments.firstIndex(of: "--capture-dir"), i + 1 < CommandLine.arguments.count {
             let directory = CommandLine.arguments[i + 1]
             try? FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
@@ -193,7 +205,7 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
     @objc func fullScreen() { window.toggleFullScreen(nil) }
     func applicationWillTerminate(_ notification: Notification) {
         view?.reportPerformance(); view?.stopAnimation()
-        if CommandLine.arguments.contains("--launch-smoke") || CommandLine.arguments.contains("--online-vector") || CommandLine.arguments.contains("--cosmos-review") || CommandLine.arguments.contains("--paper-review") || CommandLine.arguments.contains("--dapple-review") || CommandLine.arguments.contains("--flourish-review") || CommandLine.arguments.contains("--lattice-review") || CommandLine.arguments.contains("--strawberry-review") || CommandLine.arguments.contains("--research-review") {
+        if CommandLine.arguments.contains("--bloom-review") || CommandLine.arguments.contains("--commonplace-review") || CommandLine.arguments.contains("--launch-smoke") || CommandLine.arguments.contains("--online-vector") || CommandLine.arguments.contains("--cosmos-review") || CommandLine.arguments.contains("--paper-review") || CommandLine.arguments.contains("--dapple-review") || CommandLine.arguments.contains("--flourish-review") || CommandLine.arguments.contains("--lattice-review") || CommandLine.arguments.contains("--strawberry-review") || CommandLine.arguments.contains("--research-review") {
             for kind in SaverKind.allCases { UserDefaults.standard.removePersistentDomain(forName: smokeSuite + kind.rawValue) }
         }
     }
@@ -202,6 +214,78 @@ final class PreviewDelegate: NSObject, NSApplicationDelegate {
 
 let app = NSApplication.shared
 app.setActivationPolicy(.regular)
+if CommandLine.arguments.contains("--bloom-gallery") || CommandLine.arguments.contains("--commonplace-gallery") {
+    let args = CommandLine.arguments
+    let output = args.firstIndex(of:"--output").map { args[$0+1] } ?? "build/new-gallery"
+    try FileManager.default.createDirectory(atPath:output,withIntermediateDirectories:true)
+    let bloom = args.contains("--bloom-gallery")
+    let width = args.firstIndex(of:"--width").flatMap { Double(args[$0+1]) } ?? 1400
+    let height = args.firstIndex(of:"--height").flatMap { Double(args[$0+1]) } ?? 1000
+    let pageCount = args.firstIndex(of:"--pages").flatMap { Int(args[$0+1]) } ?? 10
+    let gallerySeed = args.firstIndex(of:"--seed").flatMap { UInt64(args[$0+1]) } ?? 42
+    let archiveDays = args.firstIndex(of:"--archive-days").flatMap { Int(args[$0+1]) } ?? 0
+    let size = CGSize(width:width,height:height), date = Date(timeIntervalSince1970:1780315800)
+    let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("Commonplace-gallery-"+UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at:temporary) }
+    let archive = archiveDays>0 ? CommonplaceArchive(root:temporary):nil
+    if let archive {
+        let lease = try archive.acquireGenerationLease();defer { withExtendedLifetime(lease) {} }
+        for dayIndex in 0..<min(365,archiveDays) {
+            let key = CommonplaceArchive.dayKey(date.addingTimeInterval(Double(dayIndex-archiveDays)*86400))
+            let starter = CommonplaceLibrary.starter[dayIndex%CommonplaceLibrary.starter.count]
+            let entries = starter.entries.enumerated().map { i,entry in CommonplaceEntry(id:key+"-note-\(i)",kind:entry.kind == .callback ? .observation:entry.kind,text:entry.text,tags:entry.tags,replyTo:nil) }
+            let day = CommonplaceDay(date:key,title:starter.title,entries:entries,hooks:[],sourceConcepts:[],fictional:true)
+            try archive.commit(JSONEncoder().encode(CommonplaceBundle(schemaVersion:1,days:[day])),dates:[key],knownIDs:[])
+        }
+    }
+    let filter = args.firstIndex(of:"--filter").map { args[$0+1] }
+    let values = (bloom ? BloomPlant.allCases.dropFirst().map(\.rawValue) : CommonplaceTheme.allCases.dropFirst().map(\.rawValue)).filter { filter == nil || $0 == filter! }
+    for (index,value) in values.enumerated() {
+        var settings = SaverSettings()
+        let scene: SaverScene
+        if bloom {
+            settings.bloom.plant = BloomPlant(rawValue:value)!;settings.bloom.layout = .specimen
+            if let i = args.firstIndex(of:"--palette"),let palette = BloomPalette(rawValue:args[i+1]) { settings.bloom.palette = palette }
+            if let i = args.firstIndex(of:"--layout"),let layout = BloomLayout(rawValue:args[i+1]) { settings.bloom.layout = layout }
+            if let i = args.firstIndex(of:"--weather"),let weather = BloomWeather(rawValue:args[i+1]) { settings.bloom.weather = weather }
+            if let i = args.firstIndex(of:"--rendering"),let rendering = BloomRendering(rawValue:args[i+1]) { settings.bloom.art.rendering = rendering }
+            for (flag,key) in [("--edge",\BloomArtSettings.edgeIrregularity),("--pigment",\BloomArtSettings.pigmentVariation),("--grain",\BloomArtSettings.paperGrain),("--bleed",\BloomArtSettings.wetEdges)] {
+                if let i = args.firstIndex(of:flag),let number = Double(args[i+1]) { settings.bloom.art[keyPath:key] = number/100 }
+            }
+            scene = YearsInBloomScene(seed:gallerySeed)
+        } else {
+            settings.commonplace.theme = CommonplaceTheme(rawValue:value)!
+            settings.commonplace.density = args.contains("--dense") ? .dense : index%2 == 0 ? .sparse:.dense
+            scene = CommonplaceScene(seed:gallerySeed,archive:archive,resources:URL(fileURLWithPath:"Assets/Commonplace"))
+        }
+        scene.apply(settings);scene.start()
+        let root = CALayer();root.bounds = CGRect(origin:.zero,size:size)
+        let backing = args.firstIndex(of:"--backing-scale").flatMap { Double(args[$0+1]) } ?? 1
+        root.contentsScale = backing
+        let targets = bloom ? [0.08,0.20,0.38,0.66,0.86,1.35,3.35,4.80,4.96,5.02,5.15] : [0.08,1.0] + (1..<max(2,min(180,pageCount))).map { Double($0)+0.08 }
+        var frame = 0, timings:[Double] = []
+        let chosenTargets = args.firstIndex(of:"--years").map { args[$0+1].split(separator:",").compactMap { Double($0) }.sorted() } ?? targets
+        for target in chosenTargets {
+            let seconds = target * (bloom ? settings.bloom.pace.secondsPerYear : settings.commonplace.pace.secondsPerPage)
+            while Double(frame)/4 <= seconds+0.001 {
+                let begin = ProcessInfo.processInfo.systemUptime
+                _ = scene.updateLayer(root,size:size,time:Double(frame)/4,date:date);frame += 1
+                timings.append((ProcessInfo.processInfo.systemUptime-begin)*1000)
+            }
+            CATransaction.flush()
+            let c = bitmap(width:Int(size.width*backing),height:Int(size.height*backing))!;c.scaleBy(x:backing,y:backing)
+            if let i = args.firstIndex(of:"--zoom"),let zoom = Double(args[i+1]),zoom>0 {
+                c.translateBy(x:size.width/2,y:size.height/2);c.scaleBy(x:zoom,y:zoom);c.translateBy(x:-size.width/2,y:-size.height/2)
+            }
+            root.render(in:c)
+            try savePNG(c.makeImage()!,"\(output)/\(value)-\(target).png")
+        }
+        if let botanical = scene as? YearsInBloomScene { print("paint layers: \(botanical.activePaintingBytes) bytes; pending: \(botanical.pendingPaintingCount); paint cache: \(botanical.paintingCacheBytes) bytes; \(botanical.paintingCacheHits) hits; \(botanical.paintingCacheMisses) misses") }
+        scene.stop();timings.sort();print("\(value): \(timings.count) updates; CPU p95 \(timings[Int(Double(timings.count-1)*0.95)]) ms, max \(timings.last!) ms")
+    }
+    try? FileManager.default.removeItem(at:temporary)
+    exit(0)
+}
 if CommandLine.arguments.contains("--opening-gallery") {
     let args = CommandLine.arguments
     let out = args.firstIndex(of: "--output").map { args[$0+1] } ?? "build/opening-gallery"
@@ -420,7 +504,7 @@ for name in ["strawberry","research"] {
     let map = CityDriftScene(store: store, networkEnabled: false, city: MapCity.all[0]); map.useFixture(fixtureTile())
     let clock = WorldClockScene()
     let sizes = [CGSize(width: 1600, height: 1000), CGSize(width: 1920, height: 1080), CGSize(width: 2560, height: 1080), CGSize(width: 280, height: 180), CGSize(width: 800, height: 1200)]
-    for (name, scene) in [("world-clock-room", clock as SaverScene), ("city-drift-fixture", map as SaverScene), ("voxel-cosmos", VoxelCosmosScene() as SaverScene), ("paper-sky", PaperSkyScene(seed: 42) as SaverScene), ("dapple", DappleScene(seed: 42) as SaverScene), ("flourish", FlourishScene(seed: 42) as SaverScene), ("lattice", LatticeScene(seed: 42) as SaverScene), ("strawberry-fields-forever", StrawberryFieldsScene(seed:42) as SaverScene), ("good-research-takes-time", GoodResearchScene(seed:42) as SaverScene)] {
+    for (name, scene) in [("world-clock-room", clock as SaverScene), ("city-drift-fixture", map as SaverScene), ("voxel-cosmos", VoxelCosmosScene() as SaverScene), ("paper-sky", PaperSkyScene(seed: 42) as SaverScene), ("dapple", DappleScene(seed: 42) as SaverScene), ("flourish", FlourishScene(seed: 42) as SaverScene), ("lattice", LatticeScene(seed: 42) as SaverScene), ("strawberry-fields-forever", StrawberryFieldsScene(seed:42) as SaverScene), ("good-research-takes-time", GoodResearchScene(seed:42) as SaverScene), ("years-in-bloom", YearsInBloomScene(seed:42) as SaverScene), ("commonplace", CommonplaceScene(seed:42,archive:nil) as SaverScene)] {
         scene.start()
         for size in sizes {
             let c = bitmap(width: Int(size.width), height: Int(size.height))!
@@ -545,7 +629,9 @@ for name in ["strawberry","research"] {
         starter.stop()
     }
     for kind in SaverKind.allCases {
-        let panel = ConfigurationController(store: SettingsStore(kind, defaults: defaults)) { _ in }
+        let store = SettingsStore(kind,defaults:defaults)
+        let panel: SaverConfiguration = kind == .yearsInBloom ? BloomConfiguration(store:store,changed:{ _ in }):kind == .commonplace ? CommonplaceConfiguration(store:store,changed:{ _ in }):ConfigurationController(store:store,changed:{ _ in })
+        panel.prepareForPresentation()
         if let content = panel.window?.contentView, let rep = content.bitmapImageRepForCachingDisplay(in: content.bounds) {
             content.cacheDisplay(in: content.bounds, to: rep)
             try rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: "\(folder)/options-\(kind.rawValue).png"))
@@ -560,7 +646,7 @@ for name in ["strawberry","research"] {
               view.hasConfigureSheet, view.configureSheet != nil else { fatalError("Bundle load failed: \(name)") }
         // Start/stop the clock; map scene smoke is offline above to keep CI off OSM.
         if name != "City Drift" { view.startAnimation(); view.animateOneFrame(); view.stopAnimation() }
-        if name == "Good Research Takes Time" || name == "Strawberry Fields Forever" {
+        if ["Good Research Takes Time","Strawberry Fields Forever","Years in Bloom","Commonplace"].contains(name) {
             // Reproduce legacyScreenSaver's oversized Retina view, clipped by
             // its point-sized parent. Direct scene snapshots cannot catch this.
             let host=NSView(frame:NSRect(x:0,y:0,width:1710,height:1107))
@@ -582,7 +668,7 @@ for name in ["strawberry","research"] {
         }
         print("Loaded \(name).saver and its configuration sheet")
     }
-    print("Rendered all nine savers, five aspect ratios, six map palettes and every cosmos view offline.")
+    print("Rendered all eleven savers, five aspect ratios, six map palettes and every cosmos view offline.")
 } else {
     let delegate = PreviewDelegate(); app.delegate = delegate; app.run()
 }

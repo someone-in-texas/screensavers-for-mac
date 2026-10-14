@@ -1,8 +1,8 @@
 import Foundation
 
-/// Explicit allowlist: no 0.8 saver requires AI. Opening the app normally offers no login.
+/// Only explicitly activated AI savers may use this separate process.
 enum AIActivation {
-    static let saverIdentifiers: Set<String> = []
+    static let saverIdentifiers: Set<String> = ["com.someoneintexas.screensavers.commonplace"]
     static func isAllowed(arguments: [String]) -> Bool {
         if arguments == ["--developer-test"] { return true }
         return arguments.count == 2 && arguments[0] == "--ai-saver" && saverIdentifiers.contains(arguments[1])
@@ -12,9 +12,11 @@ enum AIActivation {
 final class HelperSession {
     enum State: Equatable { case disconnected, connecting, signedOut, signingIn, signedIn, generating }
     private(set) var state = State.disconnected
-    private(set) var status = "Connect only when you want to test AI content."
+    private(set) var status = "Connect when you want to add AI content."
     private(set) var sample = ""
     private(set) var loginID: String?
+    private var completion: ((Result<String, Error>) -> Void)?
+    private var outputLimit = 4096
     private var threadID: String?
     private var epoch = 0
     private let connection: CodexConnection
@@ -24,7 +26,10 @@ final class HelperSession {
     init(connection: CodexConnection, workspace: URL, openBrowser: @escaping (URL) -> Bool) {
         self.connection = connection; self.workspace = workspace; self.openBrowser = openBrowser
         connection.notification = { [weak self] method, params in self?.receive(method, params) }
-        connection.disconnected = { [weak self] in self?.set(.disconnected, "Codex stopped. Reopen the helper to reconnect.") }
+        connection.disconnected = { [weak self] in
+            self?.finish(.failure(NSError(domain:"Commonplace",code:1,userInfo:[NSLocalizedDescriptionKey:"Codex disconnected."])))
+            self?.set(.disconnected, "Codex stopped. Reopen the helper to reconnect.")
+        }
     }
     private func set(_ state: State, _ status: String) { self.state = state; self.status = status; changed?() }
     func connect() {
@@ -45,7 +50,7 @@ final class HelperSession {
             case .success(let value):
                 let account = value["account"] as? [String: Any]
                 self.set(account?["type"] as? String == "chatgpt" ? .signedIn : .signedOut,
-                         account?["type"] as? String == "chatgpt" ? "Connected with ChatGPT. Test generation uses your account limits." : "Continue with ChatGPT to test AI content.")
+                         account?["type"] as? String == "chatgpt" ? "Connected with ChatGPT. Generation uses your account limits." : "Continue with ChatGPT to add AI content.")
             case .failure(let error): self.set(.signedOut, error.localizedDescription)
             }
         }
@@ -82,6 +87,7 @@ final class HelperSession {
         }
     }
     func cancel() {
+        finish(.failure(NSError(domain:"Commonplace",code:5,userInfo:[NSLocalizedDescriptionKey:"Generation cancelled."])))
         epoch += 1
         if let id = loginID { connection.request("account/login/cancel", ["loginId": id]) { _ in } }
         loginID = nil
@@ -106,25 +112,32 @@ final class HelperSession {
          "baseInstructions": "Write short plain text for a screen saver. Do not use tools, inspect files, browse, or run commands.",
          "config": ["web_search": "disabled", "features": ["shell_tool": false, "apps": false, "code_mode": ["enabled": false]]]]
     }
+    private func finish(_ result: Result<String,Error>) {
+        let callback = completion; completion = nil; callback?(result)
+    }
     func generateSample() {
-        guard state == .signedIn else { return }
+        generate(prompt:"Write one original calming sentence about the night sky, under 25 words. Return only the sentence.",maximumBytes:4096,completion:{ _ in })
+    }
+    func generate(prompt: String, maximumBytes: Int = 160_000, completion: @escaping (Result<String,Error>) -> Void) {
+        guard state == .signedIn else { completion(.failure(NSError(domain:"Commonplace",code:2,userInfo:[NSLocalizedDescriptionKey:"Sign in before generating."]))); return }
+        self.completion = completion;outputLimit = min(160_000,max(1,maximumBytes))
         epoch += 1; let attempt = epoch; sample = ""
-        set(.generating, "Generating a short sample…")
+        set(.generating, "Writing notebook content…")
         let params = Self.threadParameters(workspace: workspace)
         connection.request("thread/start", params) { [weak self] result in
             guard let self, self.epoch == attempt, self.state == .generating else { return }
             switch result {
             case .success(let value):
-                guard let thread = value["thread"] as? [String: Any], let id = thread["id"] as? String else { self.set(.signedIn, "Codex did not return a thread."); return }
+                guard let thread = value["thread"] as? [String: Any], let id = thread["id"] as? String else { self.finish(.failure(NSError(domain:"Commonplace",code:3,userInfo:[NSLocalizedDescriptionKey:"Missing thread."]))); self.set(.signedIn, "Codex did not return a thread."); return }
                 self.threadID = id
-                self.connection.request("turn/start", ["threadId": id, "input": [["type": "text", "text": "Write one original calming sentence about the night sky, under 25 words. Return only the sentence."]]]) { [weak self] result in
+                self.connection.request("turn/start", ["threadId": id, "input": [["type": "text", "text": prompt]]]) { [weak self] result in
                     guard let self, self.epoch == attempt else { return }
-                    if case .failure(let error) = result { self.threadID = nil; self.set(.signedIn, error.localizedDescription) }
+                    if case .failure(let error) = result { self.threadID = nil; self.finish(.failure(error)); self.set(.signedIn, error.localizedDescription) }
                 }
-            case .failure(let error): self.set(.signedIn, error.localizedDescription)
+            case .failure(let error): self.finish(.failure(error)); self.set(.signedIn, error.localizedDescription)
             }
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 90) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 300) { [weak self] in
             guard let self, self.epoch == attempt, self.state == .generating else { return }
             self.cancel(); self.set(.disconnected, "Generation timed out. Reopen the helper to retry.")
         }
@@ -139,13 +152,14 @@ final class HelperSession {
             if state != .disconnected { set(.signedOut, "Please reconnect with ChatGPT.") }
         } else if state == .generating, let id = threadID, params["threadId"] as? String == id {
             if method == "item/completed", let item = params["item"] as? [String: Any], item["type"] as? String == "agentMessage", let text = item["text"] as? String {
-                sample = String(text.prefix(4096)); changed?()
+                guard text.utf8.count <= outputLimit else { cancel(); return }
+                sample = text; changed?()
             } else if method == "turn/completed", let turn = params["turn"] as? [String: Any] {
                 threadID = nil; epoch += 1
-                if turn["status"] as? String == "completed", !sample.isEmpty { set(.signedIn, "Test complete. This sample is kept only in memory.") }
-                else { sample = ""; set(.signedIn, "Generation did not complete. Check your connection and account limits, then retry.") }
+                if turn["status"] as? String == "completed", !sample.isEmpty { finish(.success(sample)); set(.signedIn, "Generation complete.") }
+                else { sample = ""; finish(.failure(NSError(domain:"Commonplace",code:4,userInfo:[NSLocalizedDescriptionKey:"Generation did not complete."]))); set(.signedIn, "Generation did not complete. Check your connection and account limits, then retry.") }
             }
         }
     }
-    func close() { epoch += 1; loginID = nil; threadID = nil; connection.close() }
+    func close() { finish(.failure(NSError(domain:"Commonplace",code:6,userInfo:[NSLocalizedDescriptionKey:"Helper closed."]))); epoch += 1; loginID = nil; threadID = nil; connection.close() }
 }

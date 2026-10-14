@@ -4,7 +4,7 @@ import ScreenSaver
 class SceneSaverView: ScreenSaverView {
     let scene: SaverScene
     let store: SettingsStore
-    private var configuration: ConfigurationController?
+    private var configuration: SaverConfiguration?
     private var buffer: CGContext?
     private var bufferSize = CGSize.zero
     private let sceneLayer=CALayer()
@@ -13,6 +13,8 @@ class SceneSaverView: ScreenSaverView {
         if let scene { self.scene = scene }
         else {
             switch kind {
+            case .yearsInBloom: self.scene = YearsInBloomScene()
+            case .commonplace: self.scene = CommonplaceScene(persistHistory: !isPreview)
             case .worldClockRoom: self.scene = WorldClockScene()
             case .cityDrift: self.scene = CityDriftScene(store: store)
             case .voxelCosmos: self.scene = VoxelCosmosScene()
@@ -89,9 +91,10 @@ class SceneSaverView: ScreenSaverView {
         // Hosts may query this property repeatedly before/during presentation.
         // Replacing a live controller leaves a stale sheet/modal session behind.
         if configuration == nil {
-            configuration = ConfigurationController(store: store) { [weak self] settings in
+            let changed: (SaverSettings) -> Void = { [weak self] settings in
                 self?.scene.apply(settings); self?.needsDisplay = true
             }
+            configuration = scene.configuration(store: store, changed: changed) ?? ConfigurationController(store: store, changed: changed)
         }
         configuration?.prepareForPresentation()
         return configuration?.window

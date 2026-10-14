@@ -1,96 +1,106 @@
-# Optional AI helper (0.8 developer foundation)
+# Commonplace and the optional AI pack
 
-All nine screen savers work without this app, Codex, an account, or an AI connection.
-No current saver launches the helper or displays a sign-in option. A normal helper
-launch only explains that there is nothing to connect. It is shipped under
-`Optional/` in the release; the saver installer does not install it.
+The standard pack contains ten savers, including Years in Bloom, and needs no AI
+account or helper. The separate 0.9 AI pack contains **Commonplace.saver** and
+**Screensavers AI Helper.app**. Installing either pack never starts authentication.
+Commonplace plays its bundled fictional notebook and verified archival pictures
+offline before setup, and keeps playing saved content when generation is unavailable.
 
-## Supported integration
+## Set up Commonplace
 
-The separate native app uses the official local **Codex app-server** over private
-stdio. “Continue with ChatGPT” sends `account/login/start` with `type: chatgpt` and
-opens its HTTPS authorization URL in the user's browser. Codex owns the callback,
-token refresh and credential storage; the helper never reads or copies tokens.
-This is Codex-backed ChatGPT authentication, not a general third-party OAuth client
-or direct use of ChatGPT tokens with the OpenAI API. Account eligibility, workspace
-restrictions and Codex usage limits still apply.
+Install the AI pack with the separate command in the [README](../README.md).
+In Commonplace Options, choose **Set Up ChatGPT**, then **Continue with ChatGPT**
+in the helper. Install the [Codex CLI](https://learn.chatgpt.com/docs/cli) separately;
+the helper discovers it in standard Homebrew locations or absolute PATH entries.
+It neither bundles nor downloads Codex. Generation uses your ChatGPT account's
+Codex eligibility, workspace restrictions and usage limits.
 
-Install the [Codex CLI](https://learn.chatgpt.com/docs/cli) separately. The helper
-checks Homebrew's usual locations and absolute PATH entries. It neither downloads
-nor bundles Codex. Its protocol was checked with `codex-cli 0.160.0`; an incompatible
-version produces an error without affecting any saver. See the
-[official app-server documentation](https://learn.chatgpt.com/docs/app-server),
-particularly initialization, authentication, threads and turns. Credential storage
-and feature controls follow the official [authentication](https://learn.chatgpt.com/docs/auth)
-and [configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference). The app-server
-command is still evolving; recheck compatibility before adding an AI saver.
+The helper uses the official local [Codex app-server](https://learn.chatgpt.com/docs/app-server)
+over private stdio. `account/login/start` with `type: chatgpt` opens the approved
+HTTPS authorization URL in your browser. Codex owns the callback, refresh and
+credential storage. The helper never reads, copies or exports tokens. This is the
+managed local-app integration, not direct use of ChatGPT tokens with the OpenAI API.
+The isolated protocol smoke passed against codex-cli 0.160.1 for this work; run the
+isolated smoke below when upgrading because app-server evolves.
 
-## Test it
+## Generation and the local notebook
 
-```sh
-make ai-helper
-Scripts/test-ai-helper.sh                  # fully offline mocks; no Codex needed
-Scripts/test-ai-helper.sh --protocol-smoke # real CLI, isolated signed-out account
-open 'build/products/Screensavers AI Helper.app' --args --developer-test
-```
+The first successful connection creates five separate chronological days, ending
+today. Subsequent requests create only today's missing day; there is no automatic
+backfill of missed dates. Generation holds a per-user filesystem lease from request
+through atomic commit, preventing competing helper processes from duplicating a day.
+Malformed output, repeated recent writing, cancellation, sign-out and service errors
+leave the existing notebook intact. No generation occurs inside a saver or preview.
 
-The explicit developer mode is the only sign-in entry in 0.8. Click **Continue with
-ChatGPT**, complete browser sign-in, then **Generate Test Content**. The latter sends
-one fixed request for a short original calming sentence, using the account's limits.
-It keeps the result in memory and does not install, change or feed any current saver.
-No requests run automatically, on a timer, or from the screen saver host.
+After explicit Commonplace setup, **Add one day automatically** defaults on while
+the helper runs. Turn it off to use manual generation. **Open at login** is a separate,
+explicit macOS login-item opt-in; installing the AI pack does not enable it. Closing
+the helper window can leave daily generation running; Quit ends it. Failed automatic
+attempts wait until another day or a manual retry rather than looping requests.
 
-Manual acceptance checklist (requires an eligible account and browser interaction):
+The helper shows connection and generation status, a manual missing-day action,
+archive access, metadata export and confirmed reset. Reset preserves old batches in
+a saved lineage before creating a fresh five-day notebook. Options expose theme,
+pace, density, writing, images, diagrams, verified quotations and interest weighting.
+Changes to interests after setup update the helper's next request.
 
-- Complete sign-in; generate a sentence and see “Test complete”.
-- Cancel sign-in and retry; close the helper during login/generation.
-- Relaunch developer mode to verify saved sign-in and refresh behavior.
-- Sign out, then relaunch to verify the account is disconnected.
-- Check missing Codex, offline service, account restrictions and exhausted limits.
-- Open the helper normally and each current saver: no sign-in control appears.
+Content lives under `~/Library/Application Support/Screensavers for Mac/Commonplace`.
+Immutable daily JSON remains on disk; playback reads a bounded recent/older sample.
+Only entry/image/layout identifiers are saved as playback history. Reset never
+removes authentication. **Sign Out** removes the helper account connection; deleting
+a data directory alone does not remove Keychain credentials.
 
-Offline tests exercise these state/error paths with mock messages. Protocol smoke
-checks the installed CLI's initialization, account/read and thread configuration against a temporary
-isolated home. Neither proves a successful browser OAuth flow or an authenticated
-model response; record those separately when performed. CI never requires credentials.
+## Sources, attribution and fiction
+
+The saver includes ten item-verified CC0 Cleveland Museum of Art images and three
+verified public-domain extracts. Full attribution, source links and licenses are in
+Options → **View Sources & Credits** and the helper's metadata export.
+See [the asset catalog](../Assets/Commonplace/README.md).
+
+After a successful generation, the helper may retrieve at most two images from
+[Cleveland Open Access](https://openaccess-api.clevelandart.org/) and the
+[Art Institute of Chicago API](https://api.artic.edu/docs/). It checks each item's
+rights, fixed provider hosts, conservative subject filters, image dimensions and
+bounded download sizes. It keeps provenance while limiting cached media to 120
+files. Source failures never discard a notebook day. Conservative metadata filters
+can omit usable objects and are not a complete image-content classifier.
+
+Generated notes and original study diagrams are fictional. Model-suggested quote,
+fact and image queries are discovery ideas, never verified claims. Only curated
+source-backed extracts enter the quotation display. No invented patent or scientific
+assertion is presented as historical evidence. No arbitrary model URL is downloaded.
 
 ## Isolation and privacy
 
-The helper starts a child only after an allowed activation. It has no login item,
-daemon, URL scheme, listening server, automatic startup or shared saver dependency.
-Quit/cancel terminates its child and fails pending work. RPC, login and generation
-have deadlines; stale login IDs and unrelated thread messages are ignored. Only
-HTTPS auth URLs on `auth.openai.com` or `chatgpt.com` are opened.
+Only the registered Commonplace identifier or explicit `--developer-test` activates
+the helper. Ordinary launches connect only after the user previously enabled
+Commonplace. The shared saver lifecycle and all standard savers have no auth or
+model dependency. The helper has no listening server or URL scheme.
 
-Codex uses a separate `CODEX_HOME` under
-`~/Library/Application Support/Screensavers for Mac/AI Helper/`, with owner-only
-directory permissions and a dedicated empty workspace. Keyring credential storage
-is required; failure does not silently fall back to plaintext auth files. The child
-does not inherit API keys or the developer's Codex configuration/home. The helper
-does not log protocol messages, auth URLs or subprocess stderr. Analytics and
-feedback are disabled for its Codex child.
+Codex runs with a separate owner-only `CODEX_HOME` under
+`~/Library/Application Support/Screensavers for Mac/AI Helper/` and an empty workspace.
+Keyring storage is required; there is no silent plaintext fallback. API keys and the
+developer's Codex configuration are not inherited. Protocol messages, authorization
+URLs and subprocess stderr are not logged. Analytics and feedback are disabled.
 
-Test threads are ephemeral, read-only, have shell/apps/code-mode/web-search disabled,
-and reject every server tool/permission request. Generated text is bounded and
-shown as plain text. The helper does not expose general agent execution or execute
-model output. OpenAI processes the test prompt and response under the user's account
-terms. To remove the helper's credentials, use **Sign Out** before deleting the app;
-deleting its data directory alone does not remove Keychain credentials.
+Threads are ephemeral, read-only, with shell/apps/code mode/web search disabled.
+Every server tool or permission request is rejected. Prompts contain only dates,
+Commonplace settings and its own bounded content ledger. Generation has size and
+time limits; model output is decoded as data, never executed. Personal documents,
+browser history, email and other apps are not read.
 
-## Contract for a future AI saver
+## Validation
 
-`AIHelper/HelperSession.swift` contains an intentionally empty `AIActivation` allowlist.
-A future release can register a specific AI saver identifier and open this helper
-from that saver's explicit setup/activation using `--ai-saver <identifier>`. Keep the
-check ahead of process creation and never put it in `SceneSaverView`, the common
-settings controller, or a non-AI saver. A saver name or arbitrary command-line flag
-must not be sufficient to activate authentication.
+```sh
+make ai-helper
+Scripts/test-ai-helper.sh                  # offline mocks, temporary archives
+Scripts/test-ai-helper.sh --protocol-smoke # isolated signed-out CLI, no paid call
+open 'build/products/Screensavers AI Helper.app' --args --developer-test
+```
 
-Before shipping that integration, add a typed bounded content format, per-saver
-atomic content cache and freshness policy, and an offline rendering fallback. Fetch
-content only through the helper during explicit setup; savers consume validated
-content without tokens or model execution inside the macOS screen saver host. Add
-integration tests for missing helper/Codex, revoked auth, malformed output, quota,
-network failure, cancellation and offline rendering. The 0.8 helper establishes
-and tests sign-in plus a sample generation path; a background content service or
-production AI saver is not part of this release.
+Offline checks cover bootstrap, dates, competing generation, large archives,
+malformed content, sources, cancellation and account/error transitions. They do not
+prove browser OAuth, an authenticated model response, account quota handling in the
+live service or login-item behavior on every Mac. Before publishing 0.9, manually
+complete sign-in, five-day generation, next-day generation, sign-out/reconnect,
+missing/offline Codex and login-item checks on a clean supported Mac.

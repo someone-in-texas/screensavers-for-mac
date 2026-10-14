@@ -1,5 +1,71 @@
 # Validation
 
+## 0.9.0 release preparation
+
+- `make release-check` passed after the botanical watercolor/weather and
+  handwritten-desk refinements: **2,579,646 offline checks, zero failures**,
+  all eleven actual bundles, five rendering aspect ratios, both 66-cycle native
+  Options passes, 440 helper checks, and standalone scaffold smoke.
+- All **24 installer integration tests** passed. Both documented curl pipelines
+  retain `/dev/stdin` and version pinning. Coverage includes exact documented pack
+  identities, rejection of mixed packs, updates preserving the other pack,
+  checksum rejection, and rollback across both AI installation destinations.
+- Mounted DMGs and extracted ZIPs contain exactly ten standard savers, or only
+  Commonplace and Screensavers AI Helper in the AI pack. Both public installers
+  installed and updated the actual signed bundles in shared disposable
+  destinations. The bundled handwriting font and license were checked too.
+  No installation test changed the maintainer's installed savers or applications.
+- Local dependency, workflow and committed-history secret scans passed. GitHub
+  CI and CodeQL remain mandatory before tagging, and the release workflow repeats
+  the security/build/package gates before publishing. Published curl routes are
+  verified afterward with `Scripts/check-installation.py --published-tag v0.9.0`.
+- Local packages are ad-hoc signed, not notarized. Authentication, generated AI
+  content, a clean-Mac install and minimum-OS hardware testing are separate manual
+  checks. See [the final rendering review](WEATHER_AND_HANDWRITING.md) for actual
+  images, critic scores, native timing measurements and remaining visual limits.
+
+## 0.9 local development validation
+
+- Full optimized arm64 build completed for all eleven saver bundles, PreviewHost
+  and the separate helper. The offline logic suite passed **2,572,746 checks,
+  zero failures**. Actual bundles loaded together, including native configuration
+  sheets, and rendered at five aspect ratios. All 66 native Options open/Done/reopen
+  cycles and 66 fallback-timer cycles passed, as did the standalone scaffold smoke.
+  Both standard and AI packs passed DMG/ZIP validation: checksums, bundle identities,
+  versions, arm64 architecture, signatures and each public installer's verification.
+  Nothing was installed on the maintainer's account; these checks preceded the
+  0.9 release preparation.
+- Twenty standard/AI installer integration tests passed, including both real
+  documented curl pipelines through `/dev/stdin`, checksum rejection, missing or
+  unrelated helper bundles, and rollback across both user install locations.
+  Tests use disposable fixtures, not the maintainer's installed savers.
+- Helper mocks passed 440 checks; isolated signed-out protocol smoke passed 441
+  checks with codex-cli 0.160.1. Temporary archives cover competing generation,
+  five-day bootstrap, duplicate dates, clock rollback, 365 subsequent days,
+  malformed content, preserved reset lineages, unavailable sources and licensing.
+  Browser OAuth and authenticated content generation were not performed.
+- Five genuine art-critic/revision cycles were completed for each new saver, with
+  fresh renderer screenshots after changes. The fifth revisions repaired detached
+  seed heads, renewal anchors, repeated plant forms, caption collisions, oversized
+  notebook slips and ultrawide page proportions. See the detailed
+  [review/change report](0.9_IMPLEMENTATION.md).
+- Galleries cover all eighteen plant archetypes, seven botanical palettes,
+  multiple seasons and cohorts, all six notebook themes, portrait, ultrawide,
+  small previews and 2x cached notebook rasterization. Accelerated notebook runs
+  sample archives of 5/30/180/365 days and more than two hours of logical playback.
+  Fixtures reuse authored prose: this does not establish live AI writing quality.
+- A native Years in Bloom preview rendered 1,403 frames: CPU update p50 0.120 ms,
+  p95 0.461 ms, max 0.818 ms. These measurements cover one default composition,
+  not every plant mix, GPU/energy cost or hours-long physical playback. Cached
+  page construction and paper initialization have larger occasional costs.
+- A native Commonplace preview rendered 1,401 frames: CPU update p50 0.054 ms,
+  p95 0.099 ms, max 0.225 ms. Both new Options sheets were visually inspected and
+  opened/closed manually. This short sample does not measure long-run page generation,
+  GPU/energy use or authenticated AI content.
+- Local security auditing passed dependencies, workflows and committed-history
+  secret scanning. 0.9 CI/CodeQL has not run because this branch is not pushed.
+  Future publication still requires CI/security and clean-Mac/account acceptance.
+
 ## 0.8.2 preparation
 
 - `make release-check` passed: 2,549,288 offline checks, all nine actual bundles,
@@ -9,9 +75,10 @@
   Packages are ad-hoc signed, not notarized. Version-pinned release-page text was
   generated with `Scripts/release-notes.py`.
 - `make security-check` passed dependency auditing, workflow analysis and the
-  committed-history secret scan. GitHub CodeQL/CI for the prepared source and
-  live post-publication verification remain pending; this preparation did not
-  install savers, push, tag or publish a release.
+  committed-history secret scan. Subsequently, authorized publication completed:
+  CI 37549762905 and Release 37551044981 passed, including CodeQL/security and
+  live post-publication installation verification. Tag v0.8.2 is published; the
+  maintainer account was not used for automated installation.
 - Three sequential `art_critic` rounds accepted City Drift and Voxel Cosmos
   without actionable visual findings. Actual renderer sequences cover all three
   bundled cities, Paper/Blueprint/Night, 1200×800, 800×1200, 280×180 and 2400×1000.

@@ -19,7 +19,7 @@ There is no Xcode project, Swift package or dependency install step. Start with
 
 ## Workflow and boundaries
 
-`make build` builds nine savers, PreviewHost and the optional helper. `Scripts/test.sh`
+`make build` builds eleven savers, PreviewHost and the optional helper. `Scripts/test.sh`
 runs logic/render/bundle/lifecycle tests after a build. `make release-check` also
 packages and verifies DMG/ZIP, signatures, architectures and versions. These commands
 do not install savers or publish releases. Use `make install` only when installation
@@ -59,7 +59,7 @@ the network. Starter-map data has an ODbL license separate from the code.
 For a new personal saver, use [the creation skill](.agents/skills/create-screensaver/SKILL.md)
 and `Scripts/new-saver.py`; the standalone route does not change collection targets.
 For contribution work, use [adding a saver](docs/ADDING_A_SCREENSAVER.md).
-No new collection saver is planned for 0.8. Release preparation does not imply
+The standard 0.9 pack adds Years in Bloom; Commonplace and its helper belong only in the separate AI pack. Release preparation does not imply
 permission to publish, push tags, or overwrite an existing public release.
 
 Before releasing, also run `make security-check` (online; requires uv) and wait for
