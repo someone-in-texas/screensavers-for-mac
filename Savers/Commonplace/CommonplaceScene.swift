@@ -248,6 +248,11 @@ final class CommonplaceScene: SaverScene {
     private func diagram(_ c:CGContext,rect:CGRect,variant:Int,color:NSColor) {
         c.saveGState();c.translateBy(x:rect.midX,y:rect.midY);c.setStrokeColor(color.withAlphaComponent(0.58).cgColor);c.setLineWidth(1)
         let r = min(rect.width,rect.height)*0.36
+        // Keep Double trigonometry separate from CGFloat geometry for Xcode 16.4.
+        func polar(_ angle: Double, _ radius: CGFloat) -> CGPoint {
+            let x = CGFloat(Darwin.cos(angle)), y = CGFloat(Darwin.sin(angle))
+            return CGPoint(x:x*radius,y:y*radius)
+        }
         switch variant%8 {
         case 0: // A small jar study, not a scientific or historical claim.
             c.move(to:CGPoint(x:-r*0.5,y:r));c.addLine(to:CGPoint(x:-r*0.55,y:-r));c.addQuadCurve(to:CGPoint(x:r*0.55,y:-r),control:CGPoint(x:0,y:-r*1.1));c.addLine(to:CGPoint(x:r*0.5,y:r));c.strokePath()
@@ -265,9 +270,9 @@ final class CommonplaceScene: SaverScene {
             c.move(to:CGPoint(x:-r*0.7,y:-r*0.4));c.addCurve(to:CGPoint(x:r*0.2,y:r*0.6),control1:CGPoint(x:-r*1.2,y:r),control2:CGPoint(x:r,y:r));c.addCurve(to:CGPoint(x:r*0.8,y:-r*0.7),control1:CGPoint(x:-r,y:-r),control2:CGPoint(x:r*1.3,y:-r*0.2));c.strokePath()
         case 5: // Gear: observational study, not an invented patent.
             let path = CGMutablePath()
-            for i in 0..<64 { let a = Double(i)*Double.pi/32, radius = i%4<2 ? r:r*0.86;let point = CGPoint(x:cos(a)*radius,y:sin(a)*radius);if i == 0 { path.move(to:point) } else { path.addLine(to:point) } }
+            for i in 0..<64 { let a = Double(i)*Double.pi/32, radius = i%4<2 ? r:r*0.86;let point = polar(a,radius);if i == 0 { path.move(to:point) } else { path.addLine(to:point) } }
             path.closeSubpath();c.addPath(path);c.strokePath();c.strokeEllipse(in:CGRect(x:-r*0.22,y:-r*0.22,width:r*0.44,height:r*0.44))
-            for angle in [0.0,2.1,4.2] { c.move(to:CGPoint(x:cos(angle)*r*0.3,y:sin(angle)*r*0.3));c.addLine(to:CGPoint(x:cos(angle)*r*0.73,y:sin(angle)*r*0.73));c.strokePath() }
+            for angle in [0.0,2.1,4.2] { c.move(to:polar(angle,r*0.3));c.addLine(to:polar(angle,r*0.73));c.strokePath() }
         case 6: // Hinge with a pin and paired leaves.
             c.stroke(CGRect(x:-r,y:-r*0.7,width:r*0.87,height:r*1.4));c.stroke(CGRect(x:r*0.13,y:-r*0.7,width:r*0.87,height:r*1.4))
             c.stroke(CGRect(x:-r*0.10,y:-r*0.8,width:r*0.20,height:r*1.6))
@@ -283,7 +288,7 @@ final class CommonplaceScene: SaverScene {
         }
         if variant == 7 {
             c.setLineWidth(0.5);c.move(to:CGPoint(x:-r*0.6,y:r*0.1));c.addQuadCurve(to:CGPoint(x:r*0.45,y:r*0.48),control:CGPoint(x:-r*0.1,y:r*0.68));c.strokePath()
-            for i in 0..<9 { let angle = Double(i)*0.16+0.3;c.move(to:CGPoint(x:cos(angle)*r*1.04,y:sin(angle)*r*1.04));c.addLine(to:CGPoint(x:cos(angle)*r*1.09,y:sin(angle)*r*1.09));c.strokePath() }
+            for i in 0..<9 { let angle = Double(i)*0.16+0.3;c.move(to:polar(angle,r*1.04));c.addLine(to:polar(angle,r*1.09));c.strokePath() }
             withAppKit(c) { lettering("thin cloud, then clear",rect:CGRect(x:-r*0.8,y:r*1.13,width:r*1.8,height:26),size:12,face:"Noteworthy-Light",color:color.withAlphaComponent(0.75)) }
         } else if variant == 1 {
             c.setLineWidth(0.45);c.setLineDash(phase:0,lengths:[2,5]);c.move(to:CGPoint(x:-r*0.72,y:-r*1.08));c.addLine(to:CGPoint(x:r*0.8,y:-r*1.08));c.strokePath()
