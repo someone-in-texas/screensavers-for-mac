@@ -1,6 +1,13 @@
 import AppKit
 import Foundation
 
+// Establish AppKit before any renderer or window uses it, including on older
+// macOS runners. Keep suite progress visible if a native framework traps.
+setbuf(stdout, nil)
+let testApplication = NSApplication.shared
+testApplication.setActivationPolicy(.accessory)
+testApplication.finishLaunching()
+
 var checks = 0
 var failures = 0
 func expect(_ value: @autoclosure () -> Bool, _ name: String, file: String = #file, line: Int = #line) {
@@ -591,15 +598,25 @@ cachedLoader.request([])
 cachedLoader.request([third]); cachedDelivered = false; waitUntil { cachedDelivered }
 expect(cachedDelivered && cachedTransport.calls.isEmpty, "revisited tile returns from cache after leaving viewport")
 cachedLoader.stop()
+print("Running vector tests")
 runVectorTests()
+print("Running cosmos tests")
 runCosmosTests()
+print("Running paper sky tests")
 runPaperSkyTests()
+print("Running dapple tests")
 runDappleTests()
+print("Running flourish tests")
 runFlourishTests()
+print("Running lattice tests")
 runLatticeTests()
+print("Running contemplative tests")
 runContemplativeTests()
+print("Running fine art tests")
 runFineArtTests()
+print("Running new saver tests")
 runNewSaverTests()
+print("Running Options UI tests")
 runConfigurationTests()
 print("\(checks) checks, \(failures) failures (no live network requests).")
 exit(failures == 0 ? 0 : 1)

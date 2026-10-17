@@ -2,10 +2,15 @@
 
 ## 0.9.1 release preparation
 
-- `make release-check` passed: **2,580,323 offline checks, zero failures**,
+- `make release-check` passed. The follow-up test-harness correction passed
+  **2,580,333 offline checks, zero failures**,
   including 657 native Options behavioral checks, all eleven actual bundles,
   five rendering aspect ratios, both 66-cycle Options lifecycle passes,
   440 helper checks, and standalone scaffold smoke.
+- A CI test trap exposed a direct-child control lookup in the older fine-art
+  tests after compact layouts moved controls into a scroll view. Recursive,
+  guarded lookups now exercise both normal and forced compact geometry. Test
+  startup initializes AppKit early and flushes suite progress for diagnostics.
 - Options regressions exercise field-editor commits, invalid/overflow seeds,
   random fixed seeds, reset/revert/reopen baselines, explicit Bloom repeat opt-out,
   Commonplace's temporary preference bridge, support-report field limits, and

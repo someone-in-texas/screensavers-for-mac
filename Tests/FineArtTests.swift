@@ -18,22 +18,36 @@ func runFineArtTests() {
     store.value=saved;expect(store.value==saved,"mode and namespaced fine settings persist alongside original preferences")
     store.reset();expect(store.value==fresh,"reset restores fine art")
     _ = NSApplication.shared
-    for kind in [SaverKind.goodResearchTakesTime,.strawberryFieldsForever] {
-        let panelStore=SettingsStore(kind,defaults:defaults);panelStore.reset()
-        var callbacks=0
-        let panel=ConfigurationController(store:panelStore){_ in callbacks += 1}
-        func labels()->[String] {panel.window!.contentView!.subviews.compactMap {($0 as? NSTextField)?.stringValue}}
-        expect(!labels().contains("Enable Lore Mode"),"ordinary Options does not advertise the easter egg")
-        (panel.window as? ConfigurationWindow)?.revealAlternate?()
-        expect(labels().contains("Enable Lore Mode"),"modifier discovery reveals the alternate checkbox")
-        let toggle=panel.window!.contentView!.subviews.compactMap{$0 as? NSButton}.first{$0.accessibilityLabel()=="Enable Lore Mode"}!
-        toggle.performClick(nil)
-        expect(callbacks==1 && (kind == .goodResearchTakesTime ? panelStore.value.research.loreMode:panelStore.value.strawberry.loreMode),"checkbox persists enabled mode and publishes the change")
-        expect(labels().contains("Lore density") && !labels().contains("Composition"),"alternate panel replaces fine-art rows with compact legacy controls")
-        let off=panel.window!.contentView!.subviews.compactMap{$0 as? NSButton}.first{$0.accessibilityLabel()=="Enable Lore Mode"}!
-        off.performClick(nil);panel.prepareForPresentation()
-        expect(!labels().contains("Enable Lore Mode") && labels().contains("Composition"),"leaving alternate mode and reopening restores the undisclosed panel")
-        panel.close()
+    for compact in [false, true] {
+        for kind in [SaverKind.goodResearchTakesTime,.strawberryFieldsForever] {
+            let panelStore=SettingsStore(kind,defaults:defaults);panelStore.reset()
+            var callbacks=0
+            let panel=ConfigurationController(store:panelStore){_ in callbacks += 1}
+            defer { panel.close() }
+            func descendants(_ view:NSView)->[NSView] { [view] + view.subviews.flatMap(descendants) }
+            func views()->[NSView] {
+                guard let window=panel.window,let content=window.contentView else { return [] }
+                if compact {
+                    ConfigurationPanelLayout.apply(to:window,preferredHeight:745,visibleFrame:NSRect(x:0,y:0,width:1024,height:600))
+                }
+                return descendants(content)
+            }
+            func labels()->[String] {views().compactMap {($0 as? NSTextField)?.stringValue}}
+            expect(!labels().contains("Enable Lore Mode"),"ordinary Options does not advertise the easter egg")
+            (panel.window as? ConfigurationWindow)?.revealAlternate?()
+            expect(labels().contains("Enable Lore Mode"),"modifier discovery reveals the alternate checkbox")
+            guard let toggle=views().compactMap({$0 as? NSButton}).first(where:{$0.accessibilityLabel()=="Enable Lore Mode"}) else {
+                expect(false,"alternate checkbox exists in normal and compact Options");continue
+            }
+            toggle.performClick(nil)
+            expect(callbacks==1 && (kind == .goodResearchTakesTime ? panelStore.value.research.loreMode:panelStore.value.strawberry.loreMode),"checkbox persists enabled mode and publishes the change")
+            expect(labels().contains("Lore density") && !labels().contains("Composition"),"alternate panel replaces fine-art rows with compact legacy controls")
+            guard let off=views().compactMap({$0 as? NSButton}).first(where:{$0.accessibilityLabel()=="Enable Lore Mode"}) else {
+                expect(false,"alternate checkbox remains available after rebuilding Options");continue
+            }
+            off.performClick(nil);panel.prepareForPresentation()
+            expect(!labels().contains("Enable Lore Mode") && labels().contains("Composition"),"leaving alternate mode and reopening restores the undisclosed panel")
+        }
     }
     for p in ResearchGround.allCases {expect([p.colors.ground,p.colors.ink,p.colors.pigment].allSatisfy(\.valid),"research fine palette is valid")}
     for p in StrawberryGround.allCases {expect([p.colors.ground,p.colors.ink,p.colors.pigment].allSatisfy(\.valid),"strawberry fine palette is valid")}

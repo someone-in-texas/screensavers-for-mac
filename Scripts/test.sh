@@ -7,7 +7,20 @@ python3 Tests/ReleaseInstallerTests.py
 SOURCES=()
 while IFS= read -r file; do SOURCES+=("$file"); done < <(find Shared Savers -name '*.swift' ! -name '*View.swift' | sort)
 xcrun swiftc -sdk "$(xcrun --sdk macosx --show-sdk-path)" -target "$(uname -m)-apple-macos14.6" -swift-version 5 -O -framework AppKit -framework ScreenSaver -framework CoreImage "${SOURCES[@]}" build/generated/BuildVersion.swift Tests/VectorTests.swift Tests/CosmosTests.swift Tests/PaperSkyTests.swift Tests/DappleTests.swift Tests/FlourishTests.swift Tests/LatticeTests.swift Tests/ContemplativeTests.swift Tests/FineArtTests.swift Tests/NewSaverTests.swift Tests/ConfigurationTests.swift Tests/main.swift -o build/tests
-build/tests
+if build/tests; then
+    :
+else
+    test_status=$?
+    # Only this disposable CI runner's test crash reports; never inspect the
+    # maintainer's diagnostic reports or unrelated applications.
+    if [[ "${GITHUB_ACTIONS:-}" == true ]]; then
+        shopt -s nullglob
+        for report in "$HOME"/Library/Logs/DiagnosticReports/tests*.ips "$HOME"/Library/Logs/DiagnosticReports/tests*.crash; do
+            cat "$report" || true
+        done
+    fi
+    exit "$test_status"
+fi
 build/products/PreviewHost.app/Contents/MacOS/PreviewHost --smoke
 build/products/PreviewHost.app/Contents/MacOS/PreviewHost --launch-smoke
 build/products/PreviewHost.app/Contents/MacOS/PreviewHost --launch-smoke --force-preview-timer
