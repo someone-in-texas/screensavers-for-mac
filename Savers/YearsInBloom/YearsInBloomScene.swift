@@ -5,7 +5,8 @@ final class YearsInBloomScene: SaverScene {
     private var settings = BloomSettings()
     private var clock = MotionClock()
     private var running = false
-    private let seed: UInt64
+    private let launchSeed: UInt64
+    private var seed: UInt64 { settings.fixedSeedEnabled == true ? settings.seed : launchSeed }
     private let paper = CALayer(), atmosphere = CAGradientLayer(), weather = CAShapeLayer(), distantRain = CAShapeLayer()
     private let pageWeather = BloomAtmosphere()
     private let seasonalWash = CAGradientLayer(), lightning = CALayer()
@@ -33,12 +34,21 @@ final class YearsInBloomScene: SaverScene {
     private(set) var activePaintingBytes = 0
     private(set) var simulatedYears = 0.0
     private(set) var layerCount = 0
-    init(seed: UInt64 = UInt64.random(in: 1...UInt64.max)) { self.seed = seed }
+    init(seed: UInt64 = UInt64.random(in: 1...UInt64.max)) { self.launchSeed = seed }
     func configuration(store: SettingsStore, changed: @escaping (SaverSettings) -> Void) -> SaverConfiguration? { BloomConfiguration(store:store,changed:changed) }
     func start() { guard !running else { return }; running = true; clock.pause() }
     func stop() { running = false; clock.pause() }
     func apply(_ value: SaverSettings) {
         let next = value.bloom
+        let nextSeed = next.fixedSeedEnabled == true ? next.seed : launchSeed
+        if nextSeed != seed {
+            clock = MotionClock();simulatedYears = 0
+            cohort = -1;annualYear = -1
+            pendingPaintings.removeAll();paintingIndex = 0
+            paintings.removeAll()
+            // The next frame rebuilds paper and plants; atmosphere masks key on seed.
+            rebuild = true
+        }
         if next != settings { rebuild = true }
         settings = next
     }

@@ -20,14 +20,19 @@ final class ConfigurationWindow: NSWindow {
     }
 }
 
-final class ConfigurationController: NSWindowController, SaverConfiguration {
+final class ConfigurationController: NSWindowController, SaverConfiguration, NSTextFieldDelegate {
     private let store: SettingsStore
     private let changed: (SaverSettings) -> Void
+    private let preferredContentHeight: CGFloat
+    private var openingSettings: SaverSettings
+    private let seedKeys = ["dappleSeed", "flourishSeed", "latticeSeed", "strawberrySeed", "researchSeed"]
     private var revealLore = false
     private var controls: [String: NSControl] = [:]
     init(store: SettingsStore, changed: @escaping (SaverSettings) -> Void) {
         self.store = store; self.changed = changed
-        super.init(window: ConfigurationWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: store.kind == .worldClockRoom ? 400 : (store.kind == .dapple || store.kind == .flourish || store.kind == .lattice || store.kind == .strawberryFieldsForever || store.kind == .goodResearchTakesTime) ? 700 : store.kind == .voxelCosmos ? 650 : 610), styleMask: [.titled], backing: .buffered, defer: false))
+        openingSettings = store.value
+        preferredContentHeight = 45 + (store.kind == .worldClockRoom ? 400 : (store.kind == .dapple || store.kind == .flourish || store.kind == .lattice || store.kind == .strawberryFieldsForever || store.kind == .goodResearchTakesTime) ? 700 : store.kind == .voxelCosmos ? 650 : 610)
+        super.init(window: ConfigurationWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 45 + (store.kind == .worldClockRoom ? 400 : (store.kind == .dapple || store.kind == .flourish || store.kind == .lattice || store.kind == .strawberryFieldsForever || store.kind == .goodResearchTakesTime) ? 700 : store.kind == .voxelCosmos ? 650 : 610)), styleMask: [.titled], backing: .buffered, defer: false))
         window?.title = store.kind.title
         window?.isReleasedWhenClosed = false
         revealLore = NSEvent.modifierFlags.contains(.option)
@@ -41,13 +46,18 @@ final class ConfigurationController: NSWindowController, SaverConfiguration {
     required init?(coder: NSCoder) { nil }
     func prepareForPresentation() {
         guard let window, !window.isVisible, window.sheetParent == nil else { return }
+        openingSettings = store.value
         revealLore = NSEvent.modifierFlags.contains(.option)
-        build()
+        build(preservingSeedInput: false)
     }
-    private func build() {
-        guard let content = window?.contentView else { return }
+    private func build(preservingSeedInput: Bool = true) {
+        guard let window, let content = window.contentView else { return }
+        let scrollOffset = preservingSeedInput ? ConfigurationPanelLayout.distanceFromTop(in: window) : 0
+        let seedInput = preservingSeedInput ? seedKeys.reduce(into: [String: String]()) { result, key in
+            if let field = controls[key] { result[key] = field.stringValue }
+        } : [:]
         content.subviews.forEach { $0.removeFromSuperview() }; controls.removeAll()
-        var y: CGFloat = content.bounds.height - 60
+        var y: CGFloat = preferredContentHeight - 60
         let title = NSTextField(labelWithString: store.kind.title)
         title.font = .systemFont(ofSize: 21, weight: .semibold); title.frame = NSRect(x: 26, y: y, width: 390, height: 30)
         content.addSubview(title); y -= 45
@@ -56,7 +66,25 @@ final class ConfigurationController: NSWindowController, SaverConfiguration {
             control.frame = NSRect(x: 190, y: y, width: 260, height: 28)
             control.setAccessibilityLabel(label)
             control.target = self; control.action = #selector(update)
-            content.addSubview(field); content.addSubview(control); controls[key] = control; y -= 36
+            content.addSubview(field); content.addSubview(control); controls[key] = control
+            if let slider = control as? NSSlider {
+                // Applying settings can rebuild a scene; commit once when dragging ends.
+                slider.isContinuous = false
+                addValueLabel(key: key, text: sliderValue(key, slider.doubleValue), content: content)
+            }
+            if seedKeys.contains(key), let seed = control as? NSTextField {
+                seed.frame.size.width = 162
+                seed.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+                seed.delegate = self
+                seed.toolTip = "A whole number from 0 to 18446744073709551615."
+                if let draft = seedInput[key] { seed.stringValue = draft }
+                let newSeed = NSButton(title: "New Seed", target: self, action: #selector(generateSeed))
+                newSeed.frame = NSRect(x: 356, y: y, width: 94, height: 28)
+                newSeed.bezelStyle = .rounded
+                newSeed.toolTip = "Generate and use a new fixed seed."
+                content.addSubview(newSeed)
+            }
+            y -= 36
         }
         let s = store.value
         func slider(_ value: Double, _ min: Double, _ max: Double) -> NSSlider { NSSlider(value: value, minValue: min, maxValue: max, target: nil, action: nil) }
@@ -79,12 +107,10 @@ final class ConfigurationController: NSWindowController, SaverConfiguration {
             row("Camera angle", "cosmosAngle", popup(CosmosAngle.allCases.map(\.title), CosmosAngle.allCases.firstIndex(of: v.angle)!))
             row("Background", "cosmosBackground", popup(CosmosBackground.allCases.map(\.title), CosmosBackground.allCases.firstIndex(of: v.background)!))
             row("Seconds per view", "cosmosDuration", slider(v.secondsPerView, 15, 120))
-            addValueLabel(key: "cosmosDuration", text: "\(Int(v.secondsPerView)) s", content: content)
             row("Motion speed", "cosmosSpeed", slider(v.speed, 0, 3))
             let pixels = NSSlider(value: v.pixelSize, minValue: 2, maxValue: 5, target: nil, action: nil)
             pixels.numberOfTickMarks = 4; pixels.allowsTickMarkValuesOnly = true
             row("Pixel size", "cosmosPixels", pixels)
-            addValueLabel(key: "cosmosPixels", text: "\(Int(v.pixelSize))", content: content)
             row("Soft glow", "cosmosGlow", slider(v.glow, 0, 1))
             row("Star density", "cosmosStars", slider(v.starDensity, 0, 1))
             row("Orbit guides", "cosmosOrbits", check(v.orbits))
@@ -92,7 +118,7 @@ final class ConfigurationController: NSWindowController, SaverConfiguration {
             row("Scene captions", "cosmosLabels", check(v.labels))
             let note = NSTextField(wrappingLabelWithString: "A miniature imagined cosmos. Distances and sizes are artistic. Entirely offline. Zero motion holds drift; timed view changes continue.")
             note.font = .systemFont(ofSize: 11); note.textColor = .secondaryLabelColor
-            note.frame = NSRect(x: 28, y: 61, width: 424, height: 38); content.addSubview(note)
+            note.frame = NSRect(x: 28, y: 106, width: 424, height: 38); content.addSubview(note)
         } else if store.kind == .strawberryFieldsForever {
             func popup(_ titles:[String],_ index:Int)->NSPopUpButton {let p=NSPopUpButton();p.addItems(withTitles:titles);p.selectItem(at:index);return p}
             func choice<T:FineChoice>(_ label:String,_ key:String,_ value:T) {
@@ -119,7 +145,7 @@ final class ConfigurationController: NSWindowController, SaverConfiguration {
             row("Fixed seed","strawberrySeed",NSTextField(string:String(v.seed)))
             let note=NSTextField(wrappingLabelWithString:v.loreMode ? "The original interpretation. Entirely offline. Daily compositions use UTC." : "A slowly evolving moving print. Entirely offline. Daily compositions use UTC.")
             note.font = .systemFont(ofSize:11);note.textColor = .secondaryLabelColor
-            note.frame=NSRect(x:28,y:72,width:424,height:40);content.addSubview(note)
+            note.frame=NSRect(x:28,y:117,width:424,height:40);content.addSubview(note)
             updateAvailability(s)
         } else if store.kind == .goodResearchTakesTime {
             func popup(_ titles:[String],_ index:Int)->NSPopUpButton {let p=NSPopUpButton();p.addItems(withTitles:titles);p.selectItem(at:index);return p}
@@ -147,7 +173,7 @@ final class ConfigurationController: NSWindowController, SaverConfiguration {
             row("Fixed seed","researchSeed",NSTextField(string:String(v.seed)))
             let note=NSTextField(wrappingLabelWithString:v.loreMode ? "The original interpretation. Entirely offline. Daily compositions use UTC." : "A slowly evolving moving print. Entirely offline. Daily compositions use UTC.")
             note.font = .systemFont(ofSize:11);note.textColor = .secondaryLabelColor
-            note.frame=NSRect(x:28,y:72,width:424,height:40);content.addSubview(note)
+            note.frame=NSRect(x:28,y:117,width:424,height:40);content.addSubview(note)
             updateAvailability(s)
         } else if store.kind == .flourish {
             func popup(_ titles:[String],_ index:Int)->NSPopUpButton {let p=NSPopUpButton();p.addItems(withTitles:titles);p.selectItem(at:index);return p}
@@ -166,7 +192,7 @@ final class ConfigurationController: NSWindowController, SaverConfiguration {
             row("Gentle breeze","flourishBreeze",check(v.breeze))
             let note=NSTextField(wrappingLabelWithString:"A botanical drawing grows, rests, and gently gives way to a new composition. Daily seeds use UTC. Entirely offline.")
             note.font = .systemFont(ofSize:11);note.textColor = .secondaryLabelColor
-            note.frame=NSRect(x:28,y:72,width:424,height:65);content.addSubview(note)
+            note.frame=NSRect(x:28,y:117,width:424,height:65);content.addSubview(note)
             updateAvailability(s)
         } else if store.kind == .lattice {
             func popup(_ titles:[String],_ index:Int)->NSPopUpButton {let p=NSPopUpButton();p.addItems(withTitles:titles);p.selectItem(at:index);return p}
@@ -184,7 +210,7 @@ final class ConfigurationController: NSWindowController, SaverConfiguration {
             row("Events","latticeEvents",slider(v.events,0,1))
             let note=NSTextField(wrappingLabelWithString:"A luminous cellular ecosystem. Local seeds keep it alive without full-grid resets. Daily seeds use UTC. Entirely offline.")
             note.font = .systemFont(ofSize:11);note.textColor = .secondaryLabelColor
-            note.frame=NSRect(x:28,y:72,width:424,height:65);content.addSubview(note)
+            note.frame=NSRect(x:28,y:117,width:424,height:65);content.addSubview(note)
             updateAvailability(s)
         } else if store.kind == .dapple {
             func popup(_ titles: [String], _ index: Int) -> NSPopUpButton {
@@ -206,7 +232,7 @@ final class ConfigurationController: NSWindowController, SaverConfiguration {
             row("Occasional events", "dappleEvents", check(v.events))
             let note = NSTextField(wrappingLabelWithString: "Tactile circles, invisible hills, unhurried surprises. Daily scenes use the UTC date; a fixed seed repeats the same starting composition. Entirely offline.")
             note.font = .systemFont(ofSize: 11); note.textColor = .secondaryLabelColor
-            note.frame = NSRect(x: 28, y: 72, width: 424, height: 65); content.addSubview(note)
+            note.frame = NSRect(x: 28, y: 117, width: 424, height: 65); content.addSubview(note)
             updateAvailability(s)
         } else if store.kind == .paperSky {
             func popup(_ titles: [String], _ index: Int) -> NSPopUpButton {
@@ -216,7 +242,6 @@ final class ConfigurationController: NSWindowController, SaverConfiguration {
             row("Viewpoint", "paperCamera", popup(PaperCamera.allCases.map(\.title), PaperCamera.allCases.firstIndex(of: v.camera)!))
             row("Sunset colors", "paperPalette", popup(PaperPalette.allCases.map(\.title), PaperPalette.allCases.firstIndex(of: v.palette)!))
             row("Seconds per view", "paperDuration", slider(v.secondsPerView, 20, 120))
-            addValueLabel(key: "paperDuration", text: "\(Int(v.secondsPerView)) s", content: content)
             row("Flight speed", "paperSpeed", slider(v.speed, 0, 3))
             row("Cloud cover", "paperClouds", slider(v.clouds, 0, 1))
             row("Other airplanes", "paperCompanions", check(v.companions))
@@ -225,7 +250,7 @@ final class ConfigurationController: NSWindowController, SaverConfiguration {
             row("Soft glow", "paperGlow", slider(v.glow, 0, 1))
             let note = NSTextField(wrappingLabelWithString: "An endless flight through procedurally shaped skies. A new sky on each launch, with gradual camera changes. Entirely offline. Zero speed holds flight and sunset colors; viewpoint changes continue.")
             note.font = .systemFont(ofSize: 11); note.textColor = .secondaryLabelColor
-            note.frame = NSRect(x: 28, y: 72, width: 424, height: 65); content.addSubview(note)
+            note.frame = NSRect(x: 28, y: 117, width: 424, height: 65); content.addSubview(note)
         } else {
             let style = NSPopUpButton(); style.addItems(withTitles: ["Vector map · Worldwide · Online", "Line map · 3 cities · Offline", "Traditional map · Worldwide"])
             style.selectItem(at: MapStyle.allCases.firstIndex(of: s.mapStyle)!)
@@ -244,21 +269,37 @@ final class ConfigurationController: NSWindowController, SaverConfiguration {
             row("City label", "labels", check(s.labels))
             let note = NSTextField(wrappingLabelWithString: "Online vectors: worldwide. Offline vectors: Paris, Boston and Tokyo. Traditional maps have fixed labels and details.")
             note.font = .systemFont(ofSize: 11); note.textColor = .secondaryLabelColor
-            note.frame = NSRect(x: 28, y: 61, width: 424, height: 34); content.addSubview(note)
+            note.frame = NSRect(x: 28, y: 106, width: 424, height: 34); content.addSubview(note)
             updateAvailability(s)
         }
-        let reset = NSButton(title: "Reset to Defaults", target: self, action: #selector(reset))
+        controls["latticePersistence"]?.toolTip = "How long fading cells leave a trail of light."
+        controls["strawberryFineLiteralness"]?.toolTip = "How recognizable the forms are, from abstract marks to familiar shapes."
+        let seedError = NSTextField(labelWithString: "")
+        seedError.frame = NSRect(x: 28, y: 83, width: 424, height: 20)
+        seedError.font = .systemFont(ofSize: 11)
+        seedError.textColor = .systemRed
+        content.addSubview(seedError); controls["seedError"] = seedError
+        updateAvailability(s)
+        _ = validateSeeds()
+        content.addSubview(ConfigurationSupportFooter(kind: store.kind, frame: NSRect(x: 28, y: 55, width: 424, height: 24)))
+        let revert = NSButton(title: "Revert Changes", target: self, action: #selector(revertChanges))
+        revert.frame = NSRect(x: 194, y: 20, width: 150, height: 32); revert.bezelStyle = .rounded
+        revert.toolTip = "Restore the settings from when this options sheet opened."
+        content.addSubview(revert)
+        let reset = NSButton(title: "Restore Defaults", target: self, action: #selector(reset))
         reset.frame = NSRect(x: 24, y: 20, width: 160, height: 32); reset.bezelStyle = .rounded
         let done = NSButton(title: "Done", target: self, action: #selector(done))
         done.frame = NSRect(x: 360, y: 20, width: 90, height: 32); done.bezelStyle = .rounded; done.keyEquivalent = "\r"
         content.addSubview(reset); content.addSubview(done)
+        ConfigurationPanelLayout.apply(to: window, preferredHeight: preferredContentHeight, distanceFromTop: scrollOffset)
     }
     private func addValueLabel(key: String, text: String, content: NSView) {
         guard let control = controls[key] else { return }
-        control.frame.size.width = 206
+        control.frame.size.width = 178
         let label = NSTextField(labelWithString: text); label.alignment = .right
         label.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
-        label.frame = NSRect(x: 403, y: control.frame.minY + 4, width: 47, height: 22)
+        label.frame = NSRect(x: 374, y: control.frame.minY + 4, width: 76, height: 22)
+        label.setAccessibilityLabel("\(control.accessibilityLabel() ?? key) value")
         content.addSubview(label); controls[key + "Value"] = label
     }
     @objc private func update() {
@@ -291,8 +332,6 @@ final class ConfigurationController: NSWindowController, SaverConfiguration {
         if let c = controls["cosmosOrbits"] as? NSButton { value.cosmos.orbits = c.state == .on }
         if let c = controls["cosmosAsteroids"] as? NSButton { value.cosmos.asteroids = c.state == .on }
         if let c = controls["cosmosLabels"] as? NSButton { value.cosmos.labels = c.state == .on }
-        controls["cosmosDurationValue"]?.stringValue = "\(Int(value.cosmos.secondsPerView)) s"
-        controls["cosmosPixelsValue"]?.stringValue = "\(Int(value.cosmos.pixelSize))"
         if let c = controls["paperCamera"] as? NSPopUpButton { value.paperSky.camera = PaperCamera.allCases[c.indexOfSelectedItem] }
         if let c = controls["paperPalette"] as? NSPopUpButton { value.paperSky.palette = PaperPalette.allCases[c.indexOfSelectedItem] }
         if let c = controls["paperDuration"] { value.paperSky.secondsPerView = c.doubleValue }
@@ -302,7 +341,6 @@ final class ConfigurationController: NSWindowController, SaverConfiguration {
         if let c = controls["paperCompanions"] as? NSButton { value.paperSky.companions = c.state == .on }
         if let c = controls["paperTrails"] as? NSButton { value.paperSky.trails = c.state == .on }
         if let c = controls["paperSun"] as? NSButton { value.paperSky.sun = c.state == .on }
-        controls["paperDurationValue"]?.stringValue = "\(Int(value.paperSky.secondsPerView)) s"
         if let c = controls["dapplePalette"] as? NSPopUpButton { value.dapple.palette = DapplePalette.allCases[c.indexOfSelectedItem] }
         if let c = controls["dappleMaterial"] as? NSPopUpButton { value.dapple.material = DappleMaterial.allCases[c.indexOfSelectedItem] }
         if let c = controls["dappleMotion"] as? NSPopUpButton { value.dapple.motion = DappleMotion.allCases[c.indexOfSelectedItem] }
@@ -314,10 +352,7 @@ final class ConfigurationController: NSWindowController, SaverConfiguration {
         if let c = controls["dappleShadows"] as? NSButton { value.dapple.shadows = c.state == .on }
         if let c = controls["dappleBackground"] as? NSButton { value.dapple.backgroundTexture = c.state == .on }
         if let c = controls["dappleEvents"] as? NSButton { value.dapple.events = c.state == .on }
-        if let c = controls["dappleSeed"] {
-            if let seed = UInt64(c.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)) { value.dapple.seed = seed }
-            else { c.stringValue = String(value.dapple.seed) }
-        }
+        if let seed = seedValue("dappleSeed") { value.dapple.seed = seed }
         if let c=controls["strawberryLore"] as? NSPopUpButton {value.strawberry.lore=StrawberryLore.allCases[c.indexOfSelectedItem]}
         if let c=controls["strawberryBalance"] as? NSPopUpButton {value.strawberry.balance=StrawberryBalance.allCases[c.indexOfSelectedItem]}
         if let c=controls["strawberryPace"] as? NSPopUpButton {value.strawberry.pace=StrawberryPace.allCases[c.indexOfSelectedItem]}
@@ -328,7 +363,7 @@ final class ConfigurationController: NSWindowController, SaverConfiguration {
         if let c=controls["strawberryDensity"] as? NSPopUpButton {value.strawberry.density=StrawberryDensity.allCases[c.indexOfSelectedItem]}
         if let c=controls["strawberryText"] as? NSPopUpButton {value.strawberry.text=StrawberryText.allCases[c.indexOfSelectedItem]}
         if let c=controls["strawberrySeedBehavior"] as? NSPopUpButton {value.strawberry.seedBehavior=ArtSeed.allCases[c.indexOfSelectedItem]}
-        if let c=controls["strawberrySeed"] {if let seed=UInt64(c.stringValue.trimmingCharacters(in:.whitespacesAndNewlines)){value.strawberry.seed=seed}else{c.stringValue=String(value.strawberry.seed)}}
+        if let seed = seedValue("strawberrySeed") { value.strawberry.seed = seed }
         if let c=controls["researchLore"] as? NSPopUpButton {value.research.lore=ResearchLore.allCases[c.indexOfSelectedItem]}
         if let c=controls["researchPace"] as? NSPopUpButton {value.research.pace=ResearchPace.allCases[c.indexOfSelectedItem]}
         if let c=controls["researchEnvironment"] as? NSPopUpButton {value.research.environment=ResearchEnvironment.allCases[c.indexOfSelectedItem]}
@@ -337,7 +372,7 @@ final class ConfigurationController: NSWindowController, SaverConfiguration {
         if let c=controls["researchMazes"] as? NSPopUpButton {value.research.mazes=ResearchMazePresence.allCases[c.indexOfSelectedItem]}
         if let c=controls["researchText"] as? NSPopUpButton {value.research.text=ResearchText.allCases[c.indexOfSelectedItem]}
         if let c=controls["researchSeedBehavior"] as? NSPopUpButton {value.research.seedBehavior=ArtSeed.allCases[c.indexOfSelectedItem]}
-        if let c=controls["researchSeed"] {if let seed=UInt64(c.stringValue.trimmingCharacters(in:.whitespacesAndNewlines)){value.research.seed=seed}else{c.stringValue=String(value.research.seed)}}
+        if let seed = seedValue("researchSeed") { value.research.seed = seed }
         if let c=controls["flourishPalette"] as? NSPopUpButton {value.flourish.palette=FlourishPalette.allCases[c.indexOfSelectedItem]}
         if let c=controls["flourishStyle"] as? NSPopUpButton {value.flourish.style=FlourishStyle.allCases[c.indexOfSelectedItem]}
         if let c=controls["flourishBackground"] as? NSPopUpButton {value.flourish.background=FlourishBackground.allCases[c.indexOfSelectedItem]}
@@ -349,7 +384,7 @@ final class ConfigurationController: NSWindowController, SaverConfiguration {
         if let c=controls["flourishLeaves"] {value.flourish.leaves=c.doubleValue}
         if let c=controls["flourishWash"] as? NSButton {value.flourish.wash=c.state == .on}
         if let c=controls["flourishBreeze"] as? NSButton {value.flourish.breeze=c.state == .on}
-        if let c=controls["flourishSeed"] {if let seed=UInt64(c.stringValue.trimmingCharacters(in:.whitespacesAndNewlines)){value.flourish.seed=seed}else{c.stringValue=String(value.flourish.seed)}}
+        if let seed = seedValue("flourishSeed") { value.flourish.seed = seed }
         if let c=controls["latticeMode"] as? NSPopUpButton {value.lattice.mode=LatticeMode.allCases[c.indexOfSelectedItem]}
         if let c=controls["latticePalette"] as? NSPopUpButton {value.lattice.palette=LatticePalette.allCases[c.indexOfSelectedItem]}
         if let c=controls["latticePixels"] as? NSPopUpButton {value.lattice.pixels=LatticePixel.allCases[c.indexOfSelectedItem]}
@@ -360,7 +395,7 @@ final class ConfigurationController: NSWindowController, SaverConfiguration {
         if let c=controls["latticeGlow"] {value.lattice.glow=c.doubleValue}
         if let c=controls["latticePersistence"] {value.lattice.persistence=c.doubleValue}
         if let c=controls["latticeEvents"] {value.lattice.events=c.doubleValue}
-        if let c=controls["latticeSeed"] {if let seed=UInt64(c.stringValue.trimmingCharacters(in:.whitespacesAndNewlines)){value.lattice.seed=seed}else{c.stringValue=String(value.lattice.seed)}}
+        if let seed = seedValue("latticeSeed") { value.lattice.seed = seed }
         if let c=controls["strawberryLoreMode"] as? NSButton {value.strawberry.loreMode = c.state == .on}
         if let c=controls["strawberryFinePalette"] as? NSPopUpButton {value.strawberry.fineArt.palette=StrawberryGround.allCases[c.indexOfSelectedItem]}
         if let c=controls["strawberryFineComposition"] as? NSPopUpButton {value.strawberry.fineArt.composition=StrawberryComposition.allCases[c.indexOfSelectedItem]}
@@ -377,7 +412,11 @@ final class ConfigurationController: NSWindowController, SaverConfiguration {
         if let c=controls["researchFinePace"] as? NSPopUpButton {value.research.fineArt.pace=PrintPace.allCases[c.indexOfSelectedItem]}
         if let c=controls["researchFineDensity"] as? NSPopUpButton {value.research.fineArt.density=PrintDensity.allCases[c.indexOfSelectedItem]}
         if let c=controls["researchFineComposition"] as? NSPopUpButton {value.research.fineArt.composition=ResearchComposition.allCases[c.indexOfSelectedItem]}
-        store.value = value; changed(value); updateAvailability(value)
+        store.value = value; changed(store.value); updateAvailability(value)
+        for (key, control) in controls where control is NSSlider {
+            controls[key + "Value"]?.stringValue = sliderValue(key, control.doubleValue)
+        }
+        _ = validateSeeds()
         if previousModes != [value.strawberry.loreMode,value.research.loreMode] {revealLore=true;build()}
     }
     private func updateAvailability(_ value: SaverSettings) {
@@ -388,11 +427,87 @@ final class ConfigurationController: NSWindowController, SaverConfiguration {
         controls["flourishSeed"]?.isEnabled = value.flourish.seedBehavior == .fixed
         controls["latticeSeed"]?.isEnabled = value.lattice.seedBehavior == .fixed
         controls["dappleSeed"]?.isEnabled = value.dapple.seedBehavior == .fixed
-        for key in ["streetLabels", "water", "parks", "pointsOfInterest"] { controls[key]?.isEnabled = value.mapStyle != .traditional }
-        for key in ["grain", "intensity"] { controls[key]?.isEnabled = value.mapStyle == .traditional }
+        for key in ["streetLabels", "water", "parks", "pointsOfInterest"] {
+            controls[key]?.isEnabled = value.mapStyle != .traditional
+            controls[key]?.toolTip = value.mapStyle == .traditional ? "Traditional maps include fixed labels and details. Choose a vector map to customize them." : "Show this detail on vector maps."
+        }
+        for key in ["grain", "intensity"] {
+            controls[key]?.isEnabled = value.mapStyle == .traditional
+            controls[key]?.toolTip = "Available with Traditional map style."
+            controls[key + "Value"]?.isEnabled = value.mapStyle == .traditional
+        }
     }
-    @objc private func reset() { store.reset(); changed(store.value); build() }
+    private func sliderValue(_ key: String, _ value: Double) -> String {
+        switch key {
+        case "cosmosDuration", "paperDuration": return String(format: "%.0f s", value)
+        case "cosmosPixels": return String(format: "%.0f px", value)
+        case "latticeSpeed": return String(format: "%.1f /s", value)
+        case "speed", "density", "cosmosSpeed", "paperSpeed", "dappleSpeed", "flourishSpeed":
+            return String(format: "%.2f×", value)
+        default: return String(format: "%.0f%%", value * 100)
+        }
+    }
+    private func seedValue(_ key: String) -> UInt64? {
+        guard let field = controls[key] else { return nil }
+        let text = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, text.utf8.allSatisfy({ (48...57).contains($0) }) else { return nil }
+        return UInt64(text)
+    }
+    @discardableResult private func validateSeeds() -> Bool {
+        var valid = true
+        for key in seedKeys {
+            guard let field = controls[key] as? NSTextField else { continue }
+            let invalid = field.isEnabled && seedValue(key) == nil
+            field.textColor = invalid ? .systemRed : .labelColor
+            field.setAccessibilityHelp(invalid ? "Invalid seed. Enter a whole number from 0 to 18446744073709551615." : field.toolTip)
+            valid = valid && !invalid
+        }
+        controls["seedError"]?.stringValue = valid ? "" : "Invalid seed: enter a whole number from 0 to 18446744073709551615."
+        return valid
+    }
+    func controlTextDidChange(_ notification: Notification) { _ = validateSeeds() }
+    @objc private func generateSeed() {
+        guard let key = seedKeys.first(where: { controls[$0] != nil }),
+              let mode = controls[key + "Behavior"] as? NSPopUpButton else { return }
+        // End editing before replacing text so the field editor cannot restore its draft.
+        window?.makeFirstResponder(nil)
+        let previous = seedValue(key)
+        let settings = store.value
+        let stored: UInt64
+        switch key {
+        case "dappleSeed": stored = settings.dapple.seed
+        case "flourishSeed": stored = settings.flourish.seed
+        case "latticeSeed": stored = settings.lattice.seed
+        case "strawberrySeed": stored = settings.strawberry.seed
+        default: stored = settings.research.seed
+        }
+        var seed = UInt64.random(in: UInt64.min...UInt64.max)
+        while seed == stored || seed == previous { seed = UInt64.random(in: UInt64.min...UInt64.max) }
+        controls[key]?.stringValue = String(seed)
+        let fixedIndex = key == "dappleSeed" ? DappleSeed.allCases.firstIndex(of: .fixed)! : ArtSeed.allCases.firstIndex(of: .fixed)!
+        mode.selectItem(at: fixedIndex)
+        update()
+    }
+    @objc private func revertChanges() {
+        window?.makeFirstResponder(nil)
+        store.value = openingSettings; changed(store.value); build(preservingSeedInput: false)
+    }
+    @objc private func reset() {
+        window?.makeFirstResponder(nil)
+        store.reset(); changed(store.value); build(preservingSeedInput: false)
+    }
     @objc func done() {
+        window?.makeFirstResponder(nil)
+        update()
+        guard validateSeeds() else {
+            if let key = seedKeys.first(where: { controls[$0]?.isEnabled == true && seedValue($0) == nil }) {
+                if let field = controls[key] {
+                    field.scrollToVisible(field.bounds)
+                    window?.makeFirstResponder(field)
+                }
+            }
+            return
+        }
         dismiss(returnCode: .OK)
     }
     func dismiss(returnCode: NSApplication.ModalResponse) {

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.1
+
+- Show readable values for every Options slider and explain less familiar controls.
+- Add Revert Changes to restore the settings from when Options opened, including after restoring defaults.
+- Add optional repeatable compositions to Years in Bloom and new-seed controls with visible validation across seeded savers.
+- Keep Options actions visible on smaller displays by scrolling the settings when needed.
+- Show the loaded version and add Copy Support Info with only saver, version, macOS and display details.
+- Clarify Bloom pace, settings behavior, and the collection's privacy and power documentation.
+
 ## 0.9.0
 
 - Add Years in Bloom, an offline illustrated garden with eighteen plant archetypes, seasons and weather.

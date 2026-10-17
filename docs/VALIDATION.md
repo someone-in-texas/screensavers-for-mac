@@ -1,5 +1,35 @@
 # Validation
 
+## 0.9.1 release preparation
+
+- `make release-check` passed: **2,580,323 offline checks, zero failures**,
+  including 657 native Options behavioral checks, all eleven actual bundles,
+  five rendering aspect ratios, both 66-cycle Options lifecycle passes,
+  440 helper checks, and standalone scaffold smoke.
+- Options regressions exercise field-editor commits, invalid/overflow seeds,
+  random fixed seeds, reset/revert/reopen baselines, explicit Bloom repeat opt-out,
+  Commonplace's temporary preference bridge, support-report field limits, and
+  compact-display scrolling with fixed action buttons. Tests use isolated
+  preferences and archives; they do not change the user's clipboard.
+- Bloom renderer tests compare actual classic and watercolor pixels across launch
+  seeds, reseeding, cache invalidation, and restoration. Legacy settings retain
+  fresh-launch behavior; repeatable compositions are explicitly enabled.
+- Independent code review found no remaining blocking findings after improving
+  compact-display layout and accessible seed feedback. Live native Options were
+  visually checked for Bloom and compact Lattice, including the top/bottom scroll
+  positions and fixed footer. Offscreen AppKit captures omitted native button
+  glyphs, so they were not used for visual approval.
+- All 24 installer integration tests and installation-document consistency checks
+  passed. Mounted DMGs and extracted ZIPs passed exact pack-content, checksum,
+  version, identity, architecture, signature, and disposable installer/update
+  verification. No automated check installed savers on the maintainer account.
+- Local dependency, workflow, and committed-history security checks passed.
+  GitHub CI/CodeQL must pass on the pushed commit before tagging; the release
+  workflow repeats security/build/package gates and verifies published routes.
+- Local packages are ad-hoc signed, not notarized. Actual System Settings hosting,
+  minimum-OS hardware, a clean-Mac install, and account-dependent AI generation
+  remain separate manual acceptance checks.
+
 ## 0.9.0 release preparation
 
 - `make release-check` passed after the botanical watercolor/weather and

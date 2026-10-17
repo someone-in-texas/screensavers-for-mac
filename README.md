@@ -257,13 +257,15 @@ Settings so it can load the updated bundles.
 ## Privacy and power
 
 Strawberry Fields Forever, Good Research Takes Time, Flourish, Lattice, Dapple, Paper Sky,
-Voxel Cosmos, and World Clock Room are entirely offline.
+Voxel Cosmos, Years in Bloom, and World Clock Room are entirely offline.
 City Drift’s online modes request OpenStreetMap tiles for the selected public city,
 never your location; offline mode makes no requests. No analytics, telemetry,
-location permission, updater, or configuration upload.
+location permission, updater, or configuration upload in the standard pack.
+Commonplace plays locally saved pages offline; its separate helper contacts AI and
+archival services only after explicit setup. See [AI privacy](docs/AI_HELPER.md).
 
 Strawberry Fields Forever, Good Research Takes Time, Flourish, Lattice, Dapple, World Clock Room,
-and Voxel Cosmos target 30 FPS; City Drift and Paper Sky
+Voxel Cosmos, Years in Bloom, and Commonplace target 30 FPS; City Drift and Paper Sky
 target 60 FPS. Geometry, textures, and map tiles are cached. See
 [map policies and rendering details](docs/MAPS_AND_PERFORMANCE.md).
 

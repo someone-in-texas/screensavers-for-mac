@@ -6,6 +6,7 @@ class NotebookConfiguration: NSWindowController, SaverConfiguration, NSTextField
     let store: SettingsStore
     let changed: (SaverSettings) -> Void
     var cursor: CGFloat = 0
+    private var openingSettings: SaverSettings?
     private var actions: [ObjectIdentifier: (NSControl) -> Void] = [:]
     init(store: SettingsStore, changed: @escaping (SaverSettings) -> Void) {
         self.store = store; self.changed = changed
@@ -15,15 +16,21 @@ class NotebookConfiguration: NSWindowController, SaverConfiguration, NSTextField
     required init?(coder: NSCoder) { nil }
     func prepareForPresentation() {
         guard let window, !window.isVisible, window.sheetParent == nil else { return }
-        rebuildContents()
+        openingSettings = store.value
+        rebuildContents(preservingScroll: false)
     }
-    private func rebuildContents() {
+    private func rebuildContents(preservingScroll: Bool = true) {
         guard let window else { return }
-        window.contentView?.subviews.forEach { $0.removeFromSuperview() }; actions.removeAll(); cursor = 594
+        let scrollOffset = preservingScroll ? ConfigurationPanelLayout.distanceFromTop(in: window) : 0
+        actions.removeAll()
+        window.contentView?.subviews.forEach { $0.removeFromSuperview() }; cursor = 594
         note(store.kind.title, height:38, size:23)
         populate()
+        window.contentView?.addSubview(ConfigurationSupportFooter(kind:store.kind,frame:NSRect(x:26,y:55,width:468,height:24)))
+        let revert = NSButton(title:"Revert Changes",target:self,action:#selector(revertSettings));revert.frame = NSRect(x:190,y:20,width:150,height:30);window.contentView?.addSubview(revert)
         let done = NSButton(title:"Done",target:self,action:#selector(finish));done.frame = NSRect(x:404,y:20,width:88,height:30);done.keyEquivalent = "\r";window.contentView?.addSubview(done)
         let reset = NSButton(title:"Restore Defaults",target:self,action:#selector(resetSettings));reset.frame = NSRect(x:24,y:20,width:150,height:30);window.contentView?.addSubview(reset)
+        ConfigurationPanelLayout.apply(to:window,preferredHeight:650,footerHeight:80,distanceFromTop:scrollOffset)
     }
     func populate() {}
     func note(_ text: String, height: CGFloat = 44, size: CGFloat = 12) {
@@ -48,8 +55,21 @@ class NotebookConfiguration: NSWindowController, SaverConfiguration, NSTextField
     func settingsDidChange() {}
     func controlTextDidEndEditing(_ notification:Notification) { if let field = notification.object as? NSTextField { update(field) } }
     @objc private func update(_ sender:NSControl) { actions[ObjectIdentifier(sender)]?(sender);settingsDidChange() }
-    @objc private func finish() { dismiss(returnCode:.OK) }
-    @objc private func resetSettings() { store.reset();changed(store.value);settingsDidChange();rebuildContents() }
+    func validateBeforeFinishing() -> Bool { true }
+    @objc private func finish() {
+        guard validateBeforeFinishing() else { return }
+        window?.makeFirstResponder(nil);dismiss(returnCode:.OK)
+    }
+    @objc private func resetSettings() {
+        window?.makeFirstResponder(nil)
+        store.reset();changed(store.value);settingsDidChange();rebuildContents()
+    }
+    @objc private func revertSettings() {
+        guard let openingSettings else { return }
+        window?.makeFirstResponder(nil)
+        store.value = openingSettings
+        changed(store.value);settingsDidChange();rebuildContents()
+    }
     func dismiss(returnCode: NSApplication.ModalResponse) {
         guard let window else { return }
         if let parent = window.sheetParent { parent.endSheet(window,returnCode:returnCode) }

@@ -21,3 +21,23 @@ Options now retains one configuration window per saver instance, explicitly deta
 and hides it on Done, and refreshes controls when reopened. If macOS is still running
 a previously loaded bundle after an update, quit System Settings with ⌘Q and reopen
 it. Logging out and back in reloads the legacy saver host too.
+
+## Adjusting Options and reporting problems
+
+Options apply and save changes as controls are committed. On smaller displays,
+settings scroll while Done, Restore Defaults, and Revert Changes remain visible. **Revert Changes** restores the settings
+from when that sheet was opened, including after **Restore Defaults**. **Done** keeps
+your changes; reopening Options begins a new revert point. This changes only saver
+preferences, not cached maps, notebook archives, or account setup.
+
+Seeded savers let you enter an unsigned whole-number seed or choose a new one.
+A fixed seed repeats the starting composition, not the current animation frame.
+Invalid input shows a message and leaves the last saved seed intact; correct it or
+revert before choosing Done. In Years in Bloom, enable **Repeat composition** to
+reuse a fixed seed, or choose **New Composition** to generate and keep a new one.
+Fresh compositions on each launch remain the default.
+
+Each Options sheet shows the loaded version. **Copy Support Info** copies the saver
+name, loaded version, macOS version, and the size and scale of the display hosting
+Options. Include this text and a description of the problem in a bug report. It
+contains no account information, interests, notebook content, or filesystem paths.

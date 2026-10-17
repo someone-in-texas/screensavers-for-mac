@@ -1,6 +1,7 @@
 import AppKit
 
 func runNewSaverTests() {
+    runBloomSeedSessionTests()
     runBloomIllustrationTests()
     runCommonplaceMotionTests()
     let date = Date(timeIntervalSince1970:1_800_000_000)
@@ -255,5 +256,53 @@ func runCommonplaceMotionTests() {
     for t in stride(from:0.0,to:1000,by:0.25) {
         let camera = CommonplaceDesk.camera(seconds:t,size:size)
         expect(abs(camera.x)<size.width*0.04 && abs(camera.y)<size.height*0.04,"camera stays within tabletop overscan")
+    }
+}
+
+
+func runBloomSeedSessionTests() {
+    let size = CGSize(width:480,height:320), date = Date(timeIntervalSince1970:1_800_000_000)
+    func pixels(_ scene:YearsInBloomScene, _ root:CALayer, time:Double = 0) -> Data {
+        root.bounds = CGRect(origin:.zero,size:size)
+        _ = scene.updateLayer(root,size:size,time:time,date:date)
+        let context = bitmap(width:480,height:320)!
+        root.render(in:context)
+        return context.makeImage()!.dataProvider!.data! as Data
+    }
+    let legacyData = try! JSONEncoder().encode(BloomSettings())
+    let legacyJSON = try! JSONSerialization.jsonObject(with:legacyData) as! [String:Any]
+    expect(legacyJSON["fixedSeedEnabled"] == nil,"default Bloom encoding preserves legacy absence of fixed seed opt-in")
+    let legacy = try! JSONDecoder().decode(BloomSettings.self,from:legacyData)
+    expect(legacy.fixedSeedEnabled == nil,"legacy Bloom settings decode without fixed seed opt-in")
+    for rendering in [BloomRendering.classic, .botanicalWatercolor] {
+        var settings = SaverSettings();settings.bloom.art.rendering = rendering
+        settings.bloom.fixedSeedEnabled = true;settings.bloom.seed = 731
+        let first = YearsInBloomScene(seed:11), second = YearsInBloomScene(seed:22)
+        let a = CALayer(), b = CALayer()
+        first.apply(settings);second.apply(settings)
+        let opening = pixels(first,a)
+        expect(opening == pixels(second,b),"fixed composition ignores launch seed in \(rendering)")
+        first.start()
+        for frame in 0...80 { _ = first.updateLayer(a,size:size,time:Double(frame)/4,date:date) }
+        expect(first.simulatedYears>0,"seeded scene advances before reseeding")
+        settings.bloom.seed = UInt64.max;first.apply(settings)
+        expect(first.simulatedYears == 0 && first.pendingPaintingCount == 0 && first.paintingCacheBytes == 0,"reseed resets time and discards pending paintings and cache")
+        first.stop()
+        let changed = pixels(first,a,time:1000)
+        expect(changed != opening,"new seed changes actual rendered composition")
+        let fresh = YearsInBloomScene(seed:99), freshRoot = CALayer();fresh.apply(settings)
+        expect(changed == pixels(fresh,freshRoot),"reseeded paper, plants and weather match a fresh fixed-seed scene")
+        settings.bloom.seed = 731;first.apply(settings)
+        expect(pixels(first,a) == opening,"restoring a fixed seed restores its starting rendering")
+        first.start();_ = first.updateLayer(a,size:size,time:9000,date:date)
+        expect(first.simulatedYears == 0,"seed reset does not accumulate inactive wall time")
+        first.stop()
+        settings.bloom.fixedSeedEnabled = nil;settings.bloom.seed = 111
+        let defaultScene = YearsInBloomScene(seed:11), defaultRoot = CALayer();defaultScene.apply(settings)
+        let defaultPixels = pixels(defaultScene,defaultRoot)
+        settings.bloom.seed = 222;first.apply(settings)
+        expect(pixels(first,a) == defaultPixels,"disabling repeat returns to original launch seed and ignores stored seed")
+        let otherLaunch = YearsInBloomScene(seed:22), otherRoot = CALayer();otherLaunch.apply(settings)
+        expect(pixels(otherLaunch,otherRoot) != defaultPixels,"default composition still varies with launch seed")
     }
 }

@@ -64,6 +64,7 @@ struct BloomSettings: Codable, Equatable {
     var texture = BloomTexture.medium
     var emphasis = BloomSeason.balanced
     var seed: UInt64 = 42
+    var fixedSeedEnabled: Bool? = nil
     var illustration: BloomArtSettings? = nil
     var art: BloomArtSettings {
         get { (illustration ?? BloomArtSettings()).sanitized() }
